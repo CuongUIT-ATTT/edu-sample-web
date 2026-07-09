@@ -1,0 +1,103 @@
+import React from "react";
+import Link from "next/link";
+import { 
+  BookOpen, 
+  Calendar, 
+  LogOut, 
+  CheckSquare, 
+  TrendingUp,
+  LayoutDashboard,
+  Settings
+} from "lucide-react";
+
+export default function TeacherDashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex h-screen bg-canvas-parchment overflow-hidden">
+      {/* Apple-style Dashboard Sidebar */}
+      <aside className="w-64 bg-canvas border-r border-hairline flex flex-col justify-between p-6">
+        <div className="flex flex-col gap-8">
+          {/* Brand Header */}
+          <Link href="/" className="flex items-center gap-2 font-tagline tracking-tight text-ink">
+            <span className="font-semibold text-lg">EduWeb</span>
+            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase">Giáo viên</span>
+          </Link>
+
+          {/* Navigation Links */}
+          <nav className="flex flex-col gap-2">
+            <Link 
+              href="/teacher" 
+              className="flex items-center gap-3 px-4 py-2.5 rounded-sm bg-surface-pearl text-ink font-body-strong text-sm border border-divider-soft"
+            >
+              <LayoutDashboard className="h-4 w-4 text-primary" />
+              Tổng quan
+            </Link>
+            <Link 
+              href="/teacher/attendance" 
+              className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+            >
+              <CheckSquare className="h-4 w-4" />
+              Điểm danh
+            </Link>
+            <Link 
+              href="/teacher/grades" 
+              className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+            >
+              <TrendingUp className="h-4 w-4" />
+              Sổ điểm
+            </Link>
+            <Link 
+              href="/teacher/schedules" 
+              className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+            >
+              <Calendar className="h-4 w-4" />
+              Thời khóa biểu
+            </Link>
+          </nav>
+        </div>
+
+        {/* Footer Utilities */}
+        <div className="flex flex-col gap-2 border-t border-divider-soft pt-4">
+          <Link 
+            href="/teacher/settings" 
+            className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
+          >
+            <Settings className="h-4 w-4" />
+            Thiết lập
+          </Link>
+          <Link 
+            href="/login" 
+            className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-red-600 hover:bg-red-50 font-caption text-sm transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Đăng xuất
+          </Link>
+        </div>
+      </aside>
+
+      {/* Main Body */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Apple sub-nav style Frosted Glass Header */}
+        <header className="h-[60px] frosted-glass border-b border-hairline flex items-center justify-between px-8 z-30 sticky top-0">
+          <h2 className="font-tagline text-sm text-ink font-semibold">
+            Cổng Giảng Dạy & Quản Lý Học Vụ
+          </h2>
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-ink-muted-48">Giáo viên: giangvien@eduweb.vn</span>
+            <div className="h-8 w-8 rounded-full bg-green-600 text-white flex items-center justify-center font-bold text-xs">
+              GV
+            </div>
+          </div>
+        </header>
+
+        {/* Content Area */}
+        <main className="flex-1 overflow-y-auto p-8">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}

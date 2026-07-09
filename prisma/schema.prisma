@@ -1,0 +1,140 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+model User {
+  id           String          @id @default(uuid())
+  email        String          @unique
+  passwordHash String
+  name         String
+  role         Role
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  adminProfile   AdminProfile?
+  teacherProfile TeacherProfile?
+  studentProfile StudentProfile?
+  parentProfile  ParentProfile?
+}
+
+model AdminProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TeacherProfile {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjects  Subject[]  // Many-to-many relationship with subjects they teach
+  classes   Class[]    // Classes they are the form teacher of
+  schedules Schedule[] // Schedules they teach
+  grades    Grade[]    // Grades they recorded
+}
+
+model StudentProfile {
+  id              String           @id @default(uuid())
+  userId          String           @unique
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  classId         String?
+  class           Class?           @relation(fields: [classId], references: [id], onDelete: SetNull)
+  
+  parentId        String?
+  parent          ParentProfile?   @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  
+  attendances     Attendance[]
+  grades          Grade[]
+}
+
+model ParentProfile {
+  id       String           @id @default(uuid())
+  userId   String           @unique
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  students StudentProfile[] // A parent can have multiple students
+}
+
+model Class {
+  id               String          @id @default(uuid())
+  name             String          @unique // e.g., "10A1", "12B3"
+  gradeLevel       Int             // e.g., 10, 11, 12
+  
+  formTeacherId    String?
+  formTeacher      TeacherProfile? @relation(fields: [formTeacherId], references: [id], onDelete: SetNull)
+  
+  students         StudentProfile[]
+  schedules        Schedule[]
+}
+
+model Subject {
+  id        String           @id @default(uuid())
+  name      String           @unique // e.g., "Mathematics", "Physics"
+  code      String           @unique // e.g., "MATH101"
+  teachers  TeacherProfile[]
+  schedules Schedule[]
+  grades    Grade[]
+}
+
+model Schedule {
+  id        String         @id @default(uuid())
+  classId   String
+  class     Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId String
+  teacher   TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  dayOfWeek Int            // 1 = Monday, ..., 7 = Sunday
+  startTime String         // "08:00"
+  endTime   String         // "09:30"
+  room      String?        // e.g., "Room 302"
+}
+
+model Attendance {
+  id        String           @id @default(uuid())
+  studentId String
+  student   StudentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date      DateTime         // Date of attendance
+  status    AttendanceStatus
+  remarks   String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([studentId, date])
+}
+
+model Grade {
+  id        String         @id @default(uuid())
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId String
+  teacher   TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  type      String         // e.g., "QUIZ", "MIDTERM", "FINAL"
+  score     Float          // numeric score
+  weight    Float          // percentage weight (e.g. 0.2 for midterm)
+  remarks   String?
+  date      DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
