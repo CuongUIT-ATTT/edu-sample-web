@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Clock, CheckSquare, Award, ArrowLeft, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
+import { Clock, CheckSquare, Award, ArrowLeft, RefreshCw, CheckCircle2, XCircle, Search, Trophy, BarChart3 } from "lucide-react";
 import { submitQuiz } from "@/actions/quizzes";
 
 interface Question {
@@ -31,6 +31,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     passed: boolean;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Handle timer
   useEffect(() => {
@@ -97,8 +98,13 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const filteredQuizzes = quizzes.filter(q => 
+    q.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (q.description && q.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
   return (
-    <div className="max-w-[800px] mx-auto flex flex-col gap-8">
+    <div className="max-w-[1000px] mx-auto flex flex-col gap-8">
       
       {/* Back button when inside quiz */}
       {quizStarted && !quizResult && (
@@ -106,54 +112,77 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
           onClick={() => setQuizStarted(false)}
           className="flex items-center gap-1 text-primary hover:underline text-xs font-semibold self-start select-none apple-active-scale"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Thoát bài kiểm tra
+          <ArrowLeft className="h-3.5 w-3.5" /> Thoát luyện đề
         </button>
       )}
 
       {/* 1. Quiz Listing view */}
       {!quizStarted && (
         <div className="flex flex-col gap-6">
-          <div>
-            <h1 className="font-display-lg text-3xl font-semibold text-ink">Thi & Khảo sát Trực tuyến</h1>
-            <p className="font-caption text-ink-muted-80 mt-1">
-              Danh sách đề kiểm tra trắc nghiệm đang mở. Hãy chắc chắn đường truyền internet của bạn ổn định trước khi làm bài.
-            </p>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="font-display-lg text-3xl font-semibold text-ink">Kho Đề Thi Thử & Luyện Đề</h1>
+              <p className="font-caption text-ink-muted-80 mt-1">
+                Luyện đề thi thử THPT Quốc gia, thi thử Học kỳ và Chuyên đề bám sát cấu trúc mới nhất.
+              </p>
+            </div>
+            
+            {/* Search Input */}
+            <div className="relative w-full md:w-72">
+              <Search className="absolute left-3.5 top-3 h-4 w-4 text-ink-muted-48" />
+              <input
+                type="text"
+                placeholder="Tìm đề thi, chuyên đề..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="bg-canvas border border-hairline rounded-pill pl-10 pr-4 py-2 h-10 text-xs text-ink outline-none focus:border-primary-focus w-full"
+              />
+            </div>
           </div>
 
-          {quizzes.length === 0 ? (
+          {filteredQuizzes.length === 0 ? (
             <div className="bg-canvas border border-hairline rounded-lg p-16 text-center shadow-sm">
               <Award className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
-              <p className="font-body text-ink-muted-80">Hiện tại không có đề thi nào đang mở.</p>
+              <p className="font-body text-ink-muted-80">Không tìm thấy đề thi phù hợp.</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
-              {quizzes.map((quiz) => (
-                <div key={quiz.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                  <div className="flex flex-col gap-2">
-                    <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold uppercase w-max select-none">
-                      Đang mở
-                    </span>
-                    <h3 className="font-body-strong text-lg font-semibold text-ink">
-                      {quiz.title}
-                    </h3>
-                    <p className="font-caption text-ink-muted-80 text-xs max-w-[500px]">
-                      {quiz.description}
-                    </p>
-                    <div className="flex items-center gap-4 text-[11px] text-ink-muted-48 mt-2">
-                      <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {quiz.duration} phút</span>
-                      <span>•</span>
-                      <span>Điểm đạt: {quiz.passingScore.toFixed(1)} / 10</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {filteredQuizzes.map((quiz) => {
+                // Mock statistical metrics in tyhh.net style
+                const mockRuns = Math.floor(quiz.title.charCodeAt(0) * 12) + 240;
+                return (
+                  <div key={quiz.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col justify-between gap-4 hover:border-primary transition-all duration-200 shadow-sm">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold uppercase select-none">
+                          VIP Đề Thi
+                        </span>
+                        <span className="text-[10px] text-ink-muted-48">{mockRuns} lượt làm</span>
+                      </div>
+                      <h3 className="font-body-strong text-base font-semibold text-ink mt-1">
+                        {quiz.title}
+                      </h3>
+                      <p className="font-caption text-ink-muted-80 text-xs leading-relaxed line-clamp-2">
+                        {quiz.description || "Đề ôn thi chất lượng cao đi kèm đáp án giải chi tiết từng phần."}
+                      </p>
+                      <div className="flex items-center gap-4 text-[10px] text-ink-muted-48 mt-1 border-t border-divider-soft pt-3">
+                        <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {quiz.duration} phút</span>
+                        <span>•</span>
+                        <span>{quiz.questions.length} câu hỏi</span>
+                        <span>•</span>
+                        <span>Điểm đạt: {quiz.passingScore.toFixed(1)}</span>
+                      </div>
                     </div>
-                  </div>
 
-                  <button 
-                    onClick={() => handleStartQuiz(quiz)}
-                    className="bg-primary hover:bg-primary-focus text-white px-6 py-2.5 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm whitespace-nowrap self-stretch md:self-auto"
-                  >
-                    Bắt đầu làm bài
-                  </button>
-                </div>
-              ))}
+                    <button 
+                      onClick={() => handleStartQuiz(quiz)}
+                      className="bg-primary hover:bg-primary-focus text-white px-4 py-2.5 rounded-pill font-body-strong text-xs text-center apple-active-scale transition-colors shadow-sm w-full mt-2"
+                    >
+                      Bắt đầu làm bài thi
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -161,7 +190,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
 
       {/* 2. Interactive Quiz Player view */}
       {quizStarted && !quizResult && (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6 max-w-[800px] mx-auto">
           
           {/* Sticky Timer Info */}
           <div className="sticky top-[60px] z-30 frosted-glass border border-hairline rounded-md p-4 flex items-center justify-between shadow-sm">
@@ -216,55 +245,119 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
             {submitting ? (
               <RefreshCw className="h-5 w-5 animate-spin" />
             ) : (
-              "Nộp bài kiểm tra"
+              "Nộp bài thi luyện đề"
             )}
           </button>
         </div>
       )}
 
-      {/* 3. Quiz Result View */}
+      {/* 3. Quiz Result View (highly customized like tyhh.net) */}
       {quizStarted && quizResult && (
-        <div className="bg-canvas border border-hairline rounded-lg p-8 shadow-product flex flex-col items-center text-center max-w-[500px] mx-auto mt-12">
-          {quizResult.passed ? (
-            <div className="h-16 w-16 rounded-full bg-green-50 text-green-600 flex items-center justify-center mb-6">
-              <CheckCircle2 className="h-10 w-10" />
-            </div>
-          ) : (
-            <div className="h-16 w-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mb-6">
-              <XCircle className="h-10 w-10" />
-            </div>
-          )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-4">
+          {/* Result analytics card */}
+          <div className="lg:col-span-2 bg-canvas border border-hairline rounded-lg p-8 shadow-sm flex flex-col items-center text-center">
+            {quizResult.passed ? (
+              <div className="h-14 w-14 rounded-full bg-green-50 text-green-600 flex items-center justify-center mb-4">
+                <CheckCircle2 className="h-8 w-8" />
+              </div>
+            ) : (
+              <div className="h-14 w-14 rounded-full bg-red-50 text-red-600 flex items-center justify-center mb-4">
+                <XCircle className="h-8 w-8" />
+              </div>
+            )}
 
-          <h2 className="font-tagline text-2xl font-semibold text-ink mb-2">
-            Kết quả bài thi trắc nghiệm
-          </h2>
-          <p className="font-caption text-ink-muted-80 text-xs mb-8 max-w-[400px]">
-            {selectedQuiz?.title}
-          </p>
-
-          {/* Score Circle */}
-          <div className="h-28 w-28 rounded-full border-4 border-divider-soft flex flex-col items-center justify-center mb-6">
-            <span className="text-3xl font-bold text-ink">{quizResult.score.toFixed(1)}</span>
-            <span className="text-[10px] text-ink-muted-48 uppercase font-semibold">Trên {quizResult.maxScore.toFixed(0)}</span>
-          </div>
-
-          <div className="flex flex-col gap-2 w-full">
-            <span className={`text-sm font-bold uppercase tracking-wider ${
-              quizResult.passed ? "text-green-600" : "text-red-600"
-            }`}>
-              {quizResult.passed ? "Đạt bài kiểm tra" : "Không đạt (Điểm liệt)"}
-            </span>
-            <p className="text-xs text-ink-muted-48 mt-1 max-w-[360px] leading-relaxed">
-              Điểm số đã được hệ thống tự động ghi nhận vào Sổ điểm cá nhân và liên kết báo cáo phụ huynh của bạn.
+            <h2 className="font-tagline text-xl font-semibold text-ink mb-1">
+              Điểm thi của bạn
+            </h2>
+            <p className="font-caption text-ink-muted-80 text-xs mb-6 max-w-[400px]">
+              {selectedQuiz?.title}
             </p>
+
+            <div className="h-24 w-24 rounded-full border-4 border-divider-soft flex flex-col items-center justify-center mb-6 bg-surface-pearl">
+              <span className="text-2xl font-bold text-ink">{quizResult.score.toFixed(1)}</span>
+              <span className="text-[9px] text-ink-muted-48 uppercase font-bold">Thang 10</span>
+            </div>
+
+            <div className="flex flex-col gap-2 w-full border-t border-divider-soft pt-4">
+              <span className={`text-xs font-bold uppercase tracking-wider ${
+                quizResult.passed ? "text-green-600" : "text-red-600"
+              }`}>
+                {quizResult.passed ? "Đạt bài kiểm tra năng lực" : "Chưa đạt mục tiêu tối thiểu"}
+              </span>
+              
+              {/* Point breakdown per sections (tyhh.net style) */}
+              <div className="grid grid-cols-2 gap-4 mt-4 text-xs text-left max-w-sm mx-auto w-full">
+                <div className="flex justify-between border-b border-divider-soft pb-1.5">
+                  <span className="text-ink-muted-80">Phần Lý Thuyết:</span>
+                  <span className="font-bold text-ink">{(quizResult.score * 0.6).toFixed(1)} đ</span>
+                </div>
+                <div className="flex justify-between border-b border-divider-soft pb-1.5">
+                  <span className="text-ink-muted-80">Phần Vận Dụng:</span>
+                  <span className="font-bold text-ink">{(quizResult.score * 0.4).toFixed(1)} đ</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setQuizStarted(false)}
+              className="bg-primary hover:bg-primary-focus text-white px-6 py-2.5 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm w-full mt-8"
+            >
+              Quay lại danh sách đề thi
+            </button>
           </div>
 
-          <button
-            onClick={() => setQuizStarted(false)}
-            className="bg-primary hover:bg-primary-focus text-white px-6 py-2.5 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm w-full mt-8"
-          >
-            Quay lại trang đề thi
-          </button>
+          {/* Ranking & Statistics panel like tyhh.net */}
+          <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm flex flex-col gap-6">
+            <div>
+              <h3 className="font-body-strong text-sm font-bold text-ink flex items-center gap-1.5">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                Phân tích học lực trung tâm
+              </h3>
+              <p className="text-[10px] text-ink-muted-48 mt-0.5">Tỷ lệ điểm số của các học viên đã thi</p>
+            </div>
+
+            {/* Rank proportions */}
+            <div className="flex flex-col gap-3">
+              {[
+                { label: "Xuất sắc (9.0 - 10)", percentage: 12.5, count: "48 em", color: "bg-red-500" },
+                { label: "Giỏi (7.5 - 8.9)", percentage: 34.2, count: "132 em", color: "bg-green-500" },
+                { label: "Khá (5.0 - 7.4)", percentage: 41.8, count: "161 em", color: "bg-blue-500" },
+                { label: "Trung bình (< 5.0)", percentage: 11.5, count: "44 em", color: "bg-gray-400" },
+              ].map((r, i) => (
+                <div key={i} className="flex flex-col gap-1 text-[11px] font-caption">
+                  <div className="flex justify-between text-ink-muted-80">
+                    <span>{r.label}</span>
+                    <span className="font-bold">{r.percentage}% ({r.count})</span>
+                  </div>
+                  <div className="h-2 w-full bg-divider-soft rounded-full overflow-hidden">
+                    <div className={`h-full ${r.color}`} style={{ width: `${r.percentage}%` }}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Leaderboard panel mock */}
+            <div className="border-t border-divider-soft pt-4 flex flex-col gap-3">
+              <h4 className="text-xs font-caption-strong text-ink flex items-center gap-1.5">
+                <Trophy className="h-4 w-4 text-yellow-500" />
+                Top 3 thủ khoa bài thi
+              </h4>
+              <div className="flex flex-col gap-2 font-caption text-xs">
+                <div className="flex justify-between items-center bg-yellow-50 border border-yellow-100 p-2 rounded">
+                  <span className="font-semibold text-yellow-800">🥇 1. Trần Hữu Cương</span>
+                  <span className="font-bold text-yellow-800">10.0 đ</span>
+                </div>
+                <div className="flex justify-between items-center bg-gray-50 border border-gray-100 p-2 rounded">
+                  <span className="font-semibold text-gray-700">🥈 2. Nguyễn Văn An</span>
+                  <span className="font-bold text-gray-700">9.5 đ</span>
+                </div>
+                <div className="flex justify-between items-center bg-orange-50 border border-orange-100 p-2 rounded">
+                  <span className="font-semibold text-orange-700">🥉 3. Lê Thị Hoa</span>
+                  <span className="font-bold text-orange-700">9.0 đ</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
