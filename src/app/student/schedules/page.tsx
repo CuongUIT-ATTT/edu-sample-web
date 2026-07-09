@@ -148,13 +148,15 @@ export default async function StudentSchedulesPage() {
                             <CheckCircle className="h-3.5 w-3.5" />
                             Điểm danh & Nộp bài tập
                           </a>
-                          <button
-                            onClick={() => alert("Chuyển hướng đến Livestream Group Facebook")}
+                          <a
+                            href="https://facebook.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="flex items-center gap-1.5 bg-primary hover:bg-primary-focus text-white px-3 py-1.5 rounded text-[11px] font-body-strong transition-colors"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                             Xem Live chữa
-                          </button>
+                          </a>
                         </div>
                       </div>
                     ))
