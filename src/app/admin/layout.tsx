@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import LogoutButton from "@/components/LogoutButton";
 import { 
   Users, 
   BookOpen, 
@@ -75,13 +76,7 @@ export default function AdminDashboardLayout({
             <Settings className="h-4 w-4" />
             Thiết lập
           </Link>
-          <Link 
-            href="/login" 
-            className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-red-600 hover:bg-red-50 font-caption text-sm transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            Đăng xuất
-          </Link>
+          <LogoutButton />
         </div>
       </aside>
 
