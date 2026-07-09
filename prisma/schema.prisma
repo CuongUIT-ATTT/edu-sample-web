@@ -49,6 +49,7 @@ model TeacherProfile {
   classes   Class[]    // Classes they are the form teacher of
   schedules Schedule[] // Schedules they teach
   grades    Grade[]    // Grades they recorded
+  quizzes   Quiz[]
 }
 
 model StudentProfile {
@@ -64,6 +65,8 @@ model StudentProfile {
   
   attendances     Attendance[]
   grades          Grade[]
+  enrollments     Enrollment[]
+  quizSubmissions QuizSubmission[]
 }
 
 model ParentProfile {
@@ -92,6 +95,7 @@ model Subject {
   teachers  TeacherProfile[]
   schedules Schedule[]
   grades    Grade[]
+  quizzes   Quiz[]
 }
 
 model Schedule {
@@ -137,4 +141,88 @@ model Grade {
   remarks   String?
   date      DateTime       @default(now())
   updatedAt DateTime       @updatedAt
+}
+
+model Course {
+  id          String           @id @default(uuid())
+  title       String
+  description String?
+  thumbnail   String?
+  level       Int              // e.g. 10, 11, 12
+  published   Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  modules     Module[]
+  enrollments Enrollment[]
+}
+
+model Module {
+  id       String   @id @default(uuid())
+  title    String
+  order    Int
+  courseId String
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons  Lesson[]
+}
+
+model Lesson {
+  id          String   @id @default(uuid())
+  title       String
+  videoUrl    String?
+  documentUrl String?
+  content     String?
+  order       Int
+  moduleId    String
+  module      Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+}
+
+model Enrollment {
+  id         String         @id @default(uuid())
+  studentId  String
+  student    StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseId   String
+  course     Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  enrolledAt DateTime       @default(now())
+
+  @@unique([studentId, courseId])
+}
+
+model Quiz {
+  id           String           @id @default(uuid())
+  title        String
+  description  String?
+  duration     Int              // in minutes
+  passingScore Float
+  
+  subjectId    String
+  subject      Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId    String
+  teacher      TeacherProfile   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  questions    Question[]
+  submissions  QuizSubmission[]
+}
+
+model Question {
+  id            String   @id @default(uuid())
+  text          String
+  type          String   // e.g. "MULTIPLE_CHOICE"
+  options       Json     // Array of choices, e.g. ["A", "B", "C", "D"]
+  correctAnswer String   // Index or text of correct answer
+  score         Float    @default(1.0)
+  
+  quizId        String
+  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+}
+
+model QuizSubmission {
+  id          String         @id @default(uuid())
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  quizId      String
+  quiz        Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  
+  score       Float
+  answers     Json           // Map of question ID to student's answer
+  submittedAt DateTime       @default(now())
 }
