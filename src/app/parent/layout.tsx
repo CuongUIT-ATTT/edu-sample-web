@@ -41,7 +41,7 @@ export default function ParentDashboardLayout({
               className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
             >
               <Users className="h-4 w-4" />
-              Thông tin của con
+              Thông tin học viên
             </Link>
             <Link 
               href="/parent/attendance" 
@@ -55,7 +55,7 @@ export default function ParentDashboardLayout({
               className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
             >
               <TrendingUp className="h-4 w-4" />
-              Báo cáo điểm số
+              Báo cáo điểm thi thử
             </Link>
           </nav>
         </div>
@@ -78,7 +78,7 @@ export default function ParentDashboardLayout({
         {/* Apple sub-nav style Frosted Glass Header */}
         <header className="h-[60px] frosted-glass border-b border-hairline flex items-center justify-between px-8 z-30 sticky top-0">
           <h2 className="font-tagline text-sm text-ink font-semibold">
-            Bảng Quản Lý Đồng Hành Cùng Con
+            Bảng Đồng Hành Cùng Học Viên
           </h2>
           <div className="flex items-center gap-4">
             <span className="text-xs text-ink-muted-48">Phụ huynh: phuhuynh@eduweb.vn</span>

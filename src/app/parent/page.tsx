@@ -8,7 +8,7 @@ export default async function ParentDashboardPage() {
   const session = await getSession();
 
   let parentName = "Phụ huynh";
-  let childName = "Con học sinh";
+  let childName = "Con học viên";
   let className = "Lớp học";
   let gpaString = "8.6 / 10";
   let attendanceRate = "98.2%";
@@ -118,50 +118,51 @@ export default async function ParentDashboardPage() {
       {/* Welcome Block */}
       <div>
         <h1 className="font-display-lg text-3xl font-semibold text-ink">Xin chào, {parentName}</h1>
-        <p className="font-caption text-ink-muted-80 mt-1">Hồ sơ phụ huynh của học sinh: <strong>{childName}</strong> (Lớp {className}).</p>
+        <p className="font-caption text-ink-muted-80 mt-1">Hồ sơ phụ huynh của học viên: <strong>{childName}</strong> (Lớp {className}).</p>
       </div>
 
       {/* Child Status Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3">
-          <div className="h-10 w-10 rounded-sm bg-blue-50 text-primary flex items-center justify-center">
+        <Link href="/parent/grades" className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-primary transition-all duration-200 apple-active-scale cursor-pointer group">
+          <div className="h-10 w-10 rounded-sm bg-blue-50 text-primary flex items-center justify-center group-hover:bg-blue-100 transition-colors">
             <Award className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Điểm TB học tập của con (GPA)</p>
-            <h3 className="font-display-lg text-2xl font-bold text-ink mt-1">{displayGPA}</h3>
+            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Điểm trung bình của con (GPA)</p>
+            <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-primary transition-colors">{displayGPA}</h3>
           </div>
-        </div>
+        </Link>
 
-        <div className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3">
-          <div className="h-10 w-10 rounded-sm bg-green-50 text-green-600 flex items-center justify-center">
+        <Link href="/parent/attendance" className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-green-600 transition-all duration-200 apple-active-scale cursor-pointer group">
+          <div className="h-10 w-10 rounded-sm bg-green-50 text-green-600 flex items-center justify-center group-hover:bg-green-100 transition-colors">
             <CheckSquare className="h-5 w-5" />
           </div>
           <div>
             <p className="text-xs text-ink-muted-48 uppercase font-semibold">Tỷ lệ chuyên cần của con</p>
-            <h3 className="font-display-lg text-2xl font-bold text-ink mt-1">{displayAttendance}</h3>
+            <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-green-600 transition-colors">{displayAttendance}</h3>
           </div>
-        </div>
+        </Link>
 
-        <div className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3">
-          <div className="h-10 w-10 rounded-sm bg-purple-50 text-purple-600 flex items-center justify-center">
+        <Link href="/parent/children" className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-purple-600 transition-all duration-200 apple-active-scale cursor-pointer group">
+          <div className="h-10 w-10 rounded-sm bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
             <Users className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Giáo viên chủ nhiệm lớp</p>
-            <h3 className="font-body-strong text-lg font-bold text-ink mt-2">{displayTeacherName}</h3>
+            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Giảng viên phụ trách</p>
+            <h3 className="font-body-strong text-lg font-bold text-ink mt-2 group-hover:text-purple-600 transition-colors">{displayTeacherName}</h3>
             <p className="text-xs text-ink-muted-48 mt-0.5">SĐT: {displayTeacherPhone}</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Latest updates about child */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Latest grades */}
-        <div className="bg-canvas border border-hairline rounded-lg p-6">
-          <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4">
-            Đầu điểm mới nhận của con
+        <Link href="/parent/grades" className="bg-canvas border border-hairline rounded-lg p-6 hover:border-primary transition-all duration-200 cursor-pointer block">
+          <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4 flex justify-between items-center">
+            <span>Đầu điểm mới nhận của con</span>
+            <span className="text-xs text-primary font-semibold hover:underline">Chi tiết bảng điểm &rarr;</span>
           </h3>
           <div className="flex flex-col gap-4">
             {displayGrades.map((grade) => (
@@ -177,15 +178,13 @@ export default async function ParentDashboardPage() {
               </div>
             ))}
           </div>
-          <Link href="/parent/grades" className="text-primary hover:underline font-caption text-xs font-semibold flex items-center gap-1 mt-4">
-            Xem toàn bộ bảng điểm học tập <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
+        </Link>
 
         {/* Latest attendance */}
-        <div className="bg-canvas border border-hairline rounded-lg p-6">
-          <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4">
-            Nhật ký chuyên cần 5 ngày qua
+        <Link href="/parent/attendance" className="bg-canvas border border-hairline rounded-lg p-6 hover:border-green-600 transition-all duration-200 cursor-pointer block">
+          <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4 flex justify-between items-center">
+            <span>Nhật ký chuyên cần 5 ngày qua</span>
+            <span className="text-xs text-green-600 font-semibold hover:underline">Chi tiết chuyên cần &rarr;</span>
           </h3>
           <div className="flex flex-col gap-3">
             {displayAttendances.map((att) => (
@@ -199,10 +198,7 @@ export default async function ParentDashboardPage() {
               </div>
             ))}
           </div>
-          <Link href="/parent/attendance" className="text-primary hover:underline font-caption text-xs font-semibold flex items-center gap-1 mt-4">
-            Xem báo cáo chuyên cần chi tiết <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
+        </Link>
 
       </div>
 

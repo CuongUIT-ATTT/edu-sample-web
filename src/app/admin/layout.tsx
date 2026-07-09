@@ -48,14 +48,14 @@ export default function AdminDashboardLayout({
               className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
             >
               <BookOpen className="h-4 w-4" />
-              Lớp học
+              Lớp luyện thi
             </Link>
             <Link 
               href="/admin/schedules" 
               className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
             >
               <Calendar className="h-4 w-4" />
-              Thời khóa biểu
+              Lịch học lớp
             </Link>
             <Link 
               href="/admin/system" 
@@ -85,7 +85,7 @@ export default function AdminDashboardLayout({
         {/* Apple sub-nav style Frosted Glass Header */}
         <header className="h-[60px] frosted-glass border-b border-hairline flex items-center justify-between px-8 z-30 sticky top-0">
           <h2 className="font-tagline text-sm text-ink font-semibold">
-            Bảng Quản Trị Hệ Thống
+            Quản Trị Luyện Thi
           </h2>
           <div className="flex items-center gap-4">
             <span className="text-xs text-ink-muted-48">Quản trị viên: admin@eduweb.vn</span>

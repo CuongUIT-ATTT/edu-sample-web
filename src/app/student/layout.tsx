@@ -23,7 +23,7 @@ export default function StudentDashboardLayout({
           {/* Brand Header */}
           <Link href="/" className="flex items-center gap-2 font-tagline tracking-tight text-ink">
             <span className="font-semibold text-lg">EduWeb</span>
-            <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold uppercase">Học sinh</span>
+            <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold uppercase">Học viên</span>
           </Link>
 
           {/* Navigation Links */}
@@ -40,7 +40,7 @@ export default function StudentDashboardLayout({
               className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
             >
               <Calendar className="h-4 w-4" />
-              Thời khóa biểu
+              Lịch học tuần
             </Link>
             <Link 
               href="/student/attendance" 
@@ -54,7 +54,7 @@ export default function StudentDashboardLayout({
               className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
             >
               <TrendingUp className="h-4 w-4" />
-              Kết quả học tập
+              Kết quả thi thử
             </Link>
           </nav>
         </div>
@@ -77,12 +77,12 @@ export default function StudentDashboardLayout({
         {/* Apple sub-nav style Frosted Glass Header */}
         <header className="h-[60px] frosted-glass border-b border-hairline flex items-center justify-between px-8 z-30 sticky top-0">
           <h2 className="font-tagline text-sm text-ink font-semibold">
-            Bảng Tra Cứu Học Tập Học Sinh
+            Cổng Học Tập Học Viên
           </h2>
           <div className="flex items-center gap-4">
-            <span className="text-xs text-ink-muted-48">Học sinh: hocsinh@eduweb.vn</span>
+            <span className="text-xs text-ink-muted-48">Học viên: hocvien@eduweb.vn</span>
             <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs">
-              HS
+              HV
             </div>
           </div>
         </header>

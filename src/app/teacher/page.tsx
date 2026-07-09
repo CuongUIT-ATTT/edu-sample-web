@@ -7,7 +7,7 @@ import { getSession } from "@/lib/auth";
 export default async function TeacherDashboardPage() {
   const session = await getSession();
   
-  let teacherName = "Thầy/Cô";
+  let teacherName = "Giảng viên";
   let schedulesList: {
     id: string;
     time: string;
@@ -66,55 +66,56 @@ export default async function TeacherDashboardPage() {
       {/* Welcome Block */}
       <div>
         <h1 className="font-display-lg text-3xl font-semibold text-ink">Xin chào, {teacherName}</h1>
-        <p className="font-caption text-ink-muted-80 mt-1">Hôm nay Thầy/Cô có {totalClasses} tiết dạy. Hãy theo dõi và cập nhật tiến độ học tập lớp học.</p>
+        <p className="font-caption text-ink-muted-80 mt-1">Hôm nay giảng viên có {totalClasses} ca dạy. Hãy theo dõi và cập nhật tiến độ học tập lớp học.</p>
       </div>
 
       {/* Grid of main teacher actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4">
-          <div className="h-10 w-10 rounded-sm bg-blue-50 text-primary flex items-center justify-center">
+        <Link href="/teacher/attendance" className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4 hover:border-primary transition-all duration-200 apple-active-scale cursor-pointer group">
+          <div className="h-10 w-10 rounded-sm bg-blue-50 text-primary flex items-center justify-center group-hover:bg-blue-100 transition-colors">
             <CheckSquare className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="font-body-strong text-lg font-semibold text-ink">Điểm danh hôm nay</h3>
-            <p className="font-caption text-ink-muted-80 mt-1">Điểm danh chuyên cần học sinh các lớp nhanh chóng trực tuyến.</p>
+            <h3 className="font-body-strong text-lg font-semibold text-ink group-hover:text-primary transition-colors">Điểm danh hôm nay</h3>
+            <p className="font-caption text-ink-muted-80 mt-1">Điểm danh chuyên cần học viên các lớp nhanh chóng trực tuyến.</p>
           </div>
-          <Link href="/teacher/attendance" className="text-primary hover:underline font-caption font-semibold flex items-center gap-1.5 mt-2">
+          <span className="text-primary hover:underline font-caption font-semibold flex items-center gap-1.5 mt-2">
             Thực hiện điểm danh <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+          </span>
+        </Link>
 
-        <div className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4">
-          <div className="h-10 w-10 rounded-sm bg-green-50 text-green-600 flex items-center justify-center">
+        <Link href="/teacher/grades" className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4 hover:border-green-600 transition-all duration-200 apple-active-scale cursor-pointer group">
+          <div className="h-10 w-10 rounded-sm bg-green-50 text-green-600 flex items-center justify-center group-hover:bg-green-100 transition-colors">
             <TrendingUp className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="font-body-strong text-lg font-semibold text-ink">Sổ điểm môn học</h3>
+            <h3 className="font-body-strong text-lg font-semibold text-ink group-hover:text-green-600 transition-colors">Sổ điểm môn học</h3>
             <p className="font-caption text-ink-muted-80 mt-1">Cập nhật điểm kiểm tra miệng, 15 phút, giữa kỳ và cuối kỳ.</p>
           </div>
-          <Link href="/teacher/grades" className="text-primary hover:underline font-caption font-semibold flex items-center gap-1.5 mt-2">
+          <span className="text-primary hover:underline font-caption font-semibold flex items-center gap-1.5 mt-2">
             Cập nhật điểm số <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+          </span>
+        </Link>
 
-        <div className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4">
-          <div className="h-10 w-10 rounded-sm bg-purple-50 text-purple-600 flex items-center justify-center">
+        <Link href="/teacher/schedules" className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4 hover:border-purple-600 transition-all duration-200 apple-active-scale cursor-pointer group">
+          <div className="h-10 w-10 rounded-sm bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
             <Calendar className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="font-body-strong text-lg font-semibold text-ink">Lịch dạy học tuần</h3>
+            <h3 className="font-body-strong text-lg font-semibold text-ink group-hover:text-purple-600 transition-colors">Lịch dạy học tuần</h3>
             <p className="font-caption text-ink-muted-80 mt-1">Tra cứu thời gian biểu, phòng học và lớp giảng dạy được phân công.</p>
           </div>
-          <Link href="/teacher/schedules" className="text-primary hover:underline font-caption font-semibold flex items-center gap-1.5 mt-2">
+          <span className="text-primary hover:underline font-caption font-semibold flex items-center gap-1.5 mt-2">
             Xem thời khóa biểu <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+          </span>
+        </Link>
       </div>
 
       {/* Class Schedule detail view */}
-      <div className="bg-canvas border border-hairline rounded-lg p-6">
-        <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4">
-          Lịch giảng dạy hôm nay
+      <Link href="/teacher/schedules" className="bg-canvas border border-hairline rounded-lg p-6 hover:border-primary transition-all duration-200 cursor-pointer block">
+        <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4 flex justify-between items-center">
+          <span>Lịch dạy hôm nay</span>
+          <span className="text-xs text-primary font-semibold hover:underline">Chi tiết thời khóa biểu &rarr;</span>
         </h3>
         <div className="flex flex-col gap-4">
           {displaySchedules.map((item) => (
@@ -136,7 +137,7 @@ export default async function TeacherDashboardPage() {
             </div>
           ))}
         </div>
-      </div>
+      </Link>
 
     </div>
   );

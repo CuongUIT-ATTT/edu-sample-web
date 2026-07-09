@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "EduWeb - EdTech & School Management System",
-  description: "Trải nghiệm học tập và quản lý học đường trực quan với giao diện cao cấp lấy cảm hứng từ Apple Design System.",
+  title: "EduWeb - Hệ thống Quản lý & Luyện thi chất lượng cao",
+  description: "Nền tảng quản lý khóa học, giảng dạy và luyện thi trực quan hàng đầu.",
 };
 
 export default function RootLayout({

@@ -24,7 +24,7 @@ export default function TeacherDashboardLayout({
           {/* Brand Header */}
           <Link href="/" className="flex items-center gap-2 font-tagline tracking-tight text-ink">
             <span className="font-semibold text-lg">EduWeb</span>
-            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase">Giáo viên</span>
+            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase">Giảng viên</span>
           </Link>
 
           {/* Navigation Links */}
@@ -48,14 +48,14 @@ export default function TeacherDashboardLayout({
               className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
             >
               <TrendingUp className="h-4 w-4" />
-              Sổ điểm
+              Bảng điểm
             </Link>
             <Link 
               href="/teacher/schedules" 
               className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
             >
               <Calendar className="h-4 w-4" />
-              Thời khóa biểu
+              Lịch dạy tuần
             </Link>
           </nav>
         </div>
@@ -78,10 +78,10 @@ export default function TeacherDashboardLayout({
         {/* Apple sub-nav style Frosted Glass Header */}
         <header className="h-[60px] frosted-glass border-b border-hairline flex items-center justify-between px-8 z-30 sticky top-0">
           <h2 className="font-tagline text-sm text-ink font-semibold">
-            Cổng Giảng Dạy & Quản Lý Học Vụ
+            Cổng Quản Lý & Giảng Dạy Luyện Thi
           </h2>
           <div className="flex items-center gap-4">
-            <span className="text-xs text-ink-muted-48">Giáo viên: giangvien@eduweb.vn</span>
+            <span className="text-xs text-ink-muted-48">Giảng viên: giangvien@eduweb.vn</span>
             <div className="h-8 w-8 rounded-full bg-green-600 text-white flex items-center justify-center font-bold text-xs">
               GV
             </div>
