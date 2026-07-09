@@ -8,11 +8,14 @@ export const dynamic = "force-dynamic";
 
 interface CoursePlayerPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ lessonId?: string }>;
 }
 
-export default async function CoursePlayerPage({ params }: CoursePlayerPageProps) {
+export default async function CoursePlayerPage({ params, searchParams }: CoursePlayerPageProps) {
   const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
   const courseId = resolvedParams.id;
+  const selectedLessonId = resolvedSearchParams.lessonId;
 
   let dbCourse = null;
 
@@ -47,7 +50,7 @@ export default async function CoursePlayerPage({ params }: CoursePlayerPageProps
           {
             id: "l1",
             title: "Bài 1: Phương trình bậc hai nâng cao và hệ thức Vi-ét",
-            videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Rick Roll standard placeholder
+            videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
             documentUrl: "/docs/viet-theorem.pdf",
             content: "Tìm hiểu cách chứng minh và áp dụng hệ thức Vi-ét để giải nhanh toán phương trình bậc hai.",
           },
@@ -63,13 +66,28 @@ export default async function CoursePlayerPage({ params }: CoursePlayerPageProps
     ],
   };
 
-  const activeLesson = course.modules[0]?.lessons[0] || {
-    id: "l1",
-    title: "Chưa có bài học",
-    videoUrl: "",
-    documentUrl: "",
-    content: "",
-  };
+  // Find active lesson from query param or default to first
+  let activeLesson = course.modules[0]?.lessons[0];
+  
+  if (selectedLessonId) {
+    for (const mod of course.modules) {
+      const found = mod.lessons.find((l) => l.id === selectedLessonId);
+      if (found) {
+        activeLesson = found;
+        break;
+      }
+    }
+  }
+
+  if (!activeLesson) {
+    activeLesson = {
+      id: "no-lesson",
+      title: "Chưa có bài học",
+      videoUrl: "",
+      documentUrl: "",
+      content: "",
+    };
+  }
 
   return (
     <div className="bg-canvas text-ink min-h-screen py-10 px-6">
@@ -162,8 +180,9 @@ export default async function CoursePlayerPage({ params }: CoursePlayerPageProps
                     
                     <div className="flex flex-col gap-1.5 mt-2">
                       {mod.lessons.map((les) => (
-                        <button 
+                        <Link 
                           key={les.id}
+                          href={`/courses/${course.id}?lessonId=${les.id}`}
                           className={`flex items-center justify-between text-left p-3 rounded-sm border transition-colors text-xs ${
                             les.id === activeLesson.id 
                               ? "bg-surface-pearl border-primary-focus text-primary font-semibold" 
@@ -175,7 +194,7 @@ export default async function CoursePlayerPage({ params }: CoursePlayerPageProps
                             {les.title}
                           </span>
                           <ChevronRight className="h-3 w-3 flex-shrink-0 text-ink-muted-48" />
-                        </button>
+                        </Link>
                       ))}
                     </div>
                   </div>
