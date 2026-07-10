@@ -22,7 +22,7 @@ export default function AdminDashboardLayout({
       <aside className="w-64 bg-canvas border-r border-hairline flex flex-col justify-between p-6">
         <div className="flex flex-col gap-8">
           {/* Brand Header */}
-          <Link href="/" className="flex items-center gap-2 font-tagline tracking-tight text-ink">
+          <Link href="/admin" className="flex items-center gap-2 font-tagline tracking-tight text-ink">
             <span className="font-semibold text-lg">EduWeb</span>
             <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold uppercase">Admin</span>
           </Link>

@@ -21,7 +21,7 @@ export default function StudentDashboardLayout({
       <aside className="w-64 bg-canvas border-r border-hairline flex flex-col justify-between p-6">
         <div className="flex flex-col gap-8">
           {/* Brand Header */}
-          <Link href="/" className="flex items-center gap-2 font-tagline tracking-tight text-ink">
+          <Link href="/student" className="flex items-center gap-2 font-tagline tracking-tight text-ink">
             <span className="font-semibold text-lg">EduWeb</span>
             <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold uppercase">Học viên</span>
           </Link>
