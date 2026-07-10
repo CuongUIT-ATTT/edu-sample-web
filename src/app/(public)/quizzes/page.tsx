@@ -139,10 +139,10 @@ export default function PublicQuizzesPage() {
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex justify-center border-b border-divider-soft max-w-sm mx-auto">
+        <div className="flex flex-row items-center justify-center border-b border-divider-soft w-full max-w-md mx-auto gap-1">
           <button
             onClick={() => setActiveTab("list")}
-            className={`flex-1 py-3 text-center text-xs font-semibold border-b-2 transition-all ${
+            className={`flex-1 py-3 text-center text-[11px] sm:text-xs font-bold border-b-2 transition-all whitespace-nowrap px-2 ${
               activeTab === "list"
                 ? "border-primary text-primary"
                 : "border-transparent text-ink-muted-80 hover:text-ink"
@@ -152,7 +152,7 @@ export default function PublicQuizzesPage() {
           </button>
           <button
             onClick={() => setActiveTab("demo")}
-            className={`flex-1 py-3 text-center text-xs font-semibold border-b-2 transition-all ${
+            className={`flex-1 py-3 text-center text-[11px] sm:text-xs font-bold border-b-2 transition-all whitespace-nowrap px-2 ${
               activeTab === "demo"
                 ? "border-primary text-primary"
                 : "border-transparent text-ink-muted-80 hover:text-ink"

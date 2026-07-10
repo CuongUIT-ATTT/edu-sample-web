@@ -78,13 +78,31 @@ export default function ContactPage() {
               </div>
             </div>
 
-            {/* Embedded Google Map Mimic (Premium layout) */}
-            <div className="bg-canvas border border-hairline rounded-lg overflow-hidden shadow-sm h-[200px] relative flex flex-col justify-end p-4 bg-blue-900 text-white font-body">
-              <div className="absolute inset-0 bg-cover bg-center opacity-40" style={{ backgroundImage: "url('https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/105.78,21.03,13/400x200?access_token=mock')" }}></div>
-              <div className="z-10 bg-canvas text-ink p-3 rounded border border-hairline shadow-sm w-full">
-                <p className="text-[10px] font-bold text-primary uppercase">Cơ sở Cầu Giấy</p>
-                <p className="text-xs text-ink-muted-80 font-semibold mt-0.5">EduWeb Campus</p>
-                <p className="text-[9px] text-ink-muted-48">Có bãi đỗ xe cho phụ huynh</p>
+            {/* Embedded Google Map */}
+            <div className="bg-canvas border border-hairline rounded-lg overflow-hidden shadow-sm h-[250px] relative flex flex-col justify-between">
+              <iframe 
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3723.924403328514!2d105.80120157597148!3d21.031709480617387!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3135ab424a50fff9%3A0xbe8c460029b9e5d4!2zMTQgQ-G6p3UgR2nhuqV5LCBRdWFuIEhvYSwgQ-G6p3UgR2nhuqV5LCBIw6AgTuG7mWksIFZp4buZdCBOYW0!5e0!3m2!1svi!2s!4v1710000000000!5m2!1svi!2s" 
+                width="100%" 
+                height="100%" 
+                style={{ border: 0 }} 
+                allowFullScreen={false} 
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="absolute inset-0 w-full h-full"
+              ></iframe>
+              <div className="z-10 bg-canvas/95 backdrop-blur-sm text-ink p-3 rounded border border-hairline shadow-sm w-[92%] mx-auto mb-3 mt-auto flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-primary uppercase">Cơ sở Cầu Giấy</p>
+                  <p className="text-xs text-ink-muted-80 font-semibold mt-0.5">EduWeb Campus</p>
+                </div>
+                <a 
+                  href="https://maps.google.com/?q=14+Cau+Giay+Hanoi"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-primary hover:bg-primary-focus text-white text-[10px] px-3 py-1.5 rounded-full font-bold transition-colors whitespace-nowrap"
+                >
+                  Xem Bản Đồ
+                </a>
               </div>
             </div>
           </div>

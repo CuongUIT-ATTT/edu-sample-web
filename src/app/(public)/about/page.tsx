@@ -61,8 +61,12 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Teacher 1 */}
             <div className="flex flex-col gap-3 bg-canvas border border-hairline rounded-lg overflow-hidden shadow-sm">
-              <div className="h-48 bg-blue-900 text-white flex items-center justify-center text-5xl font-bold">
-                HC
+              <div className="h-56 bg-slate-100 relative overflow-hidden flex items-center justify-center">
+                <img 
+                  src="/teacher_hung_cuong.png" 
+                  alt="Thầy Hùng Cường" 
+                  className="w-full h-full object-cover object-center"
+                />
               </div>
               <div className="p-5 flex flex-col gap-2">
                 <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Founder & Giảng viên Toán</span>
@@ -75,8 +79,12 @@ export default function AboutPage() {
 
             {/* Teacher 2 */}
             <div className="flex flex-col gap-3 bg-canvas border border-hairline rounded-lg overflow-hidden shadow-sm">
-              <div className="h-48 bg-emerald-800 text-white flex items-center justify-center text-5xl font-bold">
-                VB
+              <div className="h-56 bg-slate-100 relative overflow-hidden flex items-center justify-center">
+                <img 
+                  src="/teacher_van_binh.png" 
+                  alt="Thầy Nguyễn Văn Bình" 
+                  className="w-full h-full object-cover object-center"
+                />
               </div>
               <div className="p-5 flex flex-col gap-2">
                 <span className="text-[10px] uppercase font-bold text-green-700 tracking-wider">Đồng sáng lập & Giảng viên Vật lý</span>
@@ -89,8 +97,12 @@ export default function AboutPage() {
 
             {/* Teacher 3 */}
             <div className="flex flex-col gap-3 bg-canvas border border-hairline rounded-lg overflow-hidden shadow-sm">
-              <div className="h-48 bg-purple-900 text-white flex items-center justify-center text-5xl font-bold">
-                MA
+              <div className="h-56 bg-slate-100 relative overflow-hidden flex items-center justify-center">
+                <img 
+                  src="/teacher_mai_anh.png" 
+                  alt="Cô Lê Mai Anh" 
+                  className="w-full h-full object-cover object-center"
+                />
               </div>
               <div className="p-5 flex flex-col gap-2">
                 <span className="text-[10px] uppercase font-bold text-purple-700 tracking-wider">Trưởng môn Tiếng Anh học thuật</span>

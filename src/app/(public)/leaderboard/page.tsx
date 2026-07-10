@@ -1,5 +1,6 @@
 import React from "react";
 import { Trophy, Medal, Star, ShieldAlert } from "lucide-react";
+import Link from "next/link";
 import { db } from "@/lib/db";
 
 // Force dynamic page generation to ensure it runs database queries at request time
@@ -158,6 +159,22 @@ export default async function LeaderboardPage() {
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Play & Join CTA for students */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-lg p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col gap-1 text-center sm:text-left">
+            <h4 className="font-body-strong text-sm font-bold text-ink">Chưa có tên trên bảng xếp hạng?</h4>
+            <p className="text-xs text-ink-muted-80 font-body">
+              Luyện đề thi thử ngay hôm nay để cọ xát năng lực và ghi tên mình trên Bảng Vàng danh vọng của Thầy Hùng Cường!
+            </p>
+          </div>
+          <Link 
+            href="/quizzes" 
+            className="bg-primary hover:bg-primary-focus text-white text-xs px-4 py-2.5 rounded-full font-bold transition-colors shadow-sm whitespace-nowrap"
+          >
+            Luyện Đề Thi Ngay
+          </Link>
         </div>
 
         {/* Security / Privacy Warning */}
