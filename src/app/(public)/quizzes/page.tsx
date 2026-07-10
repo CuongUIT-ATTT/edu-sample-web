@@ -23,6 +23,8 @@ export default function PublicQuizzesPage() {
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [demoResult, setDemoResult] = useState<{ score: number; passed: boolean } | null>(null);
 
+  // demo-only
+  // client-side
   const demoQuestions = [
     {
       text: "Cho phương trình x^2 - 7x + 12 = 0. Tập nghiệm S của phương trình là?",

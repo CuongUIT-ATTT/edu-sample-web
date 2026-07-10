@@ -66,7 +66,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     }));
   };
 
-  const handleSubmit = async () => {
+  async function handleSubmit() {
     if (!selectedQuiz) return;
     setSubmitting(true);
 
@@ -90,7 +90,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     } finally {
       setSubmitting(false);
     }
-  };
+  }
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

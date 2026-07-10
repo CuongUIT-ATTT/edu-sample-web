@@ -1,0 +1,48 @@
+name: EduWeb CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Phase 1 - Lint Analysis
+        run: npm run test:lint
+
+      - name: Phase 1 - Type Safety Analysis
+        run: npm run test:types
+
+      - name: Phase 1 - Build Compilation Analysis
+        run: npm run test:build
+
+      - name: Phase 1 - Sitemap XML Verification
+        run: npm run test:sitemap
+
+      - name: Phase 2 - Unit & Integration Tests (Vitest)
+        run: npm run test:unit
+
+      - name: Phase 4 - Custom Security Verification
+        run: npm run test:security
+
+      - name: Phase 5 - Lighthouse CI Check
+        run: npm run test:lighthouse
