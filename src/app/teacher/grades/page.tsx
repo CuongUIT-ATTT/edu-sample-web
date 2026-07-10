@@ -10,13 +10,6 @@ interface Student {
   email: string;
 }
 
-interface GradeRecord {
-  studentId: string;
-  score: number;
-  weight: number;
-  remarks: string;
-}
-
 export default function TeacherGradesPage() {
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
   const [subjects, setSubjects] = useState<{ id: string; name: string; code: string }[]>([]);
@@ -136,23 +129,24 @@ export default function TeacherGradesPage() {
         success: errorCount === 0,
         message:
           errorCount === 0
-            ? `✅ Đã lưu điểm cho ${successCount} học sinh.`
-            : `⚠️ Lưu thành công ${successCount}, thất bại ${errorCount} học sinh (kiểm tra lại định dạng điểm từ 0 đến 10).`,
+            ? `✅ Đã lưu điểm cho ${successCount} học viên.`
+            : `⚠️ Lưu thành công ${successCount}, thất bại ${errorCount} học viên (kiểm tra lại định dạng điểm từ 0 đến 10).`,
       });
     });
   };
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Header */}
       <div>
-        <h1 className="font-tagline text-2xl font-semibold text-ink">Sổ điểm lớp học</h1>
-        <p className="font-caption text-ink-muted-80 mt-1">Nhập điểm số định kỳ cho học sinh theo môn và lớp</p>
+        <h1 className="font-tagline text-2xl font-semibold text-ink">Bảng điểm lớp luyện thi</h1>
+        <p className="font-caption text-ink-muted-80 mt-1">Nhập điểm thi thử định kỳ cho học viên theo chuyên đề và lớp</p>
       </div>
 
       {/* Controls */}
       <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm flex flex-wrap gap-4 items-end">
         <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
-          <label className="text-xs font-caption-strong text-ink-muted-80">Lớp học</label>
+          <label className="text-xs font-caption-strong text-ink-muted-80">Lớp luyện thi</label>
           <select
             value={selectedClassId}
             onChange={(e) => setSelectedClassId(e.target.value)}
@@ -165,28 +159,28 @@ export default function TeacherGradesPage() {
           </select>
         </div>
         <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
-          <label className="text-xs font-caption-strong text-ink-muted-80">Môn học</label>
+          <label className="text-xs font-caption-strong text-ink-muted-80">Chuyên đề học tập</label>
           <select
             value={selectedSubjectId}
             onChange={(e) => setSelectedSubjectId(e.target.value)}
             className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus"
           >
-            {subjects.length === 0 && <option value="">— Chọn môn —</option>}
+            {subjects.length === 0 && <option value="">— Chọn chuyên đề —</option>}
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
             ))}
           </select>
         </div>
         <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
-          <label className="text-xs font-caption-strong text-ink-muted-80">Cột điểm</label>
+          <label className="text-xs font-caption-strong text-ink-muted-80">Cột điểm thi thử</label>
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
             className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus"
           >
             <option value="QUIZ">Kiểm tra 15' (Hệ số 1)</option>
-            <option value="MIDTERM">Giữa kỳ (Hệ số 3)</option>
-            <option value="FINAL">Cuối kỳ (Hệ số 6)</option>
+            <option value="MIDTERM">Thi thử Giữa kỳ (Hệ số 3)</option>
+            <option value="FINAL">Thi thử Cuối kỳ / Tốt nghiệp (Hệ số 6)</option>
           </select>
         </div>
         <div className="flex flex-col gap-1.5 w-24">
@@ -215,7 +209,7 @@ export default function TeacherGradesPage() {
         <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
           <h2 className="font-body-strong text-sm text-ink flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" />
-            Nhập điểm học sinh ({students.length} học sinh)
+            Nhập điểm học viên ({students.length} học viên)
           </h2>
           {students.length > 0 && (
             <button
@@ -232,20 +226,20 @@ export default function TeacherGradesPage() {
         {loadingStudents ? (
           <div className="p-12 text-center">
             <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto mb-3" />
-            <p className="text-sm text-ink-muted-80">Đang tải danh sách học sinh...</p>
+            <p className="text-sm text-ink-muted-80">Đang tải danh sách học viên...</p>
           </div>
         ) : students.length === 0 ? (
           <div className="p-16 text-center">
             <TrendingUp className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
-            <p className="font-body text-ink-muted-80">Chọn lớp và môn học để bắt đầu nhập điểm.</p>
+            <p className="font-body text-ink-muted-80">Chọn lớp và chuyên đề học để bắt đầu nhập điểm thi.</p>
           </div>
         ) : (
           <table className="w-full">
             <thead>
               <tr className="border-b border-hairline bg-surface-pearl">
-                <th className="text-left px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Học sinh</th>
+                <th className="text-left px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Học viên</th>
                 <th className="text-left px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider w-36">Điểm số (0 - 10)</th>
-                <th className="text-left px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Nhận xét của giáo viên</th>
+                <th className="text-left px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Nhận xét của giảng viên</th>
               </tr>
             </thead>
             <tbody>

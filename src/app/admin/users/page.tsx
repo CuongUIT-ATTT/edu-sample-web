@@ -69,8 +69,8 @@ export default async function AdminUsersPage() {
   const getRoleLabel = (role: Role) => {
     const labels: Record<Role, string> = {
       ADMIN: "Admin",
-      TEACHER: "Giáo viên",
-      STUDENT: "Học sinh",
+      TEACHER: "Giảng viên",
+      STUDENT: "Học viên",
       PARENT: "Phụ huynh",
     };
     return labels[role] || role;
@@ -129,7 +129,7 @@ export default async function AdminUsersPage() {
       <div className="flex flex-col gap-6">
         <div>
           <h2 className="font-tagline text-lg font-semibold text-ink">Thêm tài khoản</h2>
-          <p className="font-caption text-ink-muted-80 mt-1">Cấp tài khoản mới cho trường học</p>
+          <p className="font-caption text-ink-muted-80 mt-1">Cấp tài khoản mới cho hệ thống trung tâm</p>
         </div>
 
         <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm">
@@ -170,15 +170,15 @@ export default async function AdminUsersPage() {
                 className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
                 required
               >
-                <option value="STUDENT">Học sinh (Student)</option>
-                <option value="TEACHER">Giáo viên (Teacher)</option>
+                <option value="STUDENT">Học viên (Student)</option>
+                <option value="TEACHER">Giảng viên (Teacher)</option>
                 <option value="PARENT">Phụ huynh (Parent)</option>
                 <option value="ADMIN">Quản trị viên (Admin)</option>
               </select>
             </div>
 
             <div className="border-t border-divider-soft my-2 pt-4 flex flex-col gap-4">
-              <p className="text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Cấu hình riêng cho Học sinh</p>
+              <p className="text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Cấu hình riêng cho Học viên</p>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-caption-strong text-ink-muted-80">Lớp học</label>
                 <select

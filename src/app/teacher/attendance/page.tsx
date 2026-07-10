@@ -11,11 +11,6 @@ interface Student {
   email: string;
 }
 
-interface AttendanceRecord {
-  studentId: string;
-  status: AttendanceStatus;
-}
-
 export default function TeacherAttendancePage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
@@ -81,8 +76,8 @@ export default function TeacherAttendancePage() {
         success: errorCount === 0,
         message:
           errorCount === 0
-            ? `✅ Đã lưu điểm danh cho ${successCount} học sinh.`
-            : `⚠️ Lưu thành công ${successCount}, thất bại ${errorCount} học sinh.`,
+            ? `✅ Đã lưu điểm danh cho ${successCount} học viên.`
+            : `⚠️ Lưu thành công ${successCount}, thất bại ${errorCount} học viên.`,
       });
     });
   };
@@ -104,14 +99,14 @@ export default function TeacherAttendancePage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="font-tagline text-2xl font-semibold text-ink">Điểm danh học sinh</h1>
-        <p className="font-caption text-ink-muted-80 mt-1">Ghi nhận điểm danh theo lớp và ngày học</p>
+        <h1 className="font-tagline text-2xl font-semibold text-ink">Điểm danh chuyên cần học viên</h1>
+        <p className="font-caption text-ink-muted-80 mt-1">Ghi nhận điểm danh theo lớp luyện thi và ca học</p>
       </div>
 
       {/* Controls */}
       <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm flex flex-wrap gap-4 items-end">
         <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
-          <label className="text-xs font-caption-strong text-ink-muted-80">Lớp học</label>
+          <label className="text-xs font-caption-strong text-ink-muted-80">Lớp luyện thi</label>
           <select
             value={selectedClassId}
             onChange={(e) => setSelectedClassId(e.target.value)}
@@ -124,7 +119,7 @@ export default function TeacherAttendancePage() {
           </select>
         </div>
         <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
-          <label className="text-xs font-caption-strong text-ink-muted-80">Ngày điểm danh</label>
+          <label className="text-xs font-caption-strong text-ink-muted-80">Ngày ca học</label>
           <input
             type="date"
             value={selectedDate}
@@ -163,7 +158,7 @@ export default function TeacherAttendancePage() {
         <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
           <h2 className="font-body-strong text-sm text-ink flex items-center gap-2">
             <CheckSquare className="h-4 w-4 text-primary" />
-            Danh sách học sinh ({students.length} học sinh)
+            Danh sách học viên ({students.length} học viên)
           </h2>
           {students.length > 0 && (
             <button
@@ -185,7 +180,7 @@ export default function TeacherAttendancePage() {
         ) : students.length === 0 ? (
           <div className="p-16 text-center">
             <CheckSquare className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
-            <p className="font-body text-ink-muted-80">Chọn lớp học để bắt đầu điểm danh.</p>
+            <p className="font-body text-ink-muted-80">Chọn lớp luyện thi để bắt đầu điểm danh học viên.</p>
           </div>
         ) : (
           <div className="divide-y divide-hairline">
