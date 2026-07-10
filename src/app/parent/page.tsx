@@ -1,5 +1,5 @@
 import React from "react";
-import { Users, CheckSquare, Award, ArrowRight } from "lucide-react";
+import { Users, CheckSquare, Award, ArrowRight, Clock, Trophy } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
@@ -9,11 +9,12 @@ export default async function ParentDashboardPage() {
 
   let parentName = "Phụ huynh";
   let childName = "Con học viên";
-  let className = "Lớp học";
+  let className = "Lớp VIP";
   let gpaString = "8.6 / 10";
   let attendanceRate = "98.2%";
-  let formTeacherName = "Thầy Nguyễn Văn Bình";
-  let formTeacherPhone = "0912 345 678";
+  let formTeacherName = "Thầy Hùng Cường";
+  let formTeacherPhone = "1900 1234";
+  let rankingTitle = "Thần Phản Ứng Luyện Thi ⚡";
   
   let dbGrades: { id: string; subjectName: string; type: string; score: number; dateString: string }[] = [];
   let dbAttendances: { id: string; dateString: string; status: string }[] = [];
@@ -50,26 +51,32 @@ export default async function ParentDashboardPage() {
       if (parentProfile && parentProfile.students.length > 0) {
         const student = parentProfile.students[0]; // Fetch the first child for summary dashboard
         childName = student.user.name;
-        className = student.class?.name || "Chưa phân lớp";
+        className = student.class?.name || "Chưa xếp lớp";
 
         if (student.class?.formTeacher) {
           formTeacherName = student.class.formTeacher.user.name;
-          formTeacherPhone = "0912 345 678"; // Mock phone
+          formTeacherPhone = "1900 1234";
         }
 
-        // Calculate child GPA
+        // Calculate child GPA & Ranking Badge
+        let avgScoreVal = 8.6;
         if (student.grades.length > 0) {
           const sum = student.grades.reduce((acc, g) => acc + g.score, 0);
-          gpaString = `${(sum / student.grades.length).toFixed(1)} / 10`;
+          avgScoreVal = sum / student.grades.length;
+          gpaString = `${avgScoreVal.toFixed(1)} / 10`;
           
           dbGrades = student.grades.slice(0, 3).map((g) => ({
             id: g.id,
             subjectName: g.subject.name,
-            type: g.type === "QUIZ" ? "Kiểm tra 15 phút" : g.type === "MIDTERM" ? "Thi giữa kỳ" : "Kiểm tra miệng",
+            type: g.type === "QUIZ" ? "Kiểm tra 15 phút" : g.type === "MIDTERM" ? "Thi thử Giữa kỳ" : "Kiểm tra miệng",
             score: g.score,
             dateString: new Date(g.date).toLocaleDateString("vi-VN"),
           }));
         }
+
+        if (avgScoreVal >= 9.0) rankingTitle = "Huyền Thoại Luyện Đề 🏆";
+        else if (avgScoreVal >= 8.0) rankingTitle = "Thần Phản Ứng Luyện Thi ⚡";
+        else rankingTitle = "Chiến Binh Chuyên Đề 🔥";
 
         // Calculate child Attendance Rate
         if (student.attendances.length > 0) {
@@ -79,7 +86,7 @@ export default async function ParentDashboardPage() {
           dbAttendances = student.attendances.slice(0, 5).map((a) => ({
             id: a.id,
             dateString: new Date(a.date).toLocaleDateString("vi-VN", { weekday: 'long', year: 'numeric', month: 'numeric', day: 'numeric' }),
-            status: a.status === "PRESENT" ? "Có mặt" : "Nghỉ học có phép",
+            status: a.status === "PRESENT" ? "Có mặt" : "Vắng mặt có phép",
           }));
         }
       }
@@ -108,17 +115,49 @@ export default async function ParentDashboardPage() {
         { id: "1", dateString: "Thứ Tư, 08/07/2026", status: "Có mặt" },
         { id: "2", dateString: "Thứ Ba, 07/07/2026", status: "Có mặt" },
         { id: "3", dateString: "Thứ Hai, 06/07/2026", status: "Có mặt" },
-        { id: "4", dateString: "Thứ Sáu, 03/07/2026", status: "Nghỉ học có phép" },
+        { id: "4", dateString: "Thứ Sáu, 03/07/2026", status: "Vắng mặt có phép" },
         { id: "5", dateString: "Thứ Năm, 02/07/2026", status: "Có mặt" },
       ];
+
+  // Calculate static countdown days on the server
+  const examDate = new Date("2027-06-25T07:30:00").getTime();
+  const now = new Date().getTime();
+  const diffMs = examDate - now;
+  const daysRemaining = diffMs > 0 ? Math.floor(diffMs / (1000 * 60 * 60 * 24)) : 0;
 
   return (
     <div className="flex flex-col gap-8 max-w-[1200px]">
       
+      {/* Top Countdown bar for Parent */}
+      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 border border-indigo-950 rounded-lg p-5 text-white flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-indigo-950 text-amber-400 flex items-center justify-center flex-shrink-0 animate-bounce">
+            <Trophy className="h-5 w-5" />
+          </div>
+          <div>
+            <h4 className="font-tagline text-sm font-bold">Kỳ thi Tốt nghiệp THPT 2027 của con đang cận kề</h4>
+            <p className="text-[11px] text-indigo-200">Đồng hành cùng con ôn tập, khắc phục lỗi sai lý thuyết đạt kết quả tốt nhất</p>
+          </div>
+        </div>
+        <div className="flex gap-2 items-center">
+          <span className="text-xs text-indigo-200 font-semibold">Chỉ còn:</span>
+          <span className="font-mono text-xl font-extrabold text-amber-300 bg-indigo-950 px-3.5 py-1 rounded border border-indigo-800">
+            {daysRemaining}
+          </span>
+          <span className="text-xs text-indigo-200">ngày thi</span>
+        </div>
+      </div>
+
       {/* Welcome Block */}
-      <div>
-        <h1 className="font-display-lg text-3xl font-semibold text-ink">Xin chào, {parentName}</h1>
-        <p className="font-caption text-ink-muted-80 mt-1">Hồ sơ phụ huynh của học viên: <strong>{childName}</strong> (Lớp {className}).</p>
+      <div className="flex justify-between items-start gap-4 flex-wrap">
+        <div>
+          <h1 className="font-display-lg text-3xl font-semibold text-ink">Xin chào, {parentName}</h1>
+          <p className="font-caption text-ink-muted-80 mt-1">Phụ huynh học viên: <strong>{childName}</strong> (Lớp {className}).</p>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-sm">
+          <span>Danh hiệu của con:</span>
+          <strong className="text-amber-900">{rankingTitle}</strong>
+        </div>
       </div>
 
       {/* Child Status Summary */}
@@ -128,7 +167,7 @@ export default async function ParentDashboardPage() {
             <Award className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Điểm trung bình của con (GPA)</p>
+            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Điểm thi thử của con (GPA)</p>
             <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-primary transition-colors">{displayGPA}</h3>
           </div>
         </Link>
@@ -150,7 +189,7 @@ export default async function ParentDashboardPage() {
           <div>
             <p className="text-xs text-ink-muted-48 uppercase font-semibold">Giảng viên phụ trách</p>
             <h3 className="font-body-strong text-lg font-bold text-ink mt-2 group-hover:text-purple-600 transition-colors">{displayTeacherName}</h3>
-            <p className="text-xs text-ink-muted-48 mt-0.5">SĐT: {displayTeacherPhone}</p>
+            <p className="text-xs text-ink-muted-48 mt-0.5">Hotline: {displayTeacherPhone}</p>
           </div>
         </Link>
       </div>
@@ -161,8 +200,8 @@ export default async function ParentDashboardPage() {
         {/* Latest grades */}
         <Link href="/parent/grades" className="bg-canvas border border-hairline rounded-lg p-6 hover:border-primary transition-all duration-200 cursor-pointer block">
           <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4 flex justify-between items-center">
-            <span>Đầu điểm mới nhận của con</span>
-            <span className="text-xs text-primary font-semibold hover:underline">Chi tiết bảng điểm &rarr;</span>
+            <span>Kết quả kiểm tra mới nhận</span>
+            <span className="text-xs text-primary font-semibold hover:underline">Xem tất cả điểm số &rarr;</span>
           </h3>
           <div className="flex flex-col gap-4">
             {displayGrades.map((grade) => (
@@ -183,7 +222,7 @@ export default async function ParentDashboardPage() {
         {/* Latest attendance */}
         <Link href="/parent/attendance" className="bg-canvas border border-hairline rounded-lg p-6 hover:border-green-600 transition-all duration-200 cursor-pointer block">
           <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4 flex justify-between items-center">
-            <span>Nhật ký chuyên cần 5 ngày qua</span>
+            <span>Nhật ký điểm danh ca học gần đây</span>
             <span className="text-xs text-green-600 font-semibold hover:underline">Chi tiết chuyên cần &rarr;</span>
           </h3>
           <div className="flex flex-col gap-3">

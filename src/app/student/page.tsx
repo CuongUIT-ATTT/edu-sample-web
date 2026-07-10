@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar, CheckSquare, Award } from "lucide-react";
+import { Calendar, CheckSquare, Award, Clock, Trophy, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
@@ -8,10 +8,11 @@ export default async function StudentDashboardPage() {
   const session = await getSession();
 
   let studentName = "Học viên";
-  let className = "Lớp học";
+  let className = "Lớp VIP";
   let gpaString = "8.6 / 10";
   let attendanceRate = "98.2%";
   let subjectsCount = 8;
+  let rankingTitle = "Thần Phản Ứng Luyện Thi ⚡";
   let schedulesList: {
     id: string;
     time: string;
@@ -35,14 +36,21 @@ export default async function StudentDashboardPage() {
       });
 
       if (studentProfile) {
-        className = studentProfile.class?.name || "Chưa phân lớp";
+        className = studentProfile.class?.name || "Chưa xếp lớp";
         
         // Calculate GPA
         const grades = studentProfile.grades;
+        let avgScoreVal = 8.6;
         if (grades.length > 0) {
           const sum = grades.reduce((acc, g) => acc + g.score, 0);
-          gpaString = `${(sum / grades.length).toFixed(1)} / 10`;
+          avgScoreVal = sum / grades.length;
+          gpaString = `${avgScoreVal.toFixed(1)} / 10`;
         }
+
+        // Set ranking title dynamically
+        if (avgScoreVal >= 9.0) rankingTitle = "Huyền Thoại Luyện Đề 🏆";
+        else if (avgScoreVal >= 8.0) rankingTitle = "Thần Phản Ứng Luyện Thi ⚡";
+        else rankingTitle = "Chiến Binh Chuyên Đề 🔥";
 
         // Calculate Attendance Rate
         const attendances = studentProfile.attendances;
@@ -75,7 +83,7 @@ export default async function StudentDashboardPage() {
             time: `${s.startTime} - ${s.endTime}`,
             subjectName: s.subject.name,
             teacherName: s.teacher.user.name,
-            room: s.room || "Chưa xếp phòng",
+            room: s.room || "Room 302",
             status: "Có mặt", // Mock status mapping for display
           }));
         }
@@ -85,7 +93,6 @@ export default async function StudentDashboardPage() {
     console.error("Prisma error in Student Dashboard:", error);
   }
 
-  // Fallbacks if database is empty
   const displayGPA = gpaString;
   const displayAttendance = attendanceRate;
   const displaySubjectsCount = subjectsCount;
@@ -93,17 +100,49 @@ export default async function StudentDashboardPage() {
   const displaySchedules = schedulesList.length > 0 
     ? schedulesList 
     : [
-        { id: "1", time: "08:00 - 09:30", subjectName: "Toán học nâng cao", teacherName: "Thầy Nguyễn Văn Bình", room: "Phòng 302", status: "Đã điểm danh - Có mặt" },
-        { id: "2", time: "10:00 - 11:30", subjectName: "Vật lý lý thuyết", teacherName: "Cô Lê Thị Hoa", room: "Phòng 401", status: "Chưa bắt đầu" },
+        { id: "1", time: "08:00 - 09:30", subjectName: "Toán học nâng cao", teacherName: "Thầy Hùng Cường", room: "Room 302", status: "Đã điểm danh - Có mặt" },
+        { id: "2", time: "10:00 - 11:30", subjectName: "Vật lý lý thuyết", teacherName: "Thầy Nguyễn Văn Bình", room: "Room 401", status: "Chưa bắt đầu" },
       ];
+
+  // Calculate static countdown days on the server
+  const examDate = new Date("2027-06-25T07:30:00").getTime();
+  const now = new Date().getTime();
+  const diffMs = examDate - now;
+  const daysRemaining = diffMs > 0 ? Math.floor(diffMs / (1000 * 60 * 60 * 24)) : 0;
 
   return (
     <div className="flex flex-col gap-8 max-w-[1200px]">
       
+      {/* Top Countdown bar */}
+      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 border border-indigo-950 rounded-lg p-5 text-white flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-indigo-950 text-amber-400 flex items-center justify-center flex-shrink-0 animate-bounce">
+            <Trophy className="h-5 w-5" />
+          </div>
+          <div>
+            <h4 className="font-tagline text-sm font-bold">Kỳ thi Tốt nghiệp THPT Quốc Gia 2027</h4>
+            <p className="text-[11px] text-indigo-200">Đặc trị các lỗi sai lý thuyết và bứt phá điểm số cùng Thầy Hùng Cường</p>
+          </div>
+        </div>
+        <div className="flex gap-2 items-center">
+          <span className="text-xs text-indigo-200 font-semibold">Chỉ còn:</span>
+          <span className="font-mono text-xl font-extrabold text-amber-300 bg-indigo-950 px-3.5 py-1 rounded border border-indigo-800">
+            {daysRemaining}
+          </span>
+          <span className="text-xs text-indigo-200">ngày thi</span>
+        </div>
+      </div>
+
       {/* Welcome Block */}
-      <div>
-        <h1 className="font-display-lg text-3xl font-semibold text-ink">Xin chào, {studentName}</h1>
-        <p className="font-caption text-ink-muted-80 mt-1">Lớp {className} • Học viên trung tâm. Chúc bạn một ngày học tập hiệu quả!</p>
+      <div className="flex justify-between items-start gap-4 flex-wrap">
+        <div>
+          <h1 className="font-display-lg text-3xl font-semibold text-ink">Xin chào, {studentName}</h1>
+          <p className="font-caption text-ink-muted-80 mt-1">Lớp {className} • Học viên trung tâm.</p>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-sm">
+          <span>Học vị:</span>
+          <strong className="text-amber-900">{rankingTitle}</strong>
+        </div>
       </div>
 
       {/* Grid of stats */}
@@ -133,7 +172,7 @@ export default async function StudentDashboardPage() {
             <Calendar className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Khóa học đang theo học</p>
+            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Chuyên đề ôn luyện</p>
             <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-purple-600 transition-colors">{displaySubjectsCount} Khóa</h3>
           </div>
         </Link>
