@@ -2,6 +2,9 @@ import React from "react";
 import { ShieldAlert, Server, Key, Terminal, RefreshCw, Activity } from "lucide-react";
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
+
 export default async function AdminSystemPage() {
   let dbStatus = "ONLINE";
   let dbUrlSnippet = "postgresql://***.neon.tech/neondb";

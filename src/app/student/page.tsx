@@ -1,18 +1,21 @@
-import React from "react";
+﻿import React from "react";
 import { Calendar, CheckSquare, Award, Clock, Trophy, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
+
 export default async function StudentDashboardPage() {
   const session = await getSession();
 
-  let studentName = "Học viên";
-  let className = "Lớp VIP";
+  let studentName = "Há»c viÃªn";
+  let className = "Lá»›p VIP";
   let gpaString = "8.6 / 10";
   let attendanceRate = "98.2%";
   let subjectsCount = 8;
-  let rankingTitle = "Thần Phản Ứng Luyện Thi ⚡";
+  let rankingTitle = "Tháº§n Pháº£n á»¨ng Luyá»‡n Thi âš¡";
   let schedulesList: {
     id: string;
     time: string;
@@ -36,7 +39,7 @@ export default async function StudentDashboardPage() {
       });
 
       if (studentProfile) {
-        className = studentProfile.class?.name || "Chưa xếp lớp";
+        className = studentProfile.class?.name || "ChÆ°a xáº¿p lá»›p";
         
         // Calculate GPA
         const grades = studentProfile.grades;
@@ -48,9 +51,9 @@ export default async function StudentDashboardPage() {
         }
 
         // Set ranking title dynamically
-        if (avgScoreVal >= 9.0) rankingTitle = "Huyền Thoại Luyện Đề 🏆";
-        else if (avgScoreVal >= 8.0) rankingTitle = "Thần Phản Ứng Luyện Thi ⚡";
-        else rankingTitle = "Chiến Binh Chuyên Đề 🔥";
+        if (avgScoreVal >= 9.0) rankingTitle = "Huyá»n Thoáº¡i Luyá»‡n Äá» ðŸ†";
+        else if (avgScoreVal >= 8.0) rankingTitle = "Tháº§n Pháº£n á»¨ng Luyá»‡n Thi âš¡";
+        else rankingTitle = "Chiáº¿n Binh ChuyÃªn Äá» ðŸ”¥";
 
         // Calculate Attendance Rate
         const attendances = studentProfile.attendances;
@@ -84,7 +87,7 @@ export default async function StudentDashboardPage() {
             subjectName: s.subject.name,
             teacherName: s.teacher.user.name,
             room: s.room || "Room 302",
-            status: "Có mặt", // Mock status mapping for display
+            status: "CÃ³ máº·t", // Mock status mapping for display
           }));
         }
       }
@@ -100,8 +103,8 @@ export default async function StudentDashboardPage() {
   const displaySchedules = schedulesList.length > 0 
     ? schedulesList 
     : [
-        { id: "1", time: "08:00 - 09:30", subjectName: "Toán học nâng cao", teacherName: "Thầy Hùng Cường", room: "Room 302", status: "Đã điểm danh - Có mặt" },
-        { id: "2", time: "10:00 - 11:30", subjectName: "Vật lý lý thuyết", teacherName: "Thầy Nguyễn Văn Bình", room: "Room 401", status: "Chưa bắt đầu" },
+        { id: "1", time: "08:00 - 09:30", subjectName: "ToÃ¡n há»c nÃ¢ng cao", teacherName: "Tháº§y HÃ¹ng CÆ°á»ng", room: "Room 302", status: "ÄÃ£ Ä‘iá»ƒm danh - CÃ³ máº·t" },
+        { id: "2", time: "10:00 - 11:30", subjectName: "Váº­t lÃ½ lÃ½ thuyáº¿t", teacherName: "Tháº§y Nguyá»…n VÄƒn BÃ¬nh", room: "Room 401", status: "ChÆ°a báº¯t Ä‘áº§u" },
       ];
 
   // Calculate static countdown days on the server
@@ -120,27 +123,27 @@ export default async function StudentDashboardPage() {
             <Trophy className="h-5 w-5" />
           </div>
           <div>
-            <h4 className="font-tagline text-sm font-bold">Kỳ thi Tốt nghiệp THPT Quốc Gia 2027</h4>
-            <p className="text-[11px] text-indigo-200">Đặc trị các lỗi sai lý thuyết và bứt phá điểm số cùng Thầy Hùng Cường</p>
+            <h4 className="font-tagline text-sm font-bold">Ká»³ thi Tá»‘t nghiá»‡p THPT Quá»‘c Gia 2027</h4>
+            <p className="text-[11px] text-indigo-200">Äáº·c trá»‹ cÃ¡c lá»—i sai lÃ½ thuyáº¿t vÃ  bá»©t phÃ¡ Ä‘iá»ƒm sá»‘ cÃ¹ng Tháº§y HÃ¹ng CÆ°á»ng</p>
           </div>
         </div>
         <div className="flex gap-2 items-center">
-          <span className="text-xs text-indigo-200 font-semibold">Chỉ còn:</span>
+          <span className="text-xs text-indigo-200 font-semibold">Chá»‰ cÃ²n:</span>
           <span className="font-mono text-xl font-extrabold text-amber-300 bg-indigo-950 px-3.5 py-1 rounded border border-indigo-800">
             {daysRemaining}
           </span>
-          <span className="text-xs text-indigo-200">ngày thi</span>
+          <span className="text-xs text-indigo-200">ngÃ y thi</span>
         </div>
       </div>
 
       {/* Welcome Block */}
       <div className="flex justify-between items-start gap-4 flex-wrap">
         <div>
-          <h1 className="font-display-lg text-3xl font-semibold text-ink">Xin chào, {studentName}</h1>
-          <p className="font-caption text-ink-muted-80 mt-1">Lớp {className} • Học viên trung tâm.</p>
+          <h1 className="font-display-lg text-3xl font-semibold text-ink">Xin chÃ o, {studentName}</h1>
+          <p className="font-caption text-ink-muted-80 mt-1">Lá»›p {className} â€¢ Há»c viÃªn trung tÃ¢m.</p>
         </div>
         <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-sm">
-          <span>Học vị:</span>
+          <span>Há»c vá»‹:</span>
           <strong className="text-amber-900">{rankingTitle}</strong>
         </div>
       </div>
@@ -152,7 +155,7 @@ export default async function StudentDashboardPage() {
             <Award className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Điểm trung bình (GPA)</p>
+            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Äiá»ƒm trung bÃ¬nh (GPA)</p>
             <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-primary transition-colors">{displayGPA}</h3>
           </div>
         </Link>
@@ -162,7 +165,7 @@ export default async function StudentDashboardPage() {
             <CheckSquare className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Tỷ lệ chuyên cần</p>
+            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Tá»· lá»‡ chuyÃªn cáº§n</p>
             <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-green-600 transition-colors">{displayAttendance}</h3>
           </div>
         </Link>
@@ -172,8 +175,8 @@ export default async function StudentDashboardPage() {
             <Calendar className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Chuyên đề ôn luyện</p>
-            <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-purple-600 transition-colors">{displaySubjectsCount} Khóa</h3>
+            <p className="text-xs text-ink-muted-48 uppercase font-semibold">ChuyÃªn Ä‘á» Ã´n luyá»‡n</p>
+            <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-purple-600 transition-colors">{displaySubjectsCount} KhÃ³a</h3>
           </div>
         </Link>
       </div>
@@ -181,8 +184,8 @@ export default async function StudentDashboardPage() {
       {/* Class Schedule detail view */}
       <Link href="/student/schedules" className="bg-canvas border border-hairline rounded-lg p-6 hover:border-primary transition-all duration-200 cursor-pointer block">
         <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4 flex justify-between items-center">
-          <span>Lịch học hôm nay</span>
-          <span className="text-xs text-primary font-semibold hover:underline">Chi tiết thời khóa biểu &rarr;</span>
+          <span>Lá»‹ch há»c hÃ´m nay</span>
+          <span className="text-xs text-primary font-semibold hover:underline">Chi tiáº¿t thá»i khÃ³a biá»ƒu &rarr;</span>
         </h3>
         <div className="flex flex-col gap-4">
           {displaySchedules.map((item) => (
@@ -191,11 +194,11 @@ export default async function StudentDashboardPage() {
                 <span className="font-bold text-primary w-24">{item.time}</span>
                 <div>
                   <p className="font-semibold text-ink">{item.subjectName}</p>
-                  <p className="text-xs text-ink-muted-48">{item.teacherName} • {item.room}</p>
+                  <p className="text-xs text-ink-muted-48">{item.teacherName} â€¢ {item.room}</p>
                 </div>
               </div>
               <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
-                item.status.includes("Có mặt") || item.status.includes("điểm danh")
+                item.status.includes("CÃ³ máº·t") || item.status.includes("Ä‘iá»ƒm danh")
                   ? "bg-green-100 text-green-800" 
                   : "bg-orange-100 text-orange-800"
               }`}>

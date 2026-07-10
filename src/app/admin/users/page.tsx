@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createUser, deleteUser } from "@/actions/users";
 import { Role } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminUsersPage() {
   // Query all data on the server
   const dbUsers = await db.user.findMany({

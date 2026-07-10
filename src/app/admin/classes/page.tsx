@@ -3,6 +3,8 @@ import { BookOpen, Calendar, Plus, Users, Award } from "lucide-react";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminClassesPage() {
   const classesList = await db.class.findMany({
     include: {

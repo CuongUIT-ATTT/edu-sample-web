@@ -3,6 +3,9 @@ import { Calendar, Plus, BookOpen, Clock, MapPin, User } from "lucide-react";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
+export const dynamic = "force-dynamic";
+
+
 export default async function AdminSchedulesPage() {
   const schedules = await db.schedule.findMany({
     include: {
