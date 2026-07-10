@@ -35,16 +35,18 @@ function AdmissionForm({ searchParams }: AdmissionPageProps) {
   const [gradeLevel, setGradeLevel] = useState("");
   const [admissionCode, setAdmissionCode] = useState("");
 
-  // Read context from URL params (resolved as plain object via Next.js props)
-  const [resolvedParams, setResolvedParams] = React.useState<{ path?: string; package?: string } | null>(null);
+  // Read URL params directly on client — avoids Next.js 16 async searchParams timing issues
+  const [prefilledPath, setPrefilledPath] = useState<string | null>(null);
+  const [prefilledPackage, setPrefilledPackage] = useState<string | null>(null);
 
   React.useEffect(() => {
-    // Resolve the promise-based searchParams
-    Promise.resolve(searchParams).then(setResolvedParams);
-  }, [searchParams]);
-
-  const prefilledPath = resolvedParams?.path ? PATH_LABELS[resolvedParams.path] ?? resolvedParams.path : null;
-  const prefilledPackage = resolvedParams?.package ? PACKAGE_LABELS[resolvedParams.package] ?? null : null;
+    const params = new URLSearchParams(window.location.search);
+    const pathSlug = params.get("path");
+    const pkgSlug = params.get("package");
+    if (pathSlug && PATH_LABELS[pathSlug]) setPrefilledPath(PATH_LABELS[pathSlug]);
+    else if (pathSlug) setPrefilledPath(pathSlug);
+    if (pkgSlug && PACKAGE_LABELS[pkgSlug]) setPrefilledPackage(PACKAGE_LABELS[pkgSlug]);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
