@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 async function loginAs(page: any, email: string) {
   await page.goto("/login");
   await page.fill("input[name='email']", email);
-  await page.fill("input[name='password']", "Password@2026");
+  await page.fill("input[name='password']", "hungcuong123");
   await page.click("button[type='submit']");
   // Wait for redirect to complete
   await page.waitForURL("**/dashboard", { timeout: 10000 }).catch(() => {});
@@ -11,7 +11,7 @@ async function loginAs(page: any, email: string) {
 
 test("teacher dashboard shows class stats widget", async ({ page }) => {
   // Use mock page interaction to verify content or test on production URL
-  await loginAs(page, "teacher@tenschool.edu.vn");
+  await loginAs(page, "giangvien@eduweb.vn");
   
   // Verify stats are visible
   await expect(page.locator("h4:has-text('Thống kê Học viên Giỏi')")).toBeVisible();
@@ -19,7 +19,7 @@ test("teacher dashboard shows class stats widget", async ({ page }) => {
 });
 
 test("parent dashboard shows child countdown", async ({ page }) => {
-  await loginAs(page, "parent@tenschool.edu.vn");
+  await loginAs(page, "phuhuynh@eduweb.vn");
   
   // Verify countdown card is visible on parent portal
   await expect(page.locator("h4:has-text('Kỳ thi Tốt nghiệp THPT 2027')")).toBeVisible();

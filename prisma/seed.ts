@@ -33,12 +33,12 @@ async function main() {
   console.log("Database reset completed.");
 
   // Hash password
-  const passwordHash = await bcryptjs.hash("Password@2026", 10);
+  const passwordHash = await bcryptjs.hash("hungcuong123", 10);
 
   // 1. Create Users
   const adminUser = await prisma.user.create({
     data: {
-      email: "admin@tenschool.edu.vn",
+      email: "admin@eduweb.vn",
       name: "Quản trị viên Hệ thống",
       passwordHash,
       role: "ADMIN",
@@ -47,7 +47,7 @@ async function main() {
 
   const teacherUser = await prisma.user.create({
     data: {
-      email: "teacher@tenschool.edu.vn",
+      email: "giangvien@eduweb.vn",
       name: "Thầy Nguyễn Văn Bình",
       passwordHash,
       role: "TEACHER",
@@ -56,7 +56,7 @@ async function main() {
 
   const parentUser = await prisma.user.create({
     data: {
-      email: "parent@tenschool.edu.vn",
+      email: "phuhuynh@eduweb.vn",
       name: "Bác Nguyễn Văn B",
       passwordHash,
       role: "PARENT",
@@ -65,7 +65,7 @@ async function main() {
 
   const studentUser = await prisma.user.create({
     data: {
-      email: "student@tenschool.edu.vn",
+      email: "hocvien@eduweb.vn",
       name: "Nguyễn Văn A",
       passwordHash,
       role: "STUDENT",

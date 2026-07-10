@@ -83,7 +83,7 @@ export default async function AdminSystemPage() {
             <p className="text-slate-500">[2026-07-09 20:39:14] SYSTEM restart complete. Running Next.js 16.0.0-beta</p>
             <p className="text-green-400">[2026-07-09 20:47:33] Migration applied: 20260709134729_init_schema</p>
             <p className="text-green-400">[2026-07-09 20:48:01] Database seeding succeeded. Created 4 roles default credentials.</p>
-            <p className="text-blue-400">[2026-07-09 20:57:25] UAT login test initiated for student@tenschool.edu.vn</p>
+            <p className="text-blue-400">[2026-07-09 20:57:25] UAT login test initiated for hocvien@eduweb.vn</p>
             <p className="text-green-400">[2026-07-09 20:58:16] Session established successfully. Redirected /login &rarr; /student (302)</p>
           </div>
         </div>

@@ -32,7 +32,7 @@ describe("Admission Form Validation rules", () => {
       grade: "10",
       parentName: "Nguyễn Văn Phụ Huynh",
       phone: "0987654321",
-      email: "phuhuynh@tenschool.edu.vn",
+      email: "phuhuynh@eduweb.vn",
       targetScore: "9+",
       targetSubject: "Toán học",
       currentLevel: "Khá"
@@ -50,7 +50,7 @@ describe("Admission Form Validation rules", () => {
       grade: "9", // invalid grade (only 10, 11, 12 allowed)
       parentName: "Nguyễn Văn Phụ Huynh",
       phone: "abcd", // invalid phone
-      email: "phuhuynh@tenschool.edu.vn"
+      email: "phuhuynh@eduweb.vn"
     };
 
     const res = validateAdmissionForm(data);
