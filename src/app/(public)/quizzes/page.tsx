@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { BookOpen, Clock, Award, CheckCircle2, AlertCircle, RefreshCw, ChevronRight, Play } from "lucide-react";
+import { BookOpen, Clock, Award, CheckCircle2, AlertCircle, RefreshCw, ChevronRight, Play, Lock } from "lucide-react";
 import Link from "next/link";
 
 interface QuizMeta {
@@ -12,6 +12,8 @@ interface QuizMeta {
   questionsCount: number;
   testCount: number;
   level: string;
+  /** true = khách có thể thử ngay (mở demo inline), false = cần tài khoản VIP */
+  isDemo: boolean;
 }
 
 export default function PublicQuizzesPage() {
@@ -55,6 +57,7 @@ export default function PublicQuizzesPage() {
       questionsCount: 50,
       testCount: 1420,
       level: "Lớp 12",
+      isDemo: true,   // Admin cho phép khách thử
     },
     {
       id: "q2",
@@ -64,6 +67,7 @@ export default function PublicQuizzesPage() {
       questionsCount: 40,
       testCount: 856,
       level: "Lớp 12",
+      isDemo: true,   // Admin cho phép khách thử
     },
     {
       id: "q3",
@@ -73,6 +77,7 @@ export default function PublicQuizzesPage() {
       questionsCount: 25,
       testCount: 512,
       level: "Lớp 11",
+      isDemo: false,  // Chỉ học viên VIP
     },
     {
       id: "q4",
@@ -82,6 +87,7 @@ export default function PublicQuizzesPage() {
       questionsCount: 30,
       testCount: 2108,
       level: "Lớp 12",
+      isDemo: false,  // Chỉ học viên VIP
     },
   ];
 
@@ -194,13 +200,27 @@ export default function PublicQuizzesPage() {
                     </div>
                   </div>
                   
-                  <div className="border-t border-divider-soft pt-4 flex justify-end">
-                    <Link
-                      href="/login"
-                      className="bg-primary hover:bg-primary-focus text-white px-4 py-2 rounded-pill text-xs font-semibold apple-active-scale transition-colors shadow-sm flex items-center gap-1"
-                    >
-                      Bắt đầu làm đề <Play className="h-3 w-3 fill-current" />
-                    </Link>
+                  <div className="border-t border-divider-soft pt-4 flex items-center justify-between">
+                    {quiz.isDemo ? (
+                      <span className="text-[10px] text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full font-semibold uppercase">Thử miễn phí</span>
+                    ) : (
+                      <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-semibold uppercase flex items-center gap-0.5"><Lock className="h-2.5 w-2.5" /> VIP</span>
+                    )}
+                    {quiz.isDemo ? (
+                      <button
+                        onClick={() => setActiveTab("demo")}
+                        className="bg-primary hover:bg-primary-focus text-white px-4 py-2 rounded-pill text-xs font-semibold apple-active-scale transition-colors shadow-sm flex items-center gap-1"
+                      >
+                        Thử ngay <Play className="h-3 w-3 fill-current" />
+                      </button>
+                    ) : (
+                      <Link
+                        href="/admission"
+                        className="border border-primary text-primary hover:bg-blue-50 px-4 py-2 rounded-pill text-xs font-semibold apple-active-scale transition-colors flex items-center gap-1"
+                      >
+                        Đăng ký VIP <Lock className="h-3 w-3" />
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))}
@@ -210,9 +230,9 @@ export default function PublicQuizzesPage() {
             <div className="bg-canvas border border-hairline rounded-lg p-5 shadow-sm flex gap-4 items-start">
               <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
               <div className="flex flex-col gap-1">
-                <h4 className="font-body-strong text-xs font-semibold text-ink">Yêu cầu đăng nhập học viên</h4>
+                <h4 className="font-body-strong text-xs font-semibold text-ink">Đề có nhãn &quot;Thử miễn phí&quot; — dành cho khách</h4>
                 <p className="text-[11px] text-ink-muted-80 leading-relaxed font-body">
-                  Để đảm bảo kết quả thi được ghi nhận thật vào **Sổ điểm cá nhân** và tự động tính toán nâng thứ hạng của bạn trên **Bảng xếp hạng tuần**, vui lòng đăng nhập tài khoản học viên trước khi làm bài thi thử chính thức.
+                  Các đề được admin đánh dấu <strong>Thử miễn phí</strong> có thể làm ngay không cần tài khoản. Kết quả thi chính thức và xếp hạng tuần chỉ được ghi nhận khi bạn có tài khoản học viên. Tài khoản được cấp sau khi <Link href="/admission" className="text-primary underline">đăng ký tư vấn lộ trình</Link>.
                 </p>
               </div>
             </div>

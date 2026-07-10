@@ -7,6 +7,7 @@ export default function LearningPathsPage() {
     {
       title: "Lộ Trình Bứt Phá Điểm 8+ THPT Quốc Gia",
       subtitle: "Dành riêng cho học sinh lớp 12 luyện thi tốt nghiệp đại học.",
+      pathSlug: "but-pha-8-plus-thpt",
       icon: <Layers className="h-6 w-6 text-blue-600" />,
       bgIcon: "bg-blue-50",
       steps: [
@@ -18,6 +19,7 @@ export default function LearningPathsPage() {
     {
       title: "Lộ Trình Ôn Sớm & Học Tốt 10 & 11 VIP",
       subtitle: "Xây dựng tư duy học tập sớm cho học sinh THPT.",
+      pathSlug: "on-som-lop-10-11-vip",
       icon: <Compass className="h-6 w-6 text-green-600" />,
       bgIcon: "bg-green-50",
       steps: [
@@ -28,6 +30,7 @@ export default function LearningPathsPage() {
     {
       title: "Chiến Dịch 90 Ngày Về Đích Cấp Tốc",
       subtitle: "Ôn thi chặng cuối trước kỳ thi THPT chính thức diễn ra.",
+      pathSlug: "90-ngay-ve-dich-cap-toc",
       icon: <Zap className="h-6 w-6 text-amber-600" />,
       bgIcon: "bg-amber-50",
       steps: [
@@ -84,7 +87,7 @@ export default function LearningPathsPage() {
 
               <div className="flex justify-end border-t border-divider-soft pt-4 mt-2">
                 <Link
-                  href="/admission"
+                  href={`/admission?path=${path.pathSlug}`}
                   className="bg-primary hover:bg-primary-focus text-white px-5 py-2 rounded-pill text-xs font-semibold apple-active-scale transition-colors shadow-sm flex items-center gap-1"
                 >
                   Nhận tư vấn lộ trình này <ArrowRight className="h-3 w-3" />
