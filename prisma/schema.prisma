@@ -226,3 +226,11 @@ model QuizSubmission {
   answers     Json           // Map of question ID to student's answer
   submittedAt DateTime       @default(now())
 }
+
+model Room {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  capacity  Int?
+  createdAt DateTime @default(now())
+}
+

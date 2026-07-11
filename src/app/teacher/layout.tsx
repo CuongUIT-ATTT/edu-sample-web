@@ -52,6 +52,13 @@ export default function TeacherDashboardLayout({
               Bảng điểm
             </Link>
             <Link 
+              href="/teacher/classes" 
+              className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+            >
+              <BookOpen className="h-4 w-4" />
+              Lớp luyện thi
+            </Link>
+            <Link 
               href="/teacher/schedules" 
               className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
             >

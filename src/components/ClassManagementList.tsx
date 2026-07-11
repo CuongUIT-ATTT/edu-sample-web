@@ -2,9 +2,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { BookOpen, Users, Plus, Star, Award, GraduationCap, X, ChevronDown, ChevronUp } from "lucide-react";
+import { BookOpen, Users, Plus, Trash2, Edit3, GraduationCap, X, ChevronDown, ChevronUp, UserPlus, CheckCircle, AlertCircle } from "lucide-react";
+import { updateClass, deleteClass, removeStudentFromClass, addStudentToClass } from "@/actions/classes";
 
 interface FormTeacher {
+  id: string;
   user: {
     name: string;
   };
@@ -32,24 +34,136 @@ interface ClassItem {
 interface ClassManagementListProps {
   initialClasses: ClassItem[];
   teachers: { id: string; user: { name: string } }[];
+  allStudents: { id: string; classId: string | null; user: { name: string; email: string } }[];
   createClassAction: (formData: FormData) => Promise<any>;
 }
 
 export default function ClassManagementList({ 
   initialClasses, 
   teachers, 
+  allStudents,
   createClassAction 
 }: ClassManagementListProps) {
   const [classes, setClasses] = useState<ClassItem[]>(initialClasses);
   const [selectedClass, setSelectedClass] = useState<ClassItem | null>(null);
   const [expandedClassId, setExpandedClassId] = useState<string | null>(null);
+  
+  // Modals / Status
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingClass, setEditingClass] = useState<ClassItem | null>(null);
+  const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
+  const [studentToAddId, setStudentToAddId] = useState("");
+
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Form states for class editing
+  const [name, setName] = useState("");
+  const [gradeLevel, setGradeLevel] = useState("10");
+  const [formTeacherId, setFormTeacherId] = useState("");
 
   const toggleExpand = (id: string) => {
     setExpandedClassId(expandedClassId === id ? null : id);
   };
 
+  const handleClassDelete = async (id: string, className: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn xoá lớp ${className} không?`)) return;
+    setSuccessMsg(null);
+    setErrorMsg(null);
+
+    const res = await deleteClass(id);
+    if (res.success) {
+      setSuccessMsg(res.message || "Xoá lớp thành công.");
+      window.location.reload();
+    } else {
+      setErrorMsg(res.error || "Xoá lớp thất bại.");
+    }
+  };
+
+  const openEditModal = (c: ClassItem) => {
+    setEditingClass(c);
+    setName(c.name);
+    setGradeLevel(c.gradeLevel.toString());
+    setFormTeacherId(c.formTeacher?.id || "");
+    setIsEditOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingClass) return;
+    setSuccessMsg(null);
+    setErrorMsg(null);
+
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("gradeLevel", gradeLevel);
+    formData.append("formTeacherId", formTeacherId);
+
+    const res = await updateClass(editingClass.id, formData);
+    if (res.success) {
+      setSuccessMsg(res.message || "Cập nhật thành công.");
+      setIsEditOpen(false);
+      setEditingClass(null);
+      window.location.reload();
+    } else {
+      setErrorMsg(res.error || "Cập nhật thất bại.");
+    }
+  };
+
+  const handleRemoveStudent = async (studentId: string, studentName: string) => {
+    if (!confirm(`Bạn có chắc muốn loại học viên ${studentName} khỏi lớp này không?`)) return;
+    setSuccessMsg(null);
+    setErrorMsg(null);
+
+    const res = await removeStudentFromClass(studentId);
+    if (res.success) {
+      setSuccessMsg(res.message || "Đã loại học viên khỏi lớp.");
+      window.location.reload();
+    } else {
+      setErrorMsg(res.error || "Thao tác thất bại.");
+    }
+  };
+
+  const handleAddStudent = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedClass || !studentToAddId) return;
+    setSuccessMsg(null);
+    setErrorMsg(null);
+
+    const res = await addStudentToClass(selectedClass.id, studentToAddId);
+    if (res.success) {
+      setSuccessMsg(res.message || "Đã thêm học viên vào lớp.");
+      setIsAddStudentOpen(false);
+      setStudentToAddId("");
+      window.location.reload();
+    } else {
+      setErrorMsg(res.error || "Thao tác thất bại.");
+    }
+  };
+
+  // Get students who are not in the currently selected class
+  const availableStudents = allStudents.filter(
+    (s) => s.classId !== selectedClass?.id
+  );
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Alert Notices */}
+      <div className="lg:col-span-3">
+        {successMsg && (
+          <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 flex items-center justify-between gap-3 text-sm">
+            <span>{successMsg}</span>
+            <button onClick={() => setSuccessMsg(null)}><X className="h-4 w-4" /></button>
+          </div>
+        )}
+        {errorMsg && (
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 flex items-center justify-between gap-3 text-sm">
+            <span>{errorMsg}</span>
+            <button onClick={() => setErrorMsg(null)}><X className="h-4 w-4" /></button>
+          </div>
+        )}
+      </div>
+
       {/* Left List */}
       <div className="lg:col-span-2 flex flex-col gap-6">
         <div>
@@ -93,6 +207,29 @@ export default function ClassManagementList({
                         <Users className="h-3.5 w-3.5" />
                         {c.students.length} Học viên
                       </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditModal(c);
+                        }}
+                        className="text-primary hover:bg-blue-50 p-2 rounded-full"
+                        title="Sửa lớp"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleClassDelete(c.id, c.name);
+                        }}
+                        className="text-red-500 hover:bg-red-50 p-2 rounded-full"
+                        title="Xoá lớp"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+
                       {isExpanded ? <ChevronUp className="h-4 w-4 text-ink-muted-48" /> : <ChevronDown className="h-4 w-4 text-ink-muted-48" />}
                     </div>
                   </div>
@@ -106,12 +243,21 @@ export default function ClassManagementList({
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {c.students.map((student) => (
-                            <div key={student.id} className="flex items-center gap-2 text-xs font-body text-ink bg-canvas border border-hairline p-2 rounded">
-                              <GraduationCap className="h-4 w-4 text-blue-500" />
-                              <div>
-                                <span className="font-semibold">{student.user.name}</span>
-                                <span className="text-[10px] text-ink-muted-48 block">{student.user.email}</span>
+                            <div key={student.id} className="flex items-center justify-between text-xs font-body text-ink bg-canvas border border-hairline p-2 rounded">
+                              <div className="flex items-center gap-2">
+                                <GraduationCap className="h-4 w-4 text-blue-500" />
+                                <div>
+                                  <span className="font-semibold">{student.user.name}</span>
+                                  <span className="text-[10px] text-ink-muted-48 block">{student.user.email}</span>
+                                </div>
                               </div>
+                              <button
+                                onClick={() => handleRemoveStudent(student.id, student.user.name)}
+                                className="text-red-500 hover:bg-red-50 p-1 rounded"
+                                title="Loại khỏi lớp"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -135,7 +281,6 @@ export default function ClassManagementList({
         <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm">
           <form action={async (fd) => {
             await createClassAction(fd);
-            // In a real app we'd reload or let Server Components trigger the reload
             window.location.reload();
           }} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -184,17 +329,91 @@ export default function ClassManagementList({
         </div>
       </div>
 
-      {/* Modal - View all students detailed list */}
+      {/* CLASS EDIT MODAL WITH FIXED SIZE */}
+      {isEditOpen && editingClass && (
+        <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-canvas border border-hairline rounded-lg w-[450px] shadow-product flex flex-col overflow-hidden animate-fade-in">
+            <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
+              <h3 className="font-tagline text-base font-semibold text-ink">
+                Sửa lớp luyện thi: {editingClass.name}
+              </h3>
+              <button 
+                onClick={() => {
+                  setIsEditOpen(false);
+                  setEditingClass(null);
+                }} 
+                className="text-ink-muted-48 hover:text-ink"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="p-6 flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-caption-strong text-ink-muted-80">Tên lớp</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="VIP1, VIP2..."
+                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-caption-strong text-ink-muted-80">Khối học</label>
+                <select
+                  value={gradeLevel}
+                  onChange={(e) => setGradeLevel(e.target.value)}
+                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                  required
+                >
+                  <option value="10">Khối Lớp 10</option>
+                  <option value="11">Khối Lớp 11</option>
+                  <option value="12">Khối Lớp 12</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-caption-strong text-ink-muted-80">Giảng viên chủ nhiệm</label>
+                <select
+                  value={formTeacherId}
+                  onChange={(e) => setFormTeacherId(e.target.value)}
+                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                >
+                  <option value="">— Chọn giảng viên —</option>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>{t.user.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                className="bg-primary hover:bg-primary-focus text-white px-6 py-2.5 rounded-pill font-body font-semibold transition-colors w-full mt-4 text-sm"
+              >
+                Lưu thay đổi
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DETAILED STUDENTS MODAL WITH FIXED SIZE & STUDENT ASSIGNMENT */}
       {selectedClass && (
         <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-lg w-full max-w-lg shadow-product flex flex-col overflow-hidden animate-fade-in">
+          <div className="bg-canvas border border-hairline rounded-lg w-[480px] shadow-product flex flex-col overflow-hidden animate-fade-in">
             <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
               <h3 className="font-tagline text-base font-semibold text-ink flex items-center gap-2">
                 <Users className="h-5 w-5 text-primary" />
-                Danh sách học viên lớp {selectedClass.name}
+                Học viên lớp {selectedClass.name}
               </h3>
               <button 
-                onClick={() => setSelectedClass(null)} 
+                onClick={() => {
+                  setSelectedClass(null);
+                  setIsAddStudentOpen(false);
+                }} 
                 className="text-ink-muted-48 hover:text-ink"
               >
                 <X className="h-5 w-5" />
@@ -202,28 +421,80 @@ export default function ClassManagementList({
             </div>
 
             <div className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[60vh]">
-              {selectedClass.students.length === 0 ? (
-                <div className="text-center py-8">
-                  <GraduationCap className="h-10 w-10 text-ink-muted-48 mx-auto mb-2" />
-                  <p className="text-sm font-body text-ink-muted-80">Lớp học này chưa có học viên nào tham gia.</p>
-                </div>
+              {/* Add Student Trigger / Form */}
+              {!isAddStudentOpen ? (
+                <button
+                  onClick={() => setIsAddStudentOpen(true)}
+                  className="bg-primary hover:bg-primary-focus text-white text-xs px-4 py-2 rounded-pill font-semibold flex items-center justify-center gap-1.5 self-start shadow-sm mb-2"
+                >
+                  <UserPlus className="h-4 w-4" /> Thêm học viên vào lớp này
+                </button>
               ) : (
-                <div className="divide-y divide-hairline">
-                  {selectedClass.students.map((s, idx) => (
+                <form onSubmit={handleAddStudent} className="bg-surface-pearl border border-divider-soft p-4 rounded flex flex-col gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-caption-strong text-ink-muted-80">Chọn học viên chưa tham gia lớp</label>
+                    <select
+                      value={studentToAddId}
+                      onChange={(e) => setStudentToAddId(e.target.value)}
+                      className="bg-canvas border border-hairline rounded px-3 py-1.5 text-xs outline-none"
+                      required
+                    >
+                      <option value="">— Chọn học viên —</option>
+                      {availableStudents.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.user.name} ({s.user.email}) {s.classId ? `[Hiện ở lớp khác]` : "[Chưa xếp lớp]"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddStudentOpen(false)}
+                      className="border border-divider-soft hover:bg-canvas text-xs px-3 py-1.5 rounded-pill"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded-pill font-semibold"
+                    >
+                      Xác nhận thêm
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Student Listing */}
+              <div className="divide-y divide-hairline">
+                {selectedClass.students.length === 0 ? (
+                  <div className="text-center py-8">
+                    <GraduationCap className="h-10 w-10 text-ink-muted-48 mx-auto mb-2" />
+                    <p className="text-xs font-body text-ink-muted-80">Lớp học này chưa có học viên nào.</p>
+                  </div>
+                ) : (
+                  selectedClass.students.map((s, idx) => (
                     <div key={s.id} className="py-3 flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-xs font-bold font-mono">
+                        <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-[10px] font-bold">
                           {idx + 1}
                         </span>
                         <div>
-                          <p className="text-sm font-body-strong text-ink font-semibold">{s.user.name}</p>
-                          <p className="text-xs font-caption text-ink-muted-48">{s.user.email}</p>
+                          <p className="text-xs font-body-strong text-ink font-semibold">{s.user.name}</p>
+                          <p className="text-[10px] font-caption text-ink-muted-48">{s.user.email}</p>
                         </div>
                       </div>
+                      <button
+                        onClick={() => handleRemoveStudent(s.id, s.user.name)}
+                        className="text-red-500 hover:bg-red-50 p-1.5 rounded-full"
+                        title="Loại khỏi lớp"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -67,6 +67,36 @@ export default function TeacherAttendancePage() {
   // Find currently selected schedule object
   const activeSchedule = schedules.find((s) => s.id === selectedScheduleId);
 
+  const checkTimeWindow = () => {
+    if (!activeSchedule || !selectedDate) return { isAllowed: true, reason: "" };
+
+    const now = new Date();
+    const startStr = `${selectedDate}T${activeSchedule.startTime}:00`;
+    const endStr = `${selectedDate}T${activeSchedule.endTime}:00`;
+
+    const startDateTime = new Date(startStr);
+    const endDateTime = new Date(endStr);
+
+    if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+      return { isAllowed: true, reason: "" };
+    }
+
+    const limitStart = new Date(startDateTime.getTime() - 10 * 60 * 1000);
+    const limitEnd = new Date(endDateTime.getTime() + 10 * 60 * 1000);
+
+    const isAllowed = now >= limitStart && now <= limitEnd;
+    
+    const limitStartStr = limitStart.toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' });
+    const limitEndStr = limitEnd.toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' });
+    
+    return {
+      isAllowed,
+      reason: `Ca học này chỉ được phép điểm danh từ ${limitStartStr} đến ${limitEndStr} ngày ${startDateTime.toLocaleDateString("vi-VN")}.`
+    };
+  };
+
+  const { isAllowed, reason } = checkTimeWindow();
+
   // 2. Compute date whenever selected schedule or weekOffset changes
   useEffect(() => {
     if (!activeSchedule) return;
@@ -208,6 +238,19 @@ export default function TeacherAttendancePage() {
         </div>
       </div>
 
+      {/* Time window lock warning */}
+      {activeSchedule && !isAllowed && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-5 flex gap-3 items-start animate-fade-in">
+          <ShieldAlert className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 className="text-sm font-semibold text-ink">Ngoài thời gian điểm danh quy định</h4>
+            <p className="text-xs text-ink-muted-80 mt-1 leading-relaxed">
+              {reason} Giảng viên chỉ được phép điểm danh trong khoảng thời gian từ 10 phút trước khi bắt đầu ca học cho đến 10 phút sau khi kết thúc ca học. Ngoài thời gian này, vui lòng liên hệ Quản trị viên để bổ sung hoặc chỉnh sửa.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Warning info */}
       {schedules.length === 0 && !loadingSchedules && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-5 flex gap-3 items-start">
@@ -255,7 +298,7 @@ export default function TeacherAttendancePage() {
           {students.length > 0 && (
             <button
               onClick={handleSubmit}
-              disabled={isPending || students.length === 0}
+              disabled={isPending || students.length === 0 || !isAllowed}
               className="flex items-center gap-2 bg-primary hover:bg-primary-focus text-white px-4 py-2 rounded-pill text-xs font-body-strong transition-colors disabled:opacity-50"
             >
               {isPending ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckSquare className="h-3.5 w-3.5" />}

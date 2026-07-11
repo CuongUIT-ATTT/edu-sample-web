@@ -100,6 +100,15 @@ export async function updateUser(userId: string, input: Partial<CreateUserInput>
       return { success: false, error: "Không tìm thấy người dùng." };
     }
 
+    if (email && email !== user.email) {
+      const existingEmail = await db.user.findFirst({
+        where: { email },
+      });
+      if (existingEmail) {
+        return { success: false, error: "Email này đã được sử dụng bởi một tài khoản khác." };
+      }
+    }
+
     // Prepare update data
     const updateData: { email?: string; name?: string; role?: Role; passwordHash?: string } = {};
     if (email) updateData.email = email;

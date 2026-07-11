@@ -26,6 +26,9 @@ export default async function AdminSchedulesPage() {
     include: { user: true },
     orderBy: { user: { name: "asc" } },
   });
+  
+  // Fetch rooms list
+  const rooms = await db.room.findMany({ orderBy: { name: "asc" } });
 
   return (
     <div className="flex flex-col gap-6">
@@ -41,6 +44,7 @@ export default async function AdminSchedulesPage() {
         classes={classes}
         subjects={subjects}
         teachers={teachers as any}
+        rooms={rooms}
       />
     </div>
   );

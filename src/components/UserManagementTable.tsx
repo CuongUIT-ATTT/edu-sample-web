@@ -56,6 +56,18 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
   const [formClassId, setFormClassId] = useState("");
   const [formParentId, setFormParentId] = useState("");
 
+  const downloadUserCsvTemplate = () => {
+    const headers = "Name,Email,Password,Role,Class\n";
+    const sampleRow = "\"Nguyen Van A\",\"student_a@eduweb.vn\",\"Password@2026\",\"STUDENT\",\"10A1\"\n\"Tran Thi B\",\"teacher_b@eduweb.vn\",\"Password@2026\",\"TEACHER\",\"\"\n";
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(headers + sampleRow);
+    const link = document.createElement("a");
+    link.setAttribute("href", csvContent);
+    link.setAttribute("download", "mau_danh_sach_nguoi_dung.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "ADMIN":
@@ -442,7 +454,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
       {/* CREATE & EDIT MODAL */}
       {(isCreateOpen || editingUser) && (
         <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-lg w-full max-w-md shadow-product flex flex-col overflow-hidden animate-fade-in">
+          <div className="bg-canvas border border-hairline rounded-lg w-[500px] max-w-full shadow-product flex flex-col overflow-hidden animate-fade-in">
             <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
               <h3 className="font-tagline text-base font-semibold text-ink">
                 {editingUser ? `Chỉnh sửa tài khoản: ${editingUser.name}` : "Tạo tài khoản mới"}
@@ -559,7 +571,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
       {/* IMPORT EXCEL/CSV MODAL */}
       {isImportOpen && (
         <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-lg w-full max-w-xl shadow-product flex flex-col overflow-hidden animate-fade-in">
+          <div className="bg-canvas border border-hairline rounded-lg w-[550px] max-w-full shadow-product flex flex-col overflow-hidden animate-fade-in">
             <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
               <h3 className="font-tagline text-base font-semibold text-ink flex items-center gap-2">
                 <FileSpreadsheet className="h-5 w-5 text-green-600" />
@@ -578,6 +590,18 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
             </div>
 
             <div className="p-6 flex flex-col gap-6 overflow-y-auto max-h-[70vh]">
+              {/* Template Download Alert */}
+              <div className="flex justify-between items-center bg-blue-50 border border-blue-200 p-3.5 rounded-lg text-xs">
+                <span className="font-semibold text-blue-800">Tải xuống file dữ liệu mẫu học viên:</span>
+                <button
+                  type="button"
+                  onClick={downloadUserCsvTemplate}
+                  className="text-primary hover:underline font-bold"
+                >
+                  Tải file CSV mẫu (.csv)
+                </button>
+              </div>
+
               {/* File dropzone / upload */}
               <div className="border-2 border-dashed border-divider rounded-lg p-8 text-center flex flex-col items-center justify-center gap-2 hover:border-primary transition-colors cursor-pointer bg-surface-pearl relative">
                 <Upload className="h-10 w-10 text-ink-muted-48" />

@@ -8,7 +8,8 @@ import {
   LogOut, 
   ShieldAlert, 
   LayoutDashboard,
-  Settings
+  Settings,
+  Home
 } from "lucide-react";
 
 export default function AdminDashboardLayout({
@@ -56,6 +57,13 @@ export default function AdminDashboardLayout({
             >
               <Calendar className="h-4 w-4 text-purple-500" />
               Môn học
+            </Link>
+            <Link 
+              href="/admin/rooms" 
+              className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+            >
+              <Home className="h-4 w-4 text-orange-500" />
+              Phòng học
             </Link>
             <Link 
               href="/admin/schedules" 

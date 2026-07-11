@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle } from "lucide-react";
+import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload } from "lucide-react";
 import { createQuiz, deleteQuiz } from "@/actions/quizzes";
 
 interface QuizItem {
@@ -93,20 +93,83 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
     }
   };
 
+  const downloadCsvTemplate = () => {
+    const headers = "QuestionText,OptionA,OptionB,OptionC,OptionD,CorrectAnswerIndex,Score\n";
+    const sampleRow = "\"Tim tap xac dinh cua ham so $y=\\log(x-3)$\",\"$D=(3; +\\infty)$\",\"$D=[3; +\\infty)$\",\"$D=(-\\infty; 3)$\",\"$D=\\mathbb{R}$\",\"0\",\"1.0\"";
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(headers + sampleRow);
+    const link = document.createElement("a");
+    link.setAttribute("href", csvContent);
+    link.setAttribute("download", "mau_cau_hoi_trac_nghiem.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split("\n");
+      const parsedQuestions = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const cells = [];
+        let current = "";
+        let inQuotes = false;
+        for (let j = 0; j < line.length; j++) {
+          const char = line[j];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            cells.push(current.trim());
+            current = "";
+          } else {
+            current += char;
+          }
+        }
+        cells.push(current.trim());
+
+        if (cells.length >= 7) {
+          parsedQuestions.push({
+            questionText: cells[0].replace(/^"|"$/g, "").replace(/""/g, '"'),
+            options: [
+              cells[1].replace(/^"|"$/g, "").replace(/""/g, '"'),
+              cells[2].replace(/^"|"$/g, "").replace(/""/g, '"'),
+              cells[3].replace(/^"|"$/g, "").replace(/""/g, '"'),
+              cells[4].replace(/^"|"$/g, "").replace(/""/g, '"'),
+            ],
+            correctAnswer: cells[5].replace(/^"|"$/g, ""),
+            score: parseFloat(cells[6]) || 1.0,
+          });
+        }
+      }
+
+      if (parsedQuestions.length > 0) {
+        setQuestions(parsedQuestions);
+        alert(`Đã tải thành công ${parsedQuestions.length} câu hỏi từ file mẫu CSV! Hãy xem lại chi tiết bên dưới trước khi tạo đề.`);
+      } else {
+        alert("Không tìm thấy dòng câu hỏi hợp lệ trong file. Vui lòng kiểm tra lại cấu trúc file mẫu.");
+      }
+    };
+    reader.readAsText(file, "UTF-8");
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSuccessMsg(null);
     setErrorMsg(null);
 
-    // Validate
-    if (questions.some(q => q.questionText.trim() === "" || q.options.some(opt => opt.trim() === ""))) {
-      setErrorMsg("Vui lòng điền đầy đủ câu hỏi và tất cả các phương án trắc nghiệm.");
-      return;
-    }
-
     const res = await createQuiz({
       title,
-      description,
+      description: description || undefined,
       duration: Number(duration),
       passingScore: Number(passingScore),
       subjectId,
@@ -116,7 +179,6 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
     if (res.success) {
       setSuccessMsg("Tạo đề kiểm tra trắc nghiệm thành công!");
       setIsCreateOpen(false);
-      // Reset
       setTitle("");
       setDescription("");
       setDuration(15);
@@ -214,10 +276,10 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
         )}
       </div>
 
-      {/* CREATE QUIZ MODAL */}
+      {/* CREATE QUIZ MODAL (FIXED WIDTH TO AVOID SQUISHING) */}
       {isCreateOpen && (
         <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-lg w-full max-w-2xl shadow-product flex flex-col overflow-hidden animate-fade-in">
+          <div className="bg-canvas border border-hairline rounded-lg w-[650px] max-w-full shadow-product flex flex-col overflow-hidden animate-fade-in">
             <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
               <h3 className="font-tagline text-base font-semibold text-ink flex items-center gap-2">
                 <PlusCircle className="h-5 w-5 text-primary" />
@@ -291,6 +353,31 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
                     className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-sm text-ink outline-none focus:border-primary-focus w-full"
                   />
                 </div>
+              </div>
+
+              {/* CSV Upload / Fast Import Option */}
+              <div className="border border-divider rounded-lg p-4 bg-surface-pearl flex flex-col gap-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-ink flex items-center gap-1.5">
+                    <Upload className="h-4 w-4 text-green-600" /> Nhập nhanh bằng file mẫu CSV
+                  </span>
+                  <button
+                    type="button"
+                    onClick={downloadCsvTemplate}
+                    className="text-xs text-primary hover:underline font-semibold"
+                  >
+                    Tải file CSV mẫu (.csv)
+                  </button>
+                </div>
+                <p className="text-[10px] text-ink-muted-80 leading-relaxed">
+                  Thiết lập file Excel/CSV theo đúng mẫu trên, chọn tải lên để tự động điền danh sách câu hỏi cực nhanh.
+                </p>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleImportCsv}
+                  className="bg-canvas border border-hairline rounded p-2 text-xs w-full"
+                />
               </div>
 
               {/* Formula instructions */}

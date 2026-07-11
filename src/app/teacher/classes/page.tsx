@@ -3,10 +3,17 @@ import React from "react";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import ClassManagementList from "@/components/ClassManagementList";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminClassesPage() {
+export default async function TeacherClassesPage() {
+  const session = await getSession();
+  if (!session || session.role !== "TEACHER") {
+    redirect("/login");
+  }
+
   const classesList = await db.class.findMany({
     include: {
       formTeacher: {
@@ -29,7 +36,6 @@ export default async function AdminClassesPage() {
     orderBy: { user: { name: "asc" } },
   });
 
-  // Query all student profiles to manage student assignments inside classes
   const allStudents = await db.studentProfile.findMany({
     include: {
       user: true,
@@ -53,7 +59,7 @@ export default async function AdminClassesPage() {
           formTeacherId: formTeacherId || null,
         },
       });
-      revalidatePath("/admin/classes");
+      revalidatePath("/teacher/classes");
     } catch (e) {
       console.error(e);
     }
