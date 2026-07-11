@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Users, GraduationCap, Calendar, Mail, Phone, Book } from "lucide-react";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
@@ -55,8 +55,8 @@ export default async function ParentChildrenPage() {
         childInfo = {
           name: child.user.name,
           email: child.user.email,
-          className: child.class?.name || "ChÆ°a phÃ¢n lá»›p",
-          formTeacherName: child.class?.formTeacher?.user.name || "ChÆ°a phÃ¢n cÃ´ng",
+          className: child.class?.name || "Chưa phân lớp",
+          formTeacherName: child.class?.formTeacher?.user.name || "Chưa phân công",
           formTeacherPhone: "0912 345 678", // Mock phone for UI completeness
           subjects: Array.from(subjectMap.values()),
         };
@@ -70,14 +70,14 @@ export default async function ParentChildrenPage() {
     <div className="flex flex-col gap-8 max-w-4xl">
       {/* Header */}
       <div>
-        <h1 className="font-tagline text-2xl font-semibold text-ink">Há»“ sÆ¡ há»c táº­p cá»§a con</h1>
-        <p className="font-caption text-ink-muted-80 mt-1">ThÃ´ng tin chi tiáº¿t lá»›p há»c vÃ  giÃ¡o viÃªn chá»§ nhiá»‡m</p>
+        <h1 className="font-tagline text-2xl font-semibold text-ink">Hồ sơ học tập của con</h1>
+        <p className="font-caption text-ink-muted-80 mt-1">Thông tin chi tiết lớp học và giáo viên chủ nhiệm</p>
       </div>
 
       {!childInfo ? (
         <div className="bg-canvas border border-hairline rounded-lg p-16 text-center shadow-sm">
           <GraduationCap className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
-          <p className="font-body text-ink-muted-80">ChÆ°a liÃªn káº¿t há»“ sÆ¡ há»c sinh.</p>
+          <p className="font-body text-ink-muted-80">Chưa liên kết hồ sơ học sinh.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -100,7 +100,7 @@ export default async function ParentChildrenPage() {
               </div>
               <div className="flex items-center gap-3 text-sm text-ink-muted-80 font-caption">
                 <GraduationCap className="h-4 w-4 text-ink-muted-48" />
-                <span>TrÆ°á»ng THPT EduWeb</span>
+                <span>Trường THPT EduWeb</span>
               </div>
             </div>
           </div>
@@ -108,7 +108,7 @@ export default async function ParentChildrenPage() {
           {/* Form Teacher Card */}
           <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm flex flex-col gap-6">
             <div>
-              <h3 className="text-xs font-caption-strong text-ink-muted-48 uppercase tracking-wider">GiÃ¡o viÃªn chá»§ nhiá»‡m</h3>
+              <h3 className="text-xs font-caption-strong text-ink-muted-48 uppercase tracking-wider">Giáo viên chủ nhiệm</h3>
               <p className="font-body-strong text-base text-ink mt-2">{childInfo.formTeacherName}</p>
             </div>
 
@@ -119,7 +119,7 @@ export default async function ParentChildrenPage() {
               </div>
               <div className="flex items-center gap-3 text-sm text-ink-muted-80 font-caption">
                 <Calendar className="h-4 w-4 text-ink-muted-48" />
-                <span>Giá» tiáº¿p phá»¥ huynh: Thá»© SÃ¡u (15:00 - 17:00)</span>
+                <span>Giờ tiếp phụ huynh: Thứ Sáu (15:00 - 17:00)</span>
               </div>
             </div>
           </div>
@@ -128,7 +128,7 @@ export default async function ParentChildrenPage() {
           <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm col-span-1 md:col-span-2">
             <h3 className="text-xs font-caption-strong text-ink-muted-48 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Book className="h-4 w-4 text-purple-600" />
-              CÃ¡c mÃ´n há»c ká»³ nÃ y ({childInfo.subjects.length} mÃ´n)
+              Các môn học kỳ này ({childInfo.subjects.length} môn)
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {childInfo.subjects.map((sub) => (

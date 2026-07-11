@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Users, CheckSquare, Award, ArrowRight, Clock, Trophy } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
@@ -10,14 +10,14 @@ export const dynamic = "force-dynamic";
 export default async function ParentDashboardPage() {
   const session = await getSession();
 
-  let parentName = "Phá»¥ huynh";
-  let childName = "Con há»c viÃªn";
-  let className = "Lá»›p VIP";
+  let parentName = "Phụ huynh";
+  let childName = "Con học viên";
+  let className = "Lớp VIP";
   let gpaString = "8.6 / 10";
   let attendanceRate = "98.2%";
-  let formTeacherName = "Tháº§y HÃ¹ng CÆ°á»ng";
+  let formTeacherName = "Thầy Hùng Cường";
   let formTeacherPhone = "1900 1234";
-  let rankingTitle = "Tháº§n Pháº£n á»¨ng Luyá»‡n Thi âš¡";
+  let rankingTitle = "Thần Phản Ứng Luyện Thi ⚡";
   
   let dbGrades: { id: string; subjectName: string; type: string; score: number; dateString: string }[] = [];
   let dbAttendances: { id: string; dateString: string; status: string }[] = [];
@@ -54,7 +54,7 @@ export default async function ParentDashboardPage() {
       if (parentProfile && parentProfile.students.length > 0) {
         const student = parentProfile.students[0]; // Fetch the first child for summary dashboard
         childName = student.user.name;
-        className = student.class?.name || "ChÆ°a xáº¿p lá»›p";
+        className = student.class?.name || "Chưa xếp lớp";
 
         if (student.class?.formTeacher) {
           formTeacherName = student.class.formTeacher.user.name;
@@ -71,15 +71,15 @@ export default async function ParentDashboardPage() {
           dbGrades = student.grades.slice(0, 3).map((g) => ({
             id: g.id,
             subjectName: g.subject.name,
-            type: g.type === "QUIZ" ? "Kiá»ƒm tra 15 phÃºt" : g.type === "MIDTERM" ? "Thi thá»­ Giá»¯a ká»³" : "Kiá»ƒm tra miá»‡ng",
+            type: g.type === "QUIZ" ? "Kiểm tra 15 phút" : g.type === "MIDTERM" ? "Thi thử Giữa kỳ" : "Kiểm tra miệng",
             score: g.score,
             dateString: new Date(g.date).toLocaleDateString("vi-VN"),
           }));
         }
 
-        if (avgScoreVal >= 9.0) rankingTitle = "Huyá»n Thoáº¡i Luyá»‡n Äá» ðŸ†";
-        else if (avgScoreVal >= 8.0) rankingTitle = "Tháº§n Pháº£n á»¨ng Luyá»‡n Thi âš¡";
-        else rankingTitle = "Chiáº¿n Binh ChuyÃªn Äá» ðŸ”¥";
+        if (avgScoreVal >= 9.0) rankingTitle = "Huyền Thoại Luyện Đề 🏆";
+        else if (avgScoreVal >= 8.0) rankingTitle = "Thần Phản Ứng Luyện Thi ⚡";
+        else rankingTitle = "Chiến Binh Chuyên Đề 🔥";
 
         // Calculate child Attendance Rate
         if (student.attendances.length > 0) {
@@ -89,7 +89,7 @@ export default async function ParentDashboardPage() {
           dbAttendances = student.attendances.slice(0, 5).map((a) => ({
             id: a.id,
             dateString: new Date(a.date).toLocaleDateString("vi-VN", { weekday: 'long', year: 'numeric', month: 'numeric', day: 'numeric' }),
-            status: a.status === "PRESENT" ? "CÃ³ máº·t" : "Váº¯ng máº·t cÃ³ phÃ©p",
+            status: a.status === "PRESENT" ? "Có mặt" : "Vắng mặt có phép",
           }));
         }
       }
@@ -107,19 +107,19 @@ export default async function ParentDashboardPage() {
   const displayGrades = dbGrades.length > 0
     ? dbGrades
     : [
-        { id: "1", subjectName: "ToÃ¡n há»c nÃ¢ng cao", type: "Kiá»ƒm tra 15 phÃºt", score: 9.0, dateString: "08/07/2026" },
-        { id: "2", subjectName: "Váº­t lÃ½ lÃ½ thuyáº¿t", type: "Kiá»ƒm tra miá»‡ng", score: 8.0, dateString: "06/07/2026" },
-        { id: "3", subjectName: "Tiáº¿ng Anh há»c thuáº­t", type: "BÃ i viáº¿t sá»‘ 1", score: 8.5, dateString: "04/07/2026" },
+        { id: "1", subjectName: "Toán học nâng cao", type: "Kiểm tra 15 phút", score: 9.0, dateString: "08/07/2026" },
+        { id: "2", subjectName: "Vật lý lý thuyết", type: "Kiểm tra miệng", score: 8.0, dateString: "06/07/2026" },
+        { id: "3", subjectName: "Tiếng Anh học thuật", type: "Bài viết số 1", score: 8.5, dateString: "04/07/2026" },
       ];
 
   const displayAttendances = dbAttendances.length > 0
     ? dbAttendances
     : [
-        { id: "1", dateString: "Thá»© TÆ°, 08/07/2026", status: "CÃ³ máº·t" },
-        { id: "2", dateString: "Thá»© Ba, 07/07/2026", status: "CÃ³ máº·t" },
-        { id: "3", dateString: "Thá»© Hai, 06/07/2026", status: "CÃ³ máº·t" },
-        { id: "4", dateString: "Thá»© SÃ¡u, 03/07/2026", status: "Váº¯ng máº·t cÃ³ phÃ©p" },
-        { id: "5", dateString: "Thá»© NÄƒm, 02/07/2026", status: "CÃ³ máº·t" },
+        { id: "1", dateString: "Thứ Tư, 08/07/2026", status: "Có mặt" },
+        { id: "2", dateString: "Thứ Ba, 07/07/2026", status: "Có mặt" },
+        { id: "3", dateString: "Thứ Hai, 06/07/2026", status: "Có mặt" },
+        { id: "4", dateString: "Thứ Sáu, 03/07/2026", status: "Vắng mặt có phép" },
+        { id: "5", dateString: "Thứ Năm, 02/07/2026", status: "Có mặt" },
       ];
 
   // Calculate static countdown days on the server
@@ -138,27 +138,27 @@ export default async function ParentDashboardPage() {
             <Trophy className="h-5 w-5" />
           </div>
           <div>
-            <h4 className="font-tagline text-sm font-bold">Ká»³ thi Tá»‘t nghiá»‡p THPT 2027 cá»§a con Ä‘ang cáº­n ká»</h4>
-            <p className="text-[11px] text-indigo-200">Äá»“ng hÃ nh cÃ¹ng con Ã´n táº­p, kháº¯c phá»¥c lá»—i sai lÃ½ thuyáº¿t Ä‘áº¡t káº¿t quáº£ tá»‘t nháº¥t</p>
+            <h4 className="font-tagline text-sm font-bold">Kỳ thi Tốt nghiệp THPT 2027 của con đang cận kề</h4>
+            <p className="text-[11px] text-indigo-200">Đồng hành cùng con ôn tập, khắc phục lỗi sai lý thuyết đạt kết quả tốt nhất</p>
           </div>
         </div>
         <div className="flex gap-2 items-center">
-          <span className="text-xs text-indigo-200 font-semibold">Chá»‰ cÃ²n:</span>
+          <span className="text-xs text-indigo-200 font-semibold">Chỉ còn:</span>
           <span className="font-mono text-xl font-extrabold text-amber-300 bg-indigo-950 px-3.5 py-1 rounded border border-indigo-800">
             {daysRemaining}
           </span>
-          <span className="text-xs text-indigo-200">ngÃ y thi</span>
+          <span className="text-xs text-indigo-200">ngày thi</span>
         </div>
       </div>
 
       {/* Welcome Block */}
       <div className="flex justify-between items-start gap-4 flex-wrap">
         <div>
-          <h1 className="font-display-lg text-3xl font-semibold text-ink">Xin chÃ o, {parentName}</h1>
-          <p className="font-caption text-ink-muted-80 mt-1">Phá»¥ huynh há»c viÃªn: <strong>{childName}</strong> (Lá»›p {className}).</p>
+          <h1 className="font-display-lg text-3xl font-semibold text-ink">Xin chào, {parentName}</h1>
+          <p className="font-caption text-ink-muted-80 mt-1">Phụ huynh học viên: <strong>{childName}</strong> (Lớp {className}).</p>
         </div>
         <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-sm">
-          <span>Danh hiá»‡u cá»§a con:</span>
+          <span>Danh hiệu của con:</span>
           <strong className="text-amber-900">{rankingTitle}</strong>
         </div>
       </div>
@@ -170,7 +170,7 @@ export default async function ParentDashboardPage() {
             <Award className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Äiá»ƒm thi thá»­ cá»§a con (GPA)</p>
+            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Điểm thi thử của con (GPA)</p>
             <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-primary transition-colors">{displayGPA}</h3>
           </div>
         </Link>
@@ -180,7 +180,7 @@ export default async function ParentDashboardPage() {
             <CheckSquare className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Tá»· lá»‡ chuyÃªn cáº§n cá»§a con</p>
+            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Tỷ lệ chuyên cần của con</p>
             <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-green-600 transition-colors">{displayAttendance}</h3>
           </div>
         </Link>
@@ -190,7 +190,7 @@ export default async function ParentDashboardPage() {
             <Users className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Giáº£ng viÃªn phá»¥ trÃ¡ch</p>
+            <p className="text-xs text-ink-muted-48 uppercase font-semibold">Giảng viên phụ trách</p>
             <h3 className="font-body-strong text-lg font-bold text-ink mt-2 group-hover:text-purple-600 transition-colors">{displayTeacherName}</h3>
             <p className="text-xs text-ink-muted-48 mt-0.5">Hotline: {displayTeacherPhone}</p>
           </div>
@@ -203,8 +203,8 @@ export default async function ParentDashboardPage() {
         {/* Latest grades */}
         <Link href="/parent/grades" className="bg-canvas border border-hairline rounded-lg p-6 hover:border-primary transition-all duration-200 cursor-pointer block">
           <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4 flex justify-between items-center">
-            <span>Káº¿t quáº£ kiá»ƒm tra má»›i nháº­n</span>
-            <span className="text-xs text-primary font-semibold hover:underline">Xem táº¥t cáº£ Ä‘iá»ƒm sá»‘ &rarr;</span>
+            <span>Kết quả kiểm tra mới nhận</span>
+            <span className="text-xs text-primary font-semibold hover:underline">Xem tất cả điểm số &rarr;</span>
           </h3>
           <div className="flex flex-col gap-4">
             {displayGrades.map((grade) => (
@@ -225,15 +225,15 @@ export default async function ParentDashboardPage() {
         {/* Latest attendance */}
         <Link href="/parent/attendance" className="bg-canvas border border-hairline rounded-lg p-6 hover:border-green-600 transition-all duration-200 cursor-pointer block">
           <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4 flex justify-between items-center">
-            <span>Nháº­t kÃ½ Ä‘iá»ƒm danh ca há»c gáº§n Ä‘Ã¢y</span>
-            <span className="text-xs text-green-600 font-semibold hover:underline">Chi tiáº¿t chuyÃªn cáº§n &rarr;</span>
+            <span>Nhật ký điểm danh ca học gần đây</span>
+            <span className="text-xs text-green-600 font-semibold hover:underline">Chi tiết chuyên cần &rarr;</span>
           </h3>
           <div className="flex flex-col gap-3">
             {displayAttendances.map((att) => (
               <div key={att.id} className="flex justify-between items-center text-sm">
                 <span className="text-ink">{att.dateString}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-sm font-semibold ${
-                  att.status.includes("CÃ³ máº·t")
+                  att.status.includes("Có mặt")
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
                 }`}>{att.status}</span>
