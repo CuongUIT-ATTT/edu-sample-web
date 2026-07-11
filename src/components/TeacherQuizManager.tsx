@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState } from "react";
 import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload } from "lucide-react";
 import { createQuiz, deleteQuiz } from "@/actions/quizzes";
+import MathRenderer from "@/components/MathRenderer";
 
 interface QuizItem {
   id: string;
@@ -36,18 +38,23 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
   const [passingScore, setPassingScore] = useState(5);
   const [subjectId, setSubjectId] = useState("");
   
-  // Questions array state
+  // Custom type toggle inside form
+  const [importMethod, setImportMethod] = useState<"MANUAL" | "PASTE_TEXT" | "CSV">("MANUAL");
+  const [rawPastedText, setRawPastedText] = useState("");
+
+  // Questions array state supporting Section I, II, III
   const [questions, setQuestions] = useState<{
     questionText: string;
+    type: "MULTIPLE_CHOICE" | "TRUE_FALSE" | "SHORT_ANSWER";
     options: string[];
     correctAnswer: string;
     score: number;
   }[]>([
-    { questionText: "", options: ["", "", "", ""], correctAnswer: "0", score: 1 }
+    { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1 }
   ]);
 
   const handleAddQuestion = () => {
-    setQuestions([...questions, { questionText: "", options: ["", "", "", ""], correctAnswer: "0", score: 1 }]);
+    setQuestions([...questions, { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1 }]);
   };
 
   const handleRemoveQuestion = (idx: number) => {
@@ -61,6 +68,19 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
     setQuestions(next);
   };
 
+  const handleTypeChange = (idx: number, type: "MULTIPLE_CHOICE" | "TRUE_FALSE" | "SHORT_ANSWER") => {
+    const next = [...questions];
+    next[idx].type = type;
+    if (type === "MULTIPLE_CHOICE" || type === "TRUE_FALSE") {
+      next[idx].options = ["", "", "", ""];
+      next[idx].correctAnswer = type === "MULTIPLE_CHOICE" ? "0" : "T,T,T,T";
+    } else {
+      next[idx].options = [];
+      next[idx].correctAnswer = "";
+    }
+    setQuestions(next);
+  };
+
   const handleOptionChange = (qIdx: number, optIdx: number, val: string) => {
     const next = [...questions];
     next[qIdx].options[optIdx] = val;
@@ -70,6 +90,15 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
   const handleCorrectAnswerChange = (qIdx: number, val: string) => {
     const next = [...questions];
     next[qIdx].correctAnswer = val;
+    setQuestions(next);
+  };
+
+  const handleTrueFalseCorrectChange = (qIdx: number, optIdx: number, val: "T" | "F") => {
+    const next = [...questions];
+    const current = next[qIdx].correctAnswer || "T,T,T,T";
+    const parts = current.split(",");
+    parts[optIdx] = val;
+    next[qIdx].correctAnswer = parts.join(",");
     setQuestions(next);
   };
 
@@ -94,12 +123,14 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
   };
 
   const downloadCsvTemplate = () => {
-    const headers = "QuestionText,OptionA,OptionB,OptionC,OptionD,CorrectAnswerIndex,Score\n";
-    const sampleRow = "\"Tim tap xac dinh cua ham so $y=\\log(x-3)$\",\"$D=(3; +\\infty)$\",\"$D=[3; +\\infty)$\",\"$D=(-\\infty; 3)$\",\"$D=\\mathbb{R}$\",\"0\",\"1.0\"";
-    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(headers + sampleRow);
+    const headers = "QuestionText,Type,OptionA,OptionB,OptionC,OptionD,CorrectAnswer,Score\n";
+    const row1 = "\"Tim tap xac dinh cua ham so $y=\\log(x-3)$\",\"MULTIPLE_CHOICE\",\"$D=(3; +\\infty)$\",\"$D=[3; +\\infty)$\",\"$D=(-\\infty; 3)$\",\"$D=\\mathbb{R}$\",\"0\",\"1.0\"\n";
+    const row2 = "\"Phat bieu nao dung ve ham so bac hai?\",\"TRUE_FALSE\",\"Do thi la Parabol\",\"Co dinh la $(-b/2a; -\\Delta/4a)$\",\"Cat truc tung tai (0;c)\",\"Luon dong bien tren R\",\"T,T,T,F\",\"2.0\"\n";
+    const row3 = "\"Tim nghiem cua phuong trinh $\\log_2(x) = 3$\",\"SHORT_ANSWER\",\"\",\"\",\"\",\"\",\"8\",\"1.0\"\n";
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(headers + row1 + row2 + row3);
     const link = document.createElement("a");
     link.setAttribute("href", csvContent);
-    link.setAttribute("download", "mau_cau_hoi_trac_nghiem.csv");
+    link.setAttribute("download", "mau_cau_hoi_THPT_2026.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -137,26 +168,144 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
         }
         cells.push(current.trim());
 
-        if (cells.length >= 7) {
+        if (cells.length >= 8) {
+          const type = (cells[1].replace(/^"|"$/g, "").toUpperCase()) as any;
+          const qType = ["MULTIPLE_CHOICE", "TRUE_FALSE", "SHORT_ANSWER"].includes(type) ? type : "MULTIPLE_CHOICE";
+          
           parsedQuestions.push({
             questionText: cells[0].replace(/^"|"$/g, "").replace(/""/g, '"'),
-            options: [
-              cells[1].replace(/^"|"$/g, "").replace(/""/g, '"'),
+            type: qType,
+            options: qType === "SHORT_ANSWER" ? [] : [
               cells[2].replace(/^"|"$/g, "").replace(/""/g, '"'),
               cells[3].replace(/^"|"$/g, "").replace(/""/g, '"'),
               cells[4].replace(/^"|"$/g, "").replace(/""/g, '"'),
+              cells[5].replace(/^"|"$/g, "").replace(/""/g, '"'),
             ],
-            correctAnswer: cells[5].replace(/^"|"$/g, ""),
-            score: parseFloat(cells[6]) || 1.0,
+            correctAnswer: cells[6].replace(/^"|"$/g, ""),
+            score: parseFloat(cells[7]) || 1.0,
           });
         }
       }
 
       if (parsedQuestions.length > 0) {
         setQuestions(parsedQuestions);
-        alert(`Đã tải thành công ${parsedQuestions.length} câu hỏi từ file mẫu CSV! Hãy xem lại chi tiết bên dưới trước khi tạo đề.`);
+        alert(`Đã tải thành công ${parsedQuestions.length} câu hỏi từ file CSV! Hãy xem lại chi tiết ở phía dưới.`);
       } else {
-        alert("Không tìm thấy dòng câu hỏi hợp lệ trong file. Vui lòng kiểm tra lại cấu trúc file mẫu.");
+        alert("Không tìm thấy dòng câu hỏi hợp lệ trong file CSV.");
+      }
+    };
+    reader.readAsText(file, "UTF-8");
+  };
+
+  // AI Paste text parser - Free parsing!
+  const parsePastedText = () => {
+    if (!rawPastedText.trim()) {
+      alert("Vui lòng dán nội dung câu hỏi/đề thi vào ô văn bản.");
+      return;
+    }
+
+    const lines = rawPastedText.split("\n");
+    const parsed: typeof questions = [];
+    let currentQ: any = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const qMatch = line.match(/^(?:Câu|Cau|Question)\s*(\d+)\s*[:.]\s*(.*)$/i);
+      if (qMatch) {
+        if (currentQ) {
+          finalizeQuestion(currentQ);
+          parsed.push(currentQ);
+        }
+        currentQ = {
+          questionText: qMatch[2].trim(),
+          type: "MULTIPLE_CHOICE",
+          options: [],
+          correctAnswer: "0",
+          score: 1.0
+        };
+        continue;
+      }
+
+      const optMatch = line.match(/^([A-D])\s*[:.)-]\s*(.*)$/i);
+      if (optMatch && currentQ) {
+        currentQ.options.push(optMatch[2].trim());
+        continue;
+      }
+
+      const tfMatch = line.match(/^([a-d])\s*[:.)-]\s*(.*)$/i);
+      if (tfMatch && currentQ) {
+        currentQ.type = "TRUE_FALSE";
+        currentQ.options.push(tfMatch[2].trim());
+        continue;
+      }
+
+      const ansMatch = line.match(/^(?:Đáp án|Dap an|Chọn|Chon|Answer)\s*[:.]?\s*(.*)$/i);
+      if (ansMatch && currentQ) {
+        const val = ansMatch[1].trim().toUpperCase();
+        if (val === "A" || val === "B" || val === "C" || val === "D") {
+          currentQ.correctAnswer = (val.charCodeAt(0) - 65).toString();
+        } else if (val.includes(",") || val === "Đ" || val === "S" || val === "D" || val.startsWith("ĐÚNG") || val.startsWith("SAI") || val.startsWith("T") || val.startsWith("F")) {
+          const normalized = val.split(",").map(item => {
+            const clean = item.trim();
+            return (clean.startsWith("Đ") || clean.startsWith("T") || clean.startsWith("D")) ? "T" : "F";
+          }).join(",");
+          currentQ.correctAnswer = normalized;
+          currentQ.type = "TRUE_FALSE";
+        } else {
+          currentQ.correctAnswer = val;
+          currentQ.type = "SHORT_ANSWER";
+        }
+        continue;
+      }
+
+      if (currentQ) {
+        if (currentQ.options.length === 0) {
+          currentQ.questionText += " " + line;
+        }
+      }
+    }
+
+    if (currentQ) {
+      finalizeQuestion(currentQ);
+      parsed.push(currentQ);
+    }
+
+    function finalizeQuestion(q: any) {
+      if (q.type === "MULTIPLE_CHOICE") {
+        while (q.options.length < 4) q.options.push("");
+        q.options = q.options.slice(0, 4);
+      } else if (q.type === "TRUE_FALSE") {
+        while (q.options.length < 4) q.options.push("");
+        q.options = q.options.slice(0, 4);
+        if (!q.correctAnswer.includes(",")) {
+          q.correctAnswer = "T,T,T,T";
+        }
+      } else if (q.type === "SHORT_ANSWER") {
+        q.options = [];
+      }
+    }
+
+    if (parsed.length > 0) {
+      setQuestions(parsed);
+      alert(`Phân tích thành công ${parsed.length} câu hỏi tự động từ văn bản! Bạn có thể xem lại danh sách câu hỏi chi tiết dưới đây.`);
+      setRawPastedText("");
+    } else {
+      alert("Không bóc tách được câu hỏi nào. Vui lòng kiểm tra lại định dạng câu hỏi (Ví dụ: 'Câu 1: ... A. ... B. ...').");
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) {
+        setRawPastedText(text);
+        alert("Đã tải dữ liệu file văn bản thành công. Hãy bấm nút 'Phân tích tự động' để quét đề.");
       }
     };
     reader.readAsText(file, "UTF-8");
@@ -184,7 +333,7 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
       setDuration(15);
       setPassingScore(5);
       setSubjectId("");
-      setQuestions([{ questionText: "", options: ["", "", "", ""], correctAnswer: "0", score: 1 }]);
+      setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1 }]);
       window.location.reload();
     } else {
       setErrorMsg(res.error || "Tạo đề thất bại.");
@@ -216,7 +365,7 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
       {/* Header bar */}
       <div className="flex justify-between items-center bg-canvas border border-hairline rounded-lg p-4 shadow-sm">
         <div className="flex items-center gap-2">
-          <HelpCircle className="h-5 w-5 text-primary" />
+          <BookOpen className="h-5 w-5 text-primary" />
           <span className="text-sm font-semibold text-ink">Danh sách các bài test bạn quản lý</span>
         </div>
         <button
@@ -276,14 +425,14 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
         )}
       </div>
 
-      {/* CREATE QUIZ MODAL (FIXED WIDTH TO AVOID SQUISHING) */}
+      {/* CREATE QUIZ MODAL */}
       {isCreateOpen && (
         <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-canvas border border-hairline rounded-lg w-[650px] max-w-full shadow-product flex flex-col overflow-hidden animate-fade-in">
             <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
               <h3 className="font-tagline text-base font-semibold text-ink flex items-center gap-2">
                 <PlusCircle className="h-5 w-5 text-primary" />
-                Tạo đề trắc nghiệm mới
+                Tạo đề trắc nghiệm mới THPT 2026
               </h3>
               <button onClick={() => setIsCreateOpen(false)} className="text-ink-muted-48 hover:text-ink">
                 <X className="h-5 w-5" />
@@ -299,7 +448,7 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Ví dụ: Kiểm tra 15 phút - Chuyên đề Lượng giác"
+                    placeholder="Kiểm tra Giữa kỳ II - Toán 12"
                     className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-sm text-ink outline-none focus:border-primary-focus w-full"
                     required
                   />
@@ -342,61 +491,106 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
                     />
                   </div>
                 </div>
-
-                <div className="flex flex-col gap-1.5 md:col-span-2">
-                  <label className="text-xs font-caption-strong text-ink-muted-80">Mô tả thêm (Không bắt buộc)</label>
-                  <input
-                    type="text"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Mô tả ngắn gọn về đề thi"
-                    className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                  />
-                </div>
               </div>
 
-              {/* CSV Upload / Fast Import Option */}
-              <div className="border border-divider rounded-lg p-4 bg-surface-pearl flex flex-col gap-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-ink flex items-center gap-1.5">
-                    <Upload className="h-4 w-4 text-green-600" /> Nhập nhanh bằng file mẫu CSV
-                  </span>
+              {/* Import Method Toggle Buttons */}
+              <div className="flex border border-divider rounded-pill overflow-hidden bg-surface-pearl p-0.5 self-start">
+                <button
+                  type="button"
+                  onClick={() => setImportMethod("MANUAL")}
+                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold ${
+                    importMethod === "MANUAL" ? "bg-canvas text-primary shadow-sm" : "text-ink-muted-80"
+                  }`}
+                >
+                  Nhập tay
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImportMethod("PASTE_TEXT")}
+                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold ${
+                    importMethod === "PASTE_TEXT" ? "bg-canvas text-primary shadow-sm" : "text-ink-muted-80"
+                  }`}
+                >
+                  Dán đề từ PDF/Word (AI Free)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImportMethod("CSV")}
+                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold ${
+                    importMethod === "CSV" ? "bg-canvas text-primary shadow-sm" : "text-ink-muted-80"
+                  }`}
+                >
+                  Import file CSV
+                </button>
+              </div>
+
+              {/* PASTE TEXT / COPY PASTE AI PARSER */}
+              {importMethod === "PASTE_TEXT" && (
+                <div className="border border-divider rounded-lg p-4 bg-surface-pearl flex flex-col gap-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-ink">Dán nội dung đề thi từ file PDF/DOCX</span>
+                    <label className="text-xs text-primary hover:underline font-bold cursor-pointer">
+                      Tải lên file văn bản/pdf (.txt)
+                      <input type="file" accept=".txt" onChange={handleFileUpload} className="hidden" />
+                    </label>
+                  </div>
+                  <textarea
+                    rows={6}
+                    value={rawPastedText}
+                    onChange={(e) => setRawPastedText(e.target.value)}
+                    placeholder="Mẫu:&#13;Câu 1: Giải phương trình $x^2 - 4 = 0$&#13;A. $x=2$&#13;B. $x=-2$&#13;C. $x=\pm 2$&#13;D. $x=0$&#13;Đáp án: C"
+                    className="bg-canvas border border-hairline rounded-lg p-3 text-xs outline-none focus:border-primary-focus w-full"
+                  />
                   <button
                     type="button"
-                    onClick={downloadCsvTemplate}
-                    className="text-xs text-primary hover:underline font-semibold"
+                    onClick={parsePastedText}
+                    className="bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-4 py-2 rounded-pill shadow-sm self-end"
                   >
-                    Tải file CSV mẫu (.csv)
+                    Phân tích đề tự động
                   </button>
                 </div>
-                <p className="text-[10px] text-ink-muted-80 leading-relaxed">
-                  Thiết lập file Excel/CSV theo đúng mẫu trên, chọn tải lên để tự động điền danh sách câu hỏi cực nhanh.
-                </p>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleImportCsv}
-                  className="bg-canvas border border-hairline rounded p-2 text-xs w-full"
-                />
-              </div>
+              )}
+
+              {/* CSV FILE IMPORT */}
+              {importMethod === "CSV" && (
+                <div className="border border-divider rounded-lg p-4 bg-surface-pearl flex flex-col gap-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-ink flex items-center gap-1.5">
+                      <Upload className="h-4 w-4 text-green-600" /> Nhập nhanh từ file CSV
+                    </span>
+                    <button
+                      type="button"
+                      onClick={downloadCsvTemplate}
+                      className="text-xs text-primary hover:underline font-semibold"
+                    >
+                      Tải file CSV mẫu (.csv)
+                    </button>
+                  </div>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleImportCsv}
+                    className="bg-canvas border border-hairline rounded p-2 text-xs w-full"
+                  />
+                </div>
+              )}
 
               {/* Formula instructions */}
               <div className="bg-blue-50 border border-blue-200 rounded p-4 text-[11px] text-ink-muted-80 font-body leading-relaxed flex flex-col gap-1">
                 <span className="font-semibold text-ink block">💡 Hướng dẫn nhập công thức Toán học / Vật lý:</span>
                 Nhập công thức trong cặp dấu $...$ để hiển thị công thức đẹp mắt.
-                Ví dụ: <code className="bg-canvas px-1 py-0.5 rounded border border-hairline">$x^2 - 7x + 12 = 0$</code> hoặc <code className="bg-canvas px-1 py-0.5 rounded border border-hairline">$\sin^2(x) + \cos^2(x) = 1$</code>.
               </div>
 
-              {/* Questions Area */}
+              {/* Questions List & Fields Editor */}
               <div className="border-t border-divider-soft pt-4 flex flex-col gap-6">
                 <div className="flex justify-between items-center">
-                  <h4 className="text-xs font-caption-strong text-ink uppercase tracking-wider">Danh sách câu hỏi trắc nghiệm</h4>
+                  <h4 className="text-xs font-caption-strong text-ink uppercase tracking-wider">Danh sách câu hỏi trắc nghiệm ({questions.length} câu)</h4>
                   <button
                     type="button"
                     onClick={handleAddQuestion}
                     className="text-primary hover:underline text-xs font-semibold flex items-center gap-1"
                   >
-                    <PlusCircle className="h-4 w-4" /> Thêm câu hỏi
+                    <PlusCircle className="h-4 w-4" /> Thêm câu hỏi mới
                   </button>
                 </div>
 
@@ -411,57 +605,137 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
                       <Trash2 className="h-4 w-4" />
                     </button>
 
-                    <div className="flex flex-col gap-1.5 pr-8">
-                      <label className="text-xs font-semibold text-ink">Câu hỏi {qIdx + 1}</label>
-                      <input
-                        type="text"
-                        value={q.questionText}
-                        onChange={(e) => handleQuestionTextChange(qIdx, e.target.value)}
-                        placeholder="Nhập nội dung câu hỏi (chấp nhận công thức $...$)"
-                        className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                        required
-                      />
+                    {/* Question text & type */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex flex-col gap-1.5 md:col-span-2 pr-8">
+                        <label className="text-xs font-semibold text-ink">Câu hỏi {qIdx + 1}</label>
+                        <input
+                          type="text"
+                          value={q.questionText}
+                          onChange={(e) => handleQuestionTextChange(qIdx, e.target.value)}
+                          placeholder="Nội dung câu hỏi..."
+                          className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full"
+                          required
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-ink">Dạng thức đề THPT 2026</label>
+                        <select
+                          value={q.type}
+                          onChange={(e) => handleTypeChange(qIdx, e.target.value as any)}
+                          className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-xs outline-none w-full"
+                        >
+                          <option value="MULTIPLE_CHOICE">Dạng thức I (4 lựa chọn)</option>
+                          <option value="TRUE_FALSE">Dạng thức II (Đúng/Sai)</option>
+                          <option value="SHORT_ANSWER">Dạng thức III (Trả lời ngắn/Điền số)</option>
+                        </select>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      {q.options.map((opt, optIdx) => (
-                        <div key={optIdx} className="flex flex-col gap-1">
-                          <label className="text-[10px] font-semibold text-ink-muted-80">Phương án {String.fromCharCode(65 + optIdx)}</label>
+                    {/* Conditional options rendering depending on type */}
+                    {q.type === "MULTIPLE_CHOICE" && (
+                      <div className="grid grid-cols-2 gap-3">
+                        {q.options.map((opt, optIdx) => (
+                          <div key={optIdx} className="flex flex-col gap-1">
+                            <label className="text-[10px] font-semibold text-ink-muted-80">Phương án {String.fromCharCode(65 + optIdx)}</label>
+                            <input
+                              type="text"
+                              value={opt}
+                              onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
+                              placeholder={`Phương án ${String.fromCharCode(65 + optIdx)}`}
+                              className="bg-canvas border border-hairline rounded-pill px-4 py-1.5 text-xs text-ink outline-none focus:border-primary-focus w-full"
+                              required
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {q.type === "TRUE_FALSE" && (
+                      <div className="flex flex-col gap-3 bg-canvas p-3 border border-hairline rounded-lg">
+                        <span className="text-[10px] font-bold text-ink-muted-48 uppercase">Khai báo 4 phát biểu và đáp án đúng/sai</span>
+                        {q.options.map((opt, optIdx) => {
+                          const currentAnswers = (q.correctAnswer || "T,T,T,T").split(",");
+                          const tfVal = currentAnswers[optIdx] || "T";
+                          return (
+                            <div key={optIdx} className="grid grid-cols-12 gap-3 items-center">
+                              <span className="col-span-1 text-xs font-bold text-center">{String.fromCharCode(97 + optIdx)})</span>
+                              <input
+                                type="text"
+                                value={opt}
+                                onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
+                                placeholder={`Ý phát biểu ${String.fromCharCode(97 + optIdx)}`}
+                                className="col-span-8 bg-canvas border border-hairline rounded px-3 py-1 text-xs outline-none"
+                                required
+                              />
+                              <select
+                                value={tfVal}
+                                onChange={(e) => handleTrueFalseCorrectChange(qIdx, optIdx, e.target.value as any)}
+                                className="col-span-3 bg-canvas border border-hairline rounded px-2 py-1 text-xs outline-none"
+                              >
+                                <option value="T">Đúng</option>
+                                <option value="F">Sai</option>
+                              </select>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Answer & score footer */}
+                    <div className="grid grid-cols-2 gap-4 mt-2 border-t border-divider-soft pt-3">
+                      {q.type === "MULTIPLE_CHOICE" && (
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-semibold text-ink-muted-80">Đáp án chính xác</label>
+                          <select
+                            value={q.correctAnswer}
+                            onChange={(e) => handleCorrectAnswerChange(qIdx, e.target.value)}
+                            className="bg-canvas border border-hairline rounded-pill px-3 py-1.5 text-xs outline-none w-full"
+                          >
+                            <option value="0">Phương án A</option>
+                            <option value="1">Phương án B</option>
+                            <option value="2">Phương án C</option>
+                            <option value="3">Phương án D</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {q.type === "SHORT_ANSWER" && (
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-semibold text-ink-muted-80">Giá trị đáp số chính xác</label>
                           <input
                             type="text"
-                            value={opt}
-                            onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
-                            placeholder={`Phương án ${String.fromCharCode(65 + optIdx)}`}
-                            className="bg-canvas border border-hairline rounded-pill px-4.5 py-1.5 text-xs text-ink outline-none focus:border-primary-focus w-full"
+                            value={q.correctAnswer}
+                            onChange={(e) => handleCorrectAnswerChange(qIdx, e.target.value)}
+                            placeholder="Ví dụ: -1.25 hoặc 10"
+                            className="bg-canvas border border-hairline rounded-pill px-4 py-1.5 text-xs outline-none w-full text-center"
                             required
                           />
                         </div>
-                      ))}
-                    </div>
+                      )}
 
-                    <div className="grid grid-cols-2 gap-4 mt-2">
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-semibold text-ink-muted-80">Đáp án đúng</label>
-                        <select
-                          value={q.correctAnswer}
-                          onChange={(e) => handleCorrectAnswerChange(qIdx, e.target.value)}
-                          className="bg-canvas border border-hairline rounded-pill px-3 py-1 text-xs outline-none w-full"
-                        >
-                          <option value="0">Phương án A</option>
-                          <option value="1">Phương án B</option>
-                          <option value="2">Phương án C</option>
-                          <option value="3">Phương án D</option>
-                        </select>
-                      </div>
+                      {/* Display read-only representation for true/false correct answers */}
+                      {q.type === "TRUE_FALSE" && (
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-semibold text-ink-muted-80">Chuỗi đáp án (Đ/S)</label>
+                          <input
+                            type="text"
+                            value={q.correctAnswer.split(",").map(c => c === "T" ? "Đúng" : "Sai").join(", ")}
+                            className="bg-slate-100 border border-hairline rounded-pill px-4 py-1.5 text-xs text-ink-muted-80 w-full text-center"
+                            disabled
+                          />
+                        </div>
+                      )}
 
                       <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-semibold text-ink-muted-80">Điểm số</label>
+                        <label className="text-[10px] font-semibold text-ink-muted-80">Điểm số câu hỏi</label>
                         <input
                           type="number"
                           step="0.5"
                           value={q.score}
                           onChange={(e) => handleScoreChange(qIdx, Number(e.target.value))}
-                          className="bg-canvas border border-hairline rounded-pill px-3 py-1 text-xs outline-none w-full text-center"
+                          className="bg-canvas border border-hairline rounded-pill px-3 py-1.5 text-xs outline-none w-full text-center"
                           required
                         />
                       </div>

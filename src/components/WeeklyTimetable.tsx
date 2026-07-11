@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState } from "react";
-import { Clock, MapPin, User, Plus, Trash2, CheckCircle, AlertTriangle, AlertCircle, X, Calendar } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { Clock, MapPin, Plus, Trash2, CheckCircle, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
 import { createSchedule, deleteSchedule } from "@/actions/schedules";
 
 interface ScheduleItem {
@@ -33,7 +33,7 @@ interface WeeklyTimetableProps {
   subjects: { id: string; name: string; code: string }[];
   teachers: { id: string; user: { name: string } }[];
   rooms: { id: string; name: string; capacity?: number | null }[];
-  isTeacherRole?: boolean; // If true, hide schedules info that this teacher doesn't teach
+  isTeacherRole?: boolean;
   currentTeacherProfileId?: string;
 }
 
@@ -72,6 +72,10 @@ export default function WeeklyTimetable({
   const [schedules, setSchedules] = useState<ScheduleItem[]>(initialSchedules);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Calendar States
+  const [viewMode, setViewMode] = useState<"WEEK" | "MONTH">("WEEK");
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
   // Overlap Warning State
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
@@ -137,7 +141,49 @@ export default function WeeklyTimetable({
     }
   };
 
-  // Google Calendar Overlap Algorithm
+  // Date Range Navigation helpers
+  const getMonday = (d: Date) => {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(date.setDate(diff));
+  };
+
+  const navigatePrevious = () => {
+    const next = new Date(currentDate);
+    if (viewMode === "WEEK") {
+      next.setDate(currentDate.getDate() - 7);
+    } else {
+      next.setMonth(currentDate.getMonth() - 1);
+    }
+    setCurrentDate(next);
+  };
+
+  const navigateNext = () => {
+    const next = new Date(currentDate);
+    if (viewMode === "WEEK") {
+      next.setDate(currentDate.getDate() + 7);
+    } else {
+      next.setMonth(currentDate.getMonth() + 1);
+    }
+    setCurrentDate(next);
+  };
+
+  const navigateToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  const formatHeaderLabel = () => {
+    if (viewMode === "WEEK") {
+      const mon = getMonday(currentDate);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      return `${mon.toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })} - ${sun.toLocaleDateString("vi-VN", { day: "numeric", month: "numeric", year: "numeric" })}`;
+    }
+    return currentDate.toLocaleDateString("vi-VN", { month: "long", year: "numeric" });
+  };
+
+  // Google Calendar Overlap Algorithm for WEEK View
   const processedSchedulesByDay = (day: number) => {
     const daySchedules = schedules.filter((s) => s.dayOfWeek === day);
     const parsed = daySchedules.map((s) => {
@@ -154,19 +200,20 @@ export default function WeeklyTimetable({
       };
     });
 
-    // Sort: startTime asc, duration desc
     parsed.sort((a, b) => a.startMin - b.startMin || (b.endMin - b.startMin) - (a.endMin - a.startMin));
 
-    // View boundaries: 07:00 (420 mins) to 22:00 (1320 mins)
+    // View boundaries: 07:00 (420 mins) to 22:00 (1320 mins) -> 900 minutes total.
+    // 600px height content area. 1 minute = 600/900 = 2/3 px.
     const viewStart = 420;
     const viewEnd = 1320;
-    const viewRange = viewEnd - viewStart;
 
     parsed.forEach((e) => {
       const start = Math.max(viewStart, Math.min(viewEnd, e.startMin));
       const end = Math.max(viewStart, Math.min(viewEnd, e.endMin));
-      e.top = ((start - viewStart) / viewRange) * 100;
-      e.height = ((end - start) / viewRange) * 100;
+      
+      // Calculate top and height in pixels for precision alignment
+      e.top = (start - viewStart) * 2 / 3;
+      e.height = (end - start) * 2 / 3;
     });
 
     // Cluster overlaps
@@ -187,7 +234,6 @@ export default function WeeklyTimetable({
       }
     });
 
-    // Assign left and width side-by-side columns
     clusters.forEach((c) => {
       const columns: typeof parsed[] = [];
       c.forEach((e) => {
@@ -220,90 +266,219 @@ export default function WeeklyTimetable({
     return parsed;
   };
 
+  // Month grid list (35 squares of the selected month)
+  const monthDaysGrid = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    const firstDay = new Date(year, month, 1);
+    // JS getDay(): 0 = Sun, 1 = Mon, ..., 6 = Sat
+    const startOffset = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+
+    const grid = [];
+    const startDate = new Date(firstDay);
+    startDate.setDate(firstDay.getDate() - startOffset);
+
+    for (let i = 0; i < 35; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      grid.push(d);
+    }
+    return grid;
+  }, [currentDate]);
+
   return (
     <div className="flex flex-col gap-8">
       {/* Alert Notices */}
       {successMsg && (
-        <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 flex items-center gap-3 text-sm">
+        <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 flex items-center gap-3 text-sm animate-fade-in">
           <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
           <span>{successMsg}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 flex items-center gap-3 text-sm">
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 flex items-center gap-3 text-sm animate-fade-in">
           <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* TIMETABLE GRID (GOOGLE CALENDAR DESIGN) */}
-      <div className="flex flex-col gap-4">
-        <div>
-          <h2 className="font-tagline text-xl font-semibold text-ink">Giao diện lịch học Google Calendar</h2>
-          <p className="font-caption text-ink-muted-80 mt-1">Các ca trùng giờ tự động xếp ngang hàng nhau</p>
+      {/* HEADER CONTROL BAR (GOOGLE CALENDAR STYLE) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-canvas border border-hairline rounded-lg p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={navigateToday}
+            className="border border-divider hover:bg-surface-pearl text-ink text-xs font-semibold px-4 py-2 rounded-pill shadow-sm"
+          >
+            Hôm nay
+          </button>
+          <div className="flex items-center border border-divider rounded-pill overflow-hidden bg-canvas">
+            <button onClick={navigatePrevious} className="p-2 hover:bg-surface-pearl text-ink-muted-80">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button onClick={navigateNext} className="p-2 hover:bg-surface-pearl text-ink-muted-80">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <span className="font-tagline text-lg font-bold text-ink ml-2">
+            {formatHeaderLabel()}
+          </span>
         </div>
 
-        <div className="bg-canvas border border-hairline rounded-lg p-4 shadow-sm overflow-x-auto min-w-[850px]">
-          <div className="flex">
-            {/* Hour axis indicator column */}
-            <div className="w-14 flex-shrink-0 border-r border-divider-soft pr-2 pt-10 text-right text-[10px] font-mono text-ink-muted-48 flex flex-col justify-between h-[500px]">
-              {HOUR_LABELS.map((hl) => (
-                <div key={hl} className="h-4">{hl}</div>
+        {/* View mode toggle tabs */}
+        <div className="flex border border-divider rounded-pill overflow-hidden bg-surface-pearl p-0.5 self-start">
+          <button
+            onClick={() => setViewMode("WEEK")}
+            className={`px-4 py-1.5 rounded-pill text-xs font-semibold transition-all ${
+              viewMode === "WEEK" ? "bg-canvas text-primary shadow-sm" : "text-ink-muted-80 hover:text-ink"
+            }`}
+          >
+            Tuần
+          </button>
+          <button
+            onClick={() => setViewMode("MONTH")}
+            className={`px-4 py-1.5 rounded-pill text-xs font-semibold transition-all ${
+              viewMode === "MONTH" ? "bg-canvas text-primary shadow-sm" : "text-ink-muted-80 hover:text-ink"
+            }`}
+          >
+            Tháng
+          </button>
+        </div>
+      </div>
+
+      {/* TIMETABLE GRID */}
+      {viewMode === "WEEK" ? (
+        <div className="flex flex-col gap-4">
+          <div className="bg-canvas border border-hairline rounded-lg p-4 shadow-sm overflow-x-auto min-w-[850px]">
+            <div className="flex relative">
+              {/* Hour labels axis on left */}
+              <div className="w-14 flex-shrink-0 border-r border-divider-soft pr-2 pt-10 text-right text-[10px] font-mono text-ink-muted-48 flex flex-col justify-between h-[640px]">
+                {HOUR_LABELS.map((hl) => (
+                  <div key={hl} className="h-[40px] leading-none flex items-start justify-end">{hl}</div>
+                ))}
+              </div>
+
+              {/* Day Columns */}
+              <div className="flex-1 grid grid-cols-7 relative h-[640px]">
+                {/* Background Grid Lines every 40px (1 hour) */}
+                <div className="absolute inset-x-0 top-10 bottom-0 pointer-events-none flex flex-col justify-between z-0">
+                  {HOUR_LABELS.slice(0, -1).map((_, idx) => (
+                    <div key={idx} className="border-b border-divider-soft/40 h-[40px] w-full" />
+                  ))}
+                </div>
+
+                {DAYS_OF_WEEK.map((day) => {
+                  const dayEvents = processedSchedulesByDay(day.value);
+                  return (
+                    <div key={day.value} className="border-r border-divider-soft last:border-0 relative h-[640px] bg-slate-50/10 z-10">
+                      {/* Header title */}
+                      <div className="absolute top-0 inset-x-0 h-9 border-b border-divider-soft flex flex-col items-center justify-center bg-surface-pearl">
+                        <span className="text-[10px] font-bold text-ink">{day.label}</span>
+                        <span className="text-[8px] text-ink-muted-48">{dayEvents.length} ca học</span>
+                      </div>
+
+                      {/* Content Area containing events */}
+                      <div className="absolute top-10 bottom-0 inset-x-0">
+                        {dayEvents.map((e) => {
+                          const isOwn = !isTeacherRole || e.teacher.id === currentTeacherProfileId;
+                          const displayTitle = isOwn ? e.class.name : "Đã bận";
+                          const displaySub = isOwn ? `${e.subject.name} - ${e.room}` : `Phòng ${e.room}`;
+                          const displayTime = `${e.startTime} - ${e.endTime}`;
+
+                          return (
+                            <div
+                              key={e.id}
+                              style={{
+                                top: `${e.top}px`,
+                                height: `${e.height}px`,
+                                left: `${e.left}%`,
+                                width: `${e.width - 2}%`,
+                              }}
+                              className={`absolute border rounded p-1.5 flex flex-col justify-between overflow-hidden text-[9px] transition-all group hover:z-20 shadow-sm ${
+                                isOwn
+                                  ? "bg-blue-50/95 hover:bg-blue-100 border-blue-200 text-blue-800"
+                                  : "bg-gray-100/90 border-gray-300 text-gray-600"
+                              }`}
+                              title={`${displayTitle} (${displayTime})`}
+                            >
+                              <div className="flex flex-col leading-tight">
+                                <span className="font-bold truncate">{displayTitle}</span>
+                                <span className="opacity-80 truncate mt-0.5">{displaySub}</span>
+                              </div>
+                              
+                              <div className="flex justify-between items-center text-[8px] opacity-75 mt-1 font-mono">
+                                <span>{e.startTime}</span>
+                                {isOwn && (
+                                  <button
+                                    onClick={() => handleDelete(e.id, `${e.class.name} - ${e.subject.name}`)}
+                                    className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
+                                  >
+                                    <Trash2 className="h-2.5 w-2.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* GOOGLE CALENDAR STYLE MONTH VIEW */
+        <div className="bg-canvas border border-hairline rounded-lg p-4 shadow-sm overflow-x-auto">
+          <div className="min-w-[800px]">
+            {/* Header Columns */}
+            <div className="grid grid-cols-7 border-b border-hairline bg-surface-pearl text-center py-2 text-xs font-semibold text-ink">
+              {DAYS_OF_WEEK.map((d) => (
+                <div key={d.value}>{d.label}</div>
               ))}
             </div>
 
-            {/* Timetable Grid Area */}
-            <div className="flex-1 grid grid-cols-7 relative">
-              {DAYS_OF_WEEK.map((day) => {
-                const dayEvents = processedSchedulesByDay(day.value);
+            {/* Monthly Calendar Grid */}
+            <div className="grid grid-cols-7 grid-rows-5 border-l border-t border-hairline bg-canvas">
+              {monthDaysGrid.map((day, idx) => {
+                const dayNum = day.getDate();
+                const dayOfWeekValue = day.getDay() === 0 ? 7 : day.getDay();
+                const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+
+                // Find schedules for this day of week
+                const daySchedules = schedules.filter((s) => s.dayOfWeek === dayOfWeekValue);
+
                 return (
-                  <div key={day.value} className="border-r border-divider-soft last:border-0 relative h-[500px] bg-slate-50/20">
-                    {/* Header */}
-                    <div className="absolute top-0 inset-x-0 h-9 border-b border-divider-soft flex flex-col items-center justify-center bg-surface-pearl">
-                      <span className="text-[10px] font-bold text-ink">{day.label}</span>
-                      <span className="text-[8px] text-ink-muted-48">{dayEvents.length} ca</span>
-                    </div>
+                  <div
+                    key={idx}
+                    className={`min-h-[100px] border-r border-b border-hairline p-2 flex flex-col gap-1 transition-all hover:bg-surface-pearl/30 ${
+                      isCurrentMonth ? "bg-canvas" : "bg-slate-50 text-ink-muted-48 opacity-60"
+                    }`}
+                  >
+                    <span className={`text-xs font-bold self-end px-1.5 py-0.5 rounded-full ${
+                      day.toDateString() === new Date().toDateString() 
+                        ? "bg-primary text-white" 
+                        : "text-ink"
+                    }`}>
+                      {dayNum}
+                    </span>
 
-                    {/* Timeline Container */}
-                    <div className="absolute top-10 bottom-0 inset-x-0 relative">
-                      {dayEvents.map((e) => {
-                        const isOwn = !isTeacherRole || e.teacher.id === currentTeacherProfileId;
-                        const displayTitle = isOwn ? e.class.name : "Đã bận";
-                        const displaySub = isOwn ? `${e.subject.name} - ${e.room}` : `Phòng ${e.room}`;
-                        const displayTime = `${e.startTime} - ${e.endTime}`;
-
+                    {/* Compact schedule cards */}
+                    <div className="flex flex-col gap-1 overflow-y-auto max-h-16">
+                      {daySchedules.map((s) => {
+                        const isOwn = !isTeacherRole || s.teacher.id === currentTeacherProfileId;
                         return (
                           <div
-                            key={e.id}
-                            style={{
-                              top: `${e.top}%`,
-                              height: `${e.height}%`,
-                              left: `${e.left}%`,
-                              width: `${e.width - 2}%`,
-                            }}
-                            className={`absolute border rounded p-1.5 flex flex-col justify-between overflow-hidden text-[9px] transition-all group hover:z-20 ${
-                              isOwn
-                                ? "bg-blue-50/90 hover:bg-blue-100 border-blue-200 text-blue-800"
-                                : "bg-gray-100/90 border-gray-300 text-gray-600"
+                            key={s.id}
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-semibold truncate ${
+                              isOwn 
+                                ? "bg-blue-50 border border-blue-100 text-blue-700" 
+                                : "bg-gray-100 border border-gray-200 text-gray-500"
                             }`}
-                            title={`${displayTitle} (${displayTime})`}
+                            title={`${isOwn ? `${s.class.name} • ${s.subject.name}` : "Đã bận"} (${s.startTime} - ${s.endTime})`}
                           >
-                            <div className="flex flex-col leading-tight">
-                              <span className="font-bold truncate">{displayTitle}</span>
-                              <span className="opacity-80 truncate mt-0.5">{displaySub}</span>
-                            </div>
-                            
-                            <div className="flex justify-between items-center text-[8px] opacity-75 mt-1 font-mono">
-                              <span>{e.startTime}</span>
-                              {isOwn && (
-                                <button
-                                  onClick={() => handleDelete(e.id, `${e.class.name} - ${e.subject.name}`)}
-                                  className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
-                                >
-                                  <Trash2 className="h-2.5 w-2.5" />
-                                </button>
-                              )}
-                            </div>
+                            {s.startTime} {isOwn ? s.class.name : "Đã bận"}
                           </div>
                         );
                       })}
@@ -314,7 +489,7 @@ export default function WeeklyTimetable({
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* OVERLAP WARNING DIALOG */}
       {warningMsg && (

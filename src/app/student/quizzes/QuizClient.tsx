@@ -8,6 +8,7 @@ import MathRenderer from "@/components/MathRenderer";
 interface Question {
   id: string;
   text: string;
+  type?: string;
   options: string[];
   score: number;
 }
@@ -64,6 +65,23 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     setAnswers((prev) => ({
       ...prev,
       [questionId]: optionIndex.toString(),
+    }));
+  };
+
+  const handleSelectTrueFalse = (questionId: string, statementIdx: number, val: "T" | "F") => {
+    const current = answers[questionId] || "-,-,-,-";
+    const parts = current.split(",");
+    parts[statementIdx] = val;
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: parts.join(","),
+    }));
+  };
+
+  const handleShortAnswerChange = (questionId: string, val: string) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: val,
     }));
   };
 
@@ -210,29 +228,87 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
                   Câu {qIndex + 1}: <MathRenderer text={q.text} />
                 </h3>
                 
-                <div className="flex flex-col gap-2">
-                  {q.options.map((opt, optIndex) => {
-                    const isSelected = answers[q.id] === optIndex.toString();
-                    return (
-                      <button
-                        key={optIndex}
-                        onClick={() => handleSelectOption(q.id, optIndex)}
-                        className={`flex items-center gap-3 text-left p-3.5 rounded-pill border text-xs transition-colors ${
-                          isSelected 
-                            ? "bg-surface-pearl border-primary-focus text-primary font-semibold" 
-                            : "bg-canvas border-divider-soft text-ink-muted-80 hover:bg-surface-pearl"
-                        }`}
-                      >
-                        <span className={`h-4 w-4 rounded-full border flex items-center justify-center text-[10px] font-bold ${
-                          isSelected ? "border-primary bg-primary text-white" : "border-ink-muted-48 text-ink-muted-48"
-                        }`}>
-                          {String.fromCharCode(65 + optIndex)}
-                        </span>
-                        <MathRenderer text={opt} />
-                      </button>
-                    );
-                  })}
-                </div>
+                {q.type === "TRUE_FALSE" ? (
+                  // Section II: True/False statements
+                  <div className="flex flex-col gap-3 border border-hairline rounded-lg p-4 bg-surface-pearl/50">
+                    <div className="grid grid-cols-12 text-[10px] font-bold text-ink-muted-48 uppercase border-b border-divider pb-2 mb-2">
+                      <div className="col-span-8">Ý phát biểu</div>
+                      <div className="col-span-2 text-center">Đúng</div>
+                      <div className="col-span-2 text-center">Sai</div>
+                    </div>
+                    {q.options.map((opt, optIndex) => {
+                      const currentAnswers = (answers[q.id] || "-,-,-,-").split(",");
+                      const val = currentAnswers[optIndex] || "-";
+                      return (
+                        <div key={optIndex} className="grid grid-cols-12 items-center gap-2 py-1 text-xs border-b border-divider-soft last:border-0 last:pb-0">
+                          <div className="col-span-8 flex gap-2">
+                            <span className="font-semibold text-ink-muted-80">{String.fromCharCode(97 + optIndex)})</span>
+                            <MathRenderer text={opt} />
+                          </div>
+                          <div className="col-span-2 flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectTrueFalse(q.id, optIndex, "T")}
+                              className={`w-7 h-7 rounded-full text-[10px] font-bold border transition-colors ${
+                                val === "T" ? "bg-green-600 border-green-600 text-white" : "border-ink-muted-48 hover:bg-green-50 text-green-700"
+                              }`}
+                            >
+                              Đ
+                            </button>
+                          </div>
+                          <div className="col-span-2 flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectTrueFalse(q.id, optIndex, "F")}
+                              className={`w-7 h-7 rounded-full text-[10px] font-bold border transition-colors ${
+                                val === "F" ? "bg-red-600 border-red-600 text-white" : "border-ink-muted-48 hover:bg-red-50 text-red-700"
+                              }`}
+                            >
+                              S
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : q.type === "SHORT_ANSWER" ? (
+                  // Section III: Short Answer textbox
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] font-caption-strong text-ink-muted-80">Nhập đáp số (Số thập phân hoặc số nguyên):</label>
+                    <input
+                      type="text"
+                      value={answers[q.id] || ""}
+                      onChange={(e) => handleShortAnswerChange(q.id, e.target.value)}
+                      placeholder="Ví dụ: -1.5 hoặc 15..."
+                      className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-xs text-ink outline-none focus:border-primary-focus w-48"
+                    />
+                  </div>
+                ) : (
+                  // Section I: Multiple Choice
+                  <div className="flex flex-col gap-2">
+                    {q.options.map((opt, optIndex) => {
+                      const isSelected = answers[q.id] === optIndex.toString();
+                      return (
+                        <button
+                          key={optIndex}
+                          onClick={() => handleSelectOption(q.id, optIndex)}
+                          className={`flex items-center gap-3 text-left p-3.5 rounded-pill border text-xs transition-colors ${
+                            isSelected 
+                              ? "bg-surface-pearl border-primary-focus text-primary font-semibold" 
+                              : "bg-canvas border-divider-soft text-ink-muted-80 hover:bg-surface-pearl"
+                          }`}
+                        >
+                          <span className={`h-4 w-4 rounded-full border flex items-center justify-center text-[10px] font-bold ${
+                            isSelected ? "border-primary bg-primary text-white" : "border-ink-muted-48 text-ink-muted-48"
+                          }`}>
+                            {String.fromCharCode(65 + optIndex)}
+                          </span>
+                          <MathRenderer text={opt} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ))}
           </div>

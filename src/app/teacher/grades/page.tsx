@@ -82,6 +82,21 @@ export default function TeacherGradesPage() {
       .finally(() => setLoadingStudents(false));
   }, [selectedClassId, selectedSubjectId, selectedType]);
 
+  const computedAverage = React.useMemo(() => {
+    let sum = 0;
+    let count = 0;
+    Object.values(grades).forEach((g) => {
+      if (g.score !== "") {
+        const val = parseFloat(g.score);
+        if (!isNaN(val)) {
+          sum += val;
+          count++;
+        }
+      }
+    });
+    return count > 0 ? (sum / count).toFixed(2) : null;
+  }, [grades]);
+
   const handleScoreChange = (studentId: string, value: string) => {
     setGrades((prev) => ({
       ...prev,
@@ -196,6 +211,21 @@ export default function TeacherGradesPage() {
           />
         </div>
       </div>
+
+      {/* Class Average Display */}
+      {computedAverage !== null && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between shadow-sm animate-fade-in">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            <span className="text-sm font-semibold text-ink">
+              Điểm trung bình của lớp ({classes.find(c => c.id === selectedClassId)?.name || "Lớp chọn"}):
+            </span>
+          </div>
+          <span className="text-lg font-bold text-primary bg-canvas border border-primary/20 px-4 py-1.5 rounded-pill">
+            {computedAverage} / 10 điểm
+          </span>
+        </div>
+      )}
 
       {/* Result Banner */}
       {submitResult && (

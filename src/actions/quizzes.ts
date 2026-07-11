@@ -38,8 +38,9 @@ export async function submitQuiz(input: SubmitQuizInput) {
 
     for (const question of quiz.questions) {
       maxScore += question.score;
-      const studentAnswer = input.answers[question.id];
-      if (studentAnswer === question.correctAnswer) {
+      const studentAnswer = (input.answers[question.id] || "").trim().toUpperCase();
+      const correctAnswer = (question.correctAnswer || "").trim().toUpperCase();
+      if (studentAnswer === correctAnswer) {
         totalScore += question.score;
       }
     }
@@ -94,6 +95,7 @@ interface CreateQuizInput {
   subjectId: string;
   questions: {
     questionText: string;
+    type?: string;
     options: string[];
     correctAnswer: string;
     score?: number;
@@ -138,7 +140,7 @@ export async function createQuiz(input: CreateQuizInput) {
           data: {
             quizId: newQuiz.id,
             text: q.questionText,
-            type: "MULTIPLE_CHOICE",
+            type: q.type || "MULTIPLE_CHOICE",
             options: q.options,
             correctAnswer: q.correctAnswer,
             score: q.score || 1.0,
