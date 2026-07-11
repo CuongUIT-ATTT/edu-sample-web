@@ -51,6 +51,13 @@ export default function AdminDashboardLayout({
               Lớp luyện thi
             </Link>
             <Link 
+              href="/admin/subjects" 
+              className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+            >
+              <Calendar className="h-4 w-4 text-purple-500" />
+              Môn học
+            </Link>
+            <Link 
               href="/admin/schedules" 
               className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
             >

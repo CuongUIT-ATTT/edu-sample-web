@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useTransition } from "react";
-import { CheckSquare, RefreshCw, Check, X, Clock, BookOpen } from "lucide-react";
+import { CheckSquare, RefreshCw, Check, X, Clock, BookOpen, Calendar, ShieldAlert } from "lucide-react";
 import { markAttendance } from "@/actions/attendance";
 import { AttendanceStatus } from "@prisma/client";
 
@@ -11,32 +11,90 @@ interface Student {
   email: string;
 }
 
+interface ScheduleItem {
+  id: string;
+  dayOfWeek: number; // 1 = Mon, ..., 7 = Sun
+  startTime: string;
+  endTime: string;
+  room?: string | null;
+  class: {
+    id: string;
+    name: string;
+  };
+  subject: {
+    id: string;
+    name: string;
+  };
+}
+
+const DAYS_NAME: Record<number, string> = {
+  1: "Thứ Hai",
+  2: "Thứ Ba",
+  3: "Thứ Tư",
+  4: "Thứ Năm",
+  5: "Thứ Sáu",
+  6: "Thứ Bảy",
+  7: "Chủ Nhật",
+};
+
 export default function TeacherAttendancePage() {
+  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
+  const [selectedScheduleId, setSelectedScheduleId] = useState("");
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = current week, -1 = last week, +1 = next week
   const [students, setStudents] = useState<Student[]>([]);
-  const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState("");
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState("");
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
+  const [loadingSchedules, setLoadingSchedules] = useState(true);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [submitResult, setSubmitResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Load classes
+  // 1. Load teacher schedules
   useEffect(() => {
-    fetch("/api/teacher/classes")
+    setLoadingSchedules(true);
+    fetch("/api/teacher/schedules")
       .then((r) => r.json())
       .then((data) => {
-        setClasses(data.classes || []);
-        if (data.classes?.length > 0) setSelectedClassId(data.classes[0].id);
+        setSchedules(data.schedules || []);
+        if (data.schedules && data.schedules.length > 0) {
+          setSelectedScheduleId(data.schedules[0].id);
+        }
       })
-      .catch(() => {});
+      .catch((err) => console.error("Error loading schedules:", err))
+      .finally(() => setLoadingSchedules(false));
   }, []);
 
-  // Load students when class changes
+  // Find currently selected schedule object
+  const activeSchedule = schedules.find((s) => s.id === selectedScheduleId);
+
+  // 2. Compute date whenever selected schedule or weekOffset changes
   useEffect(() => {
-    if (!selectedClassId) return;
+    if (!activeSchedule) return;
+
+    // Calculate target date based on schedule dayOfWeek and weekOffset
+    // activeSchedule.dayOfWeek: 1 = Mon, ..., 7 = Sun
+    // JS getDay(): 0 = Sun, 1 = Mon, ..., 6 = Sat
+    const getTargetDate = () => {
+      const today = new Date();
+      const todayDay = today.getDay() === 0 ? 7 : today.getDay();
+      
+      // Difference between target day and today
+      const diff = activeSchedule.dayOfWeek - todayDay;
+      const target = new Date(today);
+      target.setDate(today.getDate() + diff + (weekOffset * 7));
+      return target.toISOString().split("T")[0];
+    };
+
+    setSelectedDate(getTargetDate());
+  }, [selectedScheduleId, activeSchedule, weekOffset]);
+
+  // 3. Load students when class of active schedule changes
+  useEffect(() => {
+    if (!activeSchedule) return;
+    const classId = activeSchedule.class.id;
+    
     setLoadingStudents(true);
-    fetch(`/api/teacher/classes/${selectedClassId}/students`)
+    fetch(`/api/teacher/classes/${classId}/students`)
       .then((r) => r.json())
       .then((data) => {
         setStudents(data.students || []);
@@ -47,15 +105,16 @@ export default function TeacherAttendancePage() {
         });
         setAttendance(defaultAttendance);
       })
-      .catch(() => {})
+      .catch((err) => console.error("Error loading students:", err))
       .finally(() => setLoadingStudents(false));
-  }, [selectedClassId]);
+  }, [activeSchedule]);
 
   const setStatus = (studentId: string, status: AttendanceStatus) => {
     setAttendance((prev) => ({ ...prev, [studentId]: status }));
   };
 
   const handleSubmit = () => {
+    if (!selectedDate) return;
     setSubmitResult(null);
     startTransition(async () => {
       let successCount = 0;
@@ -76,7 +135,7 @@ export default function TeacherAttendancePage() {
         success: errorCount === 0,
         message:
           errorCount === 0
-            ? `✅ Đã lưu điểm danh cho ${successCount} học viên.`
+            ? `✅ Ghi nhận điểm danh thành công cho ${successCount} học viên vào ngày ${new Date(selectedDate).toLocaleDateString("vi-VN")}.`
             : `⚠️ Lưu thành công ${successCount}, thất bại ${errorCount} học viên.`,
       });
     });
@@ -100,34 +159,67 @@ export default function TeacherAttendancePage() {
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="font-tagline text-2xl font-semibold text-ink">Điểm danh chuyên cần học viên</h1>
-        <p className="font-caption text-ink-muted-80 mt-1">Ghi nhận điểm danh theo lớp luyện thi và ca học</p>
+        <p className="font-caption text-ink-muted-80 mt-1">Ghi nhận chuyên cần dựa trên các ca học được giao phụ trách</p>
       </div>
 
-      {/* Controls */}
-      <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm flex flex-wrap gap-4 items-end">
-        <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
-          <label className="text-xs font-caption-strong text-ink-muted-80">Lớp luyện thi</label>
+      {/* Ca học selector */}
+      <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm flex flex-col md:flex-row gap-6 items-end">
+        <div className="flex flex-col gap-1.5 flex-1 min-w-[250px]">
+          <label className="text-xs font-caption-strong text-ink-muted-80">Chọn ca học phụ trách</label>
           <select
-            value={selectedClassId}
-            onChange={(e) => setSelectedClassId(e.target.value)}
-            className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus"
+            value={selectedScheduleId}
+            onChange={(e) => setSelectedScheduleId(e.target.value)}
+            className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-11 text-sm text-ink outline-none focus:border-primary-focus w-full"
+            disabled={loadingSchedules}
           >
-            {classes.length === 0 && <option value="">— Chọn lớp —</option>}
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
+            {loadingSchedules ? (
+              <option>Đang tải ca học...</option>
+            ) : schedules.length === 0 ? (
+              <option>Chưa có ca học nào được chỉ định</option>
+            ) : (
+              schedules.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {DAYS_NAME[s.dayOfWeek]} — {s.class.name} • {s.subject.name} ({s.startTime} - {s.endTime})
+                </option>
+              ))
+            )}
           </select>
         </div>
-        <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
-          <label className="text-xs font-caption-strong text-ink-muted-80">Ngày ca học</label>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus"
-          />
+
+        <div className="flex flex-col gap-1.5 min-w-[180px]">
+          <label className="text-xs font-caption-strong text-ink-muted-80">Chọn tuần điểm danh</label>
+          <select
+            value={weekOffset}
+            onChange={(e) => setWeekOffset(Number(e.target.value))}
+            className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-11 text-sm text-ink outline-none focus:border-primary-focus w-full"
+          >
+            <option value={0}>Tuần này</option>
+            <option value={-1}>Tuần trước</option>
+            <option value={-2}>2 tuần trước</option>
+            <option value={1}>Tuần sau</option>
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-caption-strong text-ink-muted-48 uppercase">Ngày điểm danh dự kiến:</span>
+          <span className="text-sm font-semibold text-primary h-11 flex items-center gap-1.5 px-3 bg-blue-50 border border-blue-200 rounded-pill">
+            <Calendar className="h-4 w-4" /> {selectedDate ? new Date(selectedDate).toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "numeric", year: "numeric" }) : "—"}
+          </span>
         </div>
       </div>
+
+      {/* Warning info */}
+      {schedules.length === 0 && !loadingSchedules && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-5 flex gap-3 items-start">
+          <ShieldAlert className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 className="text-sm font-semibold text-ink">Bạn chưa có ca học nào được xếp lịch</h4>
+            <p className="text-xs text-ink-muted-80 mt-1 leading-relaxed">
+              Vui lòng liên hệ Admin để cập nhật thời khoá biểu tuần cho các lớp giảng dạy của bạn để có thể thực hiện điểm danh.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Quick Stats */}
       {students.length > 0 && (
@@ -180,7 +272,7 @@ export default function TeacherAttendancePage() {
         ) : students.length === 0 ? (
           <div className="p-16 text-center">
             <CheckSquare className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
-            <p className="font-body text-ink-muted-80">Chọn lớp luyện thi để bắt đầu điểm danh học viên.</p>
+            <p className="font-body text-ink-muted-80">Chọn ca học ở trên để tiến hành điểm danh.</p>
           </div>
         ) : (
           <div className="divide-y divide-hairline">

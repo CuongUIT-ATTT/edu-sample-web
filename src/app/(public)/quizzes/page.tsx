@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { BookOpen, Clock, Award, CheckCircle2, AlertCircle, RefreshCw, ChevronRight, Play, Lock } from "lucide-react";
 import Link from "next/link";
+import MathRenderer from "@/components/MathRenderer";
 
 interface QuizMeta {
   id: string;
@@ -280,7 +281,7 @@ export default function PublicQuizzesPage() {
                     const isCorrect = selected === q.correct;
                     return (
                       <div key={idx} className="bg-surface-pearl border border-divider-soft rounded p-4 flex flex-col gap-2 text-xs">
-                        <p className="font-semibold text-ink">Câu {idx + 1}: {q.text}</p>
+                        <p className="font-semibold text-ink">Câu {idx + 1}: <MathRenderer text={q.text} /></p>
                         <div className="flex flex-col gap-1 mt-1">
                           {q.options.map((opt, oIdx) => (
                             <div 
@@ -296,12 +297,12 @@ export default function PublicQuizzesPage() {
                               <span className="w-4 h-4 rounded-full border border-divider-soft flex items-center justify-center text-[10px]">
                                 {String.fromCharCode(65 + oIdx)}
                               </span>
-                              <span>{opt}</span>
+                              <MathRenderer text={opt} />
                             </div>
                           ))}
                         </div>
                         <p className="text-[10px] text-primary-focus bg-blue-50/50 p-2 rounded mt-2 font-body leading-relaxed">
-                          💡 <strong>Lời giải:</strong> {q.explanations}
+                          💡 <strong>Lời giải:</strong> <MathRenderer text={q.explanations} />
                         </p>
                       </div>
                     );
@@ -338,7 +339,7 @@ export default function PublicQuizzesPage() {
 
                 <div className="min-h-[100px] py-4">
                   <p className="text-sm font-semibold text-ink leading-relaxed">
-                    {demoQuestions[currentQuestion].text}
+                    <MathRenderer text={demoQuestions[currentQuestion].text} />
                   </p>
                 </div>
 
@@ -360,7 +361,7 @@ export default function PublicQuizzesPage() {
                         }`}>
                           {String.fromCharCode(65 + oIdx)}
                         </span>
-                        {opt}
+                        <MathRenderer text={opt} />
                       </button>
                     );
                   })}

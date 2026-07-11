@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Clock, CheckSquare, Award, ArrowLeft, RefreshCw, CheckCircle2, XCircle, Search, Trophy, BarChart3 } from "lucide-react";
 import { submitQuiz } from "@/actions/quizzes";
+import MathRenderer from "@/components/MathRenderer";
 
 interface Question {
   id: string;
@@ -206,7 +207,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
             {selectedQuiz?.questions.map((q, qIndex) => (
               <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4">
                 <h3 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
-                  Câu {qIndex + 1}: {q.text}
+                  Câu {qIndex + 1}: <MathRenderer text={q.text} />
                 </h3>
                 
                 <div className="flex flex-col gap-2">
@@ -227,7 +228,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
                         }`}>
                           {String.fromCharCode(65 + optIndex)}
                         </span>
-                        <span>{opt}</span>
+                        <MathRenderer text={opt} />
                       </button>
                     );
                   })}

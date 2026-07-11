@@ -28,7 +28,6 @@ export async function createUser(input: CreateUserInput) {
       return { success: false, error: "Vui lòng nhập đầy đủ email, tên và vai trò." };
     }
 
-    // Check if email already exists
     const existingUser = await db.user.findUnique({
       where: { email },
     });
@@ -40,7 +39,6 @@ export async function createUser(input: CreateUserInput) {
     const defaultPassword = password || "Password@2026";
     const passwordHash = await bcryptjs.hash(defaultPassword, 10);
 
-    // Create user and profile in transaction
     const user = await db.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
@@ -84,6 +82,82 @@ export async function createUser(input: CreateUserInput) {
   }
 }
 
+export async function updateUser(userId: string, input: Partial<CreateUserInput> & { password?: string }) {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "ADMIN") {
+      return { success: false, error: "Chỉ Quản trị viên mới được chỉnh sửa tài khoản." };
+    }
+
+    const { email, name, role, password, classId, parentId } = input;
+
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      include: { studentProfile: true },
+    });
+
+    if (!user) {
+      return { success: false, error: "Không tìm thấy người dùng." };
+    }
+
+    // Prepare update data
+    const updateData: { email?: string; name?: string; role?: Role; passwordHash?: string } = {};
+    if (email) updateData.email = email;
+    if (name) updateData.name = name;
+    if (role) updateData.role = role;
+    if (password && password.trim() !== "") {
+      updateData.passwordHash = await bcryptjs.hash(password, 10);
+    }
+
+    await db.$transaction(async (tx) => {
+      // 1. Update basic user fields
+      await tx.user.update({
+        where: { id: userId },
+        data: updateData,
+      });
+
+      // 2. If role changes, handle profile tables
+      if (role && role !== user.role) {
+        // Delete old profile
+        if (user.role === "ADMIN") await tx.adminProfile.deleteMany({ where: { userId } });
+        else if (user.role === "TEACHER") await tx.teacherProfile.deleteMany({ where: { userId } });
+        else if (user.role === "STUDENT") await tx.studentProfile.deleteMany({ where: { userId } });
+        else if (user.role === "PARENT") await tx.parentProfile.deleteMany({ where: { userId } });
+
+        // Create new profile
+        if (role === "ADMIN") await tx.adminProfile.create({ data: { userId } });
+        else if (role === "TEACHER") await tx.teacherProfile.create({ data: { userId } });
+        else if (role === "STUDENT") {
+          await tx.studentProfile.create({
+            data: { userId, classId: classId || null, parentId: parentId || null },
+          });
+        }
+        else if (role === "PARENT") await tx.parentProfile.create({ data: { userId } });
+      } else if (role === "STUDENT" || user.role === "STUDENT") {
+        // Update student profile class / parent details
+        await tx.studentProfile.upsert({
+          where: { userId },
+          create: {
+            userId,
+            classId: classId || null,
+            parentId: parentId || null,
+          },
+          update: {
+            classId: classId || null,
+            parentId: parentId || null,
+          },
+        });
+      }
+    });
+
+    revalidatePath("/admin/users");
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating user:", error);
+    return { success: false, error: "Đã xảy ra lỗi hệ thống khi chỉnh sửa tài khoản." };
+  }
+}
+
 export async function deleteUser(userId: string) {
   try {
     const session = await getSession();
@@ -100,5 +174,100 @@ export async function deleteUser(userId: string) {
   } catch (error) {
     console.error("Error deleting user:", error);
     return { success: false, error: "Đã xảy ra lỗi hệ thống khi xoá tài khoản." };
+  }
+}
+
+export async function bulkDeleteUsers(userIds: string[]) {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "ADMIN") {
+      return { success: false, error: "Chỉ Quản trị viên mới thực hiện tác vụ này." };
+    }
+
+    await db.user.deleteMany({
+      where: { id: { in: userIds } },
+    });
+
+    revalidatePath("/admin/users");
+    return { success: true };
+  } catch (error) {
+    console.error("Error bulk deleting users:", error);
+    return { success: false, error: "Đã xảy ra lỗi hệ thống khi xoá hàng loạt tài khoản." };
+  }
+}
+
+export async function importUsers(users: CreateUserInput[]) {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "ADMIN") {
+      return { success: false, error: "Chỉ Quản trị viên mới thực hiện tác vụ này." };
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const u of users) {
+      if (!u.email || !u.name || !u.role) {
+        failCount++;
+        continue;
+      }
+
+      // Check if email already exists
+      const existing = await db.user.findUnique({ where: { email: u.email } });
+      if (existing) {
+        failCount++;
+        continue;
+      }
+
+      const defaultPassword = u.password || "Password@2026";
+      const passwordHash = await bcryptjs.hash(defaultPassword, 10);
+
+      try {
+        await db.$transaction(async (tx) => {
+          const newUser = await tx.user.create({
+            data: {
+              email: u.email,
+              name: u.name,
+              role: u.role,
+              passwordHash,
+            },
+          });
+
+          if (u.role === "ADMIN") {
+            await tx.adminProfile.create({ data: { userId: newUser.id } });
+          } else if (u.role === "TEACHER") {
+            await tx.teacherProfile.create({ data: { userId: newUser.id } });
+          } else if (u.role === "STUDENT") {
+            // Find class ID by class name if classId is passed as name
+            let targetClassId: string | null = null;
+            if (u.classId) {
+              const cls = await tx.class.findFirst({
+                where: { name: { equals: u.classId, mode: "insensitive" } },
+              });
+              if (cls) targetClassId = cls.id;
+            }
+            await tx.studentProfile.create({
+              data: {
+                userId: newUser.id,
+                classId: targetClassId,
+                parentId: u.parentId || null,
+              },
+            });
+          } else if (u.role === "PARENT") {
+            await tx.parentProfile.create({ data: { userId: newUser.id } });
+          }
+        });
+        successCount++;
+      } catch (err) {
+        console.error("Failed to import user row:", u.email, err);
+        failCount++;
+      }
+    }
+
+    revalidatePath("/admin/users");
+    return { success: true, successCount, failCount };
+  } catch (error) {
+    console.error("Error bulk importing users:", error);
+    return { success: false, error: "Đã xảy ra lỗi hệ thống khi nhập danh sách học viên." };
   }
 }

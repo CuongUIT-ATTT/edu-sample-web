@@ -8,7 +8,8 @@ import {
   CheckSquare, 
   TrendingUp,
   LayoutDashboard,
-  Settings
+  Settings,
+  HelpCircle
 } from "lucide-react";
 
 export default function TeacherDashboardLayout({
@@ -56,6 +57,13 @@ export default function TeacherDashboardLayout({
             >
               <Calendar className="h-4 w-4" />
               Lịch dạy tuần
+            </Link>
+            <Link 
+              href="/teacher/quizzes" 
+              className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+            >
+              <HelpCircle className="h-4 w-4" />
+              Quản lý bài test
             </Link>
           </nav>
         </div>
