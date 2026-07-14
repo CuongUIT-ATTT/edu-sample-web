@@ -65,16 +65,22 @@ export default function FeesPage() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-          {packages.map((pkg) => (
-            <div 
-              key={pkg.name} 
-              className={`bg-canvas border rounded-lg p-6 flex flex-col justify-between shadow-sm relative ${
-                pkg.popular 
-                  ? "border-primary ring-2 ring-primary ring-offset-2 lg:scale-105 z-10" 
-                  : "border-hairline"
-              }`}
-            >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+          {packages.map((pkg, idx) => {
+            const orderClass = pkg.popular 
+              ? "order-1 md:order-none" 
+              : idx === 0 
+                ? "order-2 md:order-none" 
+                : "order-3 md:order-none";
+            return (
+              <div 
+                key={pkg.name} 
+                className={`bg-canvas border rounded-lg p-6 flex flex-col justify-between shadow-sm relative ${orderClass} ${
+                  pkg.popular 
+                    ? "border-primary ring-2 ring-primary ring-offset-2 lg:scale-105 z-10" 
+                    : "border-hairline"
+                }`}
+              >
               {pkg.popular && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] uppercase font-bold px-3 py-1 rounded-full tracking-wider shadow-sm">
                   Khóa nhiều học viên nhất
@@ -114,7 +120,7 @@ export default function FeesPage() {
                 </Link>
               </div>
             </div>
-          ))}
+          )})}
         </div>
 
         {/* Info Alerts */}

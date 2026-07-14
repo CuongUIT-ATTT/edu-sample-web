@@ -1030,8 +1030,8 @@ export default function WeeklyTimetable({
                     )}
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="border border-divider-soft rounded-lg p-4 bg-surface-pearl flex flex-col justify-between h-28">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="border border-divider-soft rounded-lg p-4 bg-surface-pearl flex flex-col justify-between h-auto min-h-[112px] gap-3">
                       <div>
                         <span className="text-[10px] font-bold text-ink-muted-80 block">Tài liệu xem trước</span>
                         <p className="text-[10px] text-ink-muted-48 mt-1 leading-snug">Xem tài liệu để chuẩn bị kiến thức trước buổi học</p>
@@ -1050,7 +1050,7 @@ export default function WeeklyTimetable({
                       )}
                     </div>
 
-                    <div className="border border-divider-soft rounded-lg p-4 bg-surface-pearl flex flex-col justify-between h-28">
+                    <div className="border border-divider-soft rounded-lg p-4 bg-surface-pearl flex flex-col justify-between h-auto min-h-[112px] gap-3">
                       <div>
                         <span className="text-[10px] font-bold text-ink-muted-80 block">Bài tập về nhà</span>
                         <p className="text-[10px] text-ink-muted-48 mt-1 leading-snug">Hoàn thành bài tập được giao và nộp lại đúng hạn</p>
@@ -1079,7 +1079,7 @@ export default function WeeklyTimetable({
 
                   {studentSubmission ? (
                     <div className="bg-canvas border border-hairline rounded-lg p-4 flex flex-col gap-3 shadow-sm">
-                      <div className="flex items-center justify-between border-b border-divider pb-2.5">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-divider pb-2.5 gap-2">
                         <span className="text-xs font-bold text-green-700 flex items-center gap-1">
                           <CheckCircle className="h-4 w-4 text-green-600" /> Đã nộp bài tập
                         </span>
@@ -1097,7 +1097,7 @@ export default function WeeklyTimetable({
                         </div>
                       </div>
                       
-                      <div className="text-xs flex justify-between items-center text-ink-muted-80">
+                      <div className="text-xs flex flex-col sm:flex-row sm:justify-between sm:items-center text-ink-muted-80 gap-1.5">
                         <span>Đường dẫn bài làm:</span>
                         <a href={studentSubmission.fileUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:underline truncate max-w-[280px]">
                           {studentSubmission.fileUrl}
@@ -1125,7 +1125,7 @@ export default function WeeklyTimetable({
                       {studentSubmission.grade === null && (
                         <form onSubmit={handleStudentSubmitUrl} className="flex flex-col gap-2 mt-2 border-t border-divider-soft pt-2">
                           <span className="text-[10px] font-bold text-ink-muted-80">Thay đổi đường dẫn bài nộp khác:</span>
-                          <div className="flex gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <input
                               type="url"
                               value={submissionUrl}
@@ -1150,7 +1150,7 @@ export default function WeeklyTimetable({
                       <p className="text-[10px] text-red-700 leading-snug">
                         Hãy dán link bài làm của bạn (ví dụ: Google Drive link chia sẻ chế độ &quot;Mọi người có liên kết đều có thể xem&quot;) để nộp bài.
                       </p>
-                      <div className="flex flex-col gap-2 mt-1">
+                      <div className="flex flex-col sm:flex-row gap-2 mt-1">
                         <input
                           type="url"
                           value={submissionUrl}
@@ -1159,7 +1159,7 @@ export default function WeeklyTimetable({
                           className="bg-canvas border border-divider-soft p-2.5 rounded text-xs outline-none focus:border-primary w-full"
                           required
                         />
-                        <button type="submit" className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold py-2 rounded-pill shadow-sm">
+                        <button type="submit" className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold py-2 rounded-pill shadow-sm whitespace-nowrap px-4">
                           Xác nhận nộp bài tập
                         </button>
                       </div>
@@ -1183,7 +1183,7 @@ export default function WeeklyTimetable({
                     <div className="flex flex-col gap-4">
                       {activeSubmissions.map((sub) => (
                         <div key={sub.id} className="border border-hairline rounded-lg p-4 bg-canvas flex flex-col gap-3 shadow-sm">
-                          <div className="flex items-center justify-between text-xs border-b border-divider-soft pb-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs border-b border-divider-soft pb-2 gap-2">
                             <span className="font-bold text-ink flex items-center gap-2">
                               {sub.student.user.name}
                               {selectedSession.homeworkDueDate && (
@@ -1199,7 +1199,7 @@ export default function WeeklyTimetable({
                             </span>
                           </div>
 
-                          <div className="flex items-center justify-between text-xs text-ink-muted-80">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-ink-muted-80 gap-1.5">
                             <span>Link bài làm của học sinh:</span>
                             <a href={sub.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline flex items-center gap-1 truncate max-w-[300px]">
                               <FileText className="h-3.5 w-3.5 flex-shrink-0" /> Mở liên kết bài làm
@@ -1210,8 +1210,8 @@ export default function WeeklyTimetable({
                           {gradingSubmissionId === sub.id ? (
                             <form onSubmit={handleGradeSubmit} className="bg-surface-pearl border border-divider rounded-lg p-3 flex flex-col gap-3 mt-1.5">
                               <span className="text-[10px] font-bold text-ink-muted-80">Chấm điểm trực tiếp</span>
-                              <div className="grid grid-cols-3 gap-3">
-                                <div className="flex flex-col gap-1 col-span-1">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="flex flex-col gap-1 sm:col-span-1">
                                   <label className="text-[9px] font-semibold text-ink-muted-80">Điểm số</label>
                                   <input
                                     type="number"
@@ -1225,7 +1225,7 @@ export default function WeeklyTimetable({
                                     required
                                   />
                                 </div>
-                                <div className="flex flex-col gap-1 col-span-2">
+                                <div className="flex flex-col gap-1 sm:col-span-2">
                                   <label className="text-[9px] font-semibold text-ink-muted-80">Lời phê / Nhận xét</label>
                                   <input
                                     type="text"
@@ -1236,24 +1236,24 @@ export default function WeeklyTimetable({
                                   />
                                 </div>
                               </div>
-                              <div className="flex justify-end gap-2 mt-1">
+                              <div className="flex flex-col sm:flex-row justify-end gap-2 mt-1 w-full sm:w-auto">
                                 <button
                                   type="button"
                                   onClick={() => setGradingSubmissionId("")}
-                                  className="border border-divider text-xs px-3 py-1 rounded-pill text-ink"
+                                  className="border border-divider text-xs px-3 py-1.5 rounded-pill text-ink w-full sm:w-auto"
                                 >
                                   Hủy
                                 </button>
                                 <button
                                   type="submit"
-                                  className="bg-primary text-white text-xs px-4 py-1 rounded-pill font-semibold shadow-sm"
+                                  className="bg-primary text-white text-xs px-4 py-1.5 rounded-pill font-semibold shadow-sm w-full sm:w-auto"
                                 >
                                   Lưu kết quả
                                 </button>
                               </div>
                             </form>
                           ) : (
-                            <div className="flex justify-between items-center bg-surface-pearl/50 border border-hairline rounded p-2.5 mt-1">
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-surface-pearl/50 border border-hairline rounded p-2.5 mt-1 gap-2">
                               <div>
                                 {sub.grade !== null ? (
                                   <div className="text-xs">
@@ -1272,7 +1272,7 @@ export default function WeeklyTimetable({
                                   setGradingScore(sub.grade !== null ? sub.grade.toString() : "");
                                   setGradingFeedback(sub.feedback || "");
                                 }}
-                                className="text-xs text-primary hover:underline font-bold flex items-center gap-1"
+                                className="text-xs text-primary hover:underline font-bold flex items-center gap-1 self-start sm:self-auto"
                               >
                                 <Edit3 className="h-3.5 w-3.5" /> {sub.grade !== null ? "Sửa điểm" : "Chấm bài"}
                               </button>

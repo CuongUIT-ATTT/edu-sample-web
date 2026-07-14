@@ -66,7 +66,7 @@ export default function PublicLayout({
       {/* Apple Style Footer */}
       <footer className="bg-canvas-parchment text-ink-muted-80 border-t border-hairline py-16 px-6 font-fine-print">
         <div className="max-w-[980px] w-full mx-auto flex flex-col gap-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 md:grid-cols-4 gap-8">
             <div className="flex flex-col gap-3">
               <h4 className="font-caption-strong text-ink font-bold">Khóa học & Luyện đề</h4>
               <Link href="/courses" className="hover:underline font-dense-link leading-relaxed block text-xs">Luyện thi tốt nghiệp THPT</Link>

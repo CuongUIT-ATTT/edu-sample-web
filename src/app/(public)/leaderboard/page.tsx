@@ -110,9 +110,9 @@ export default async function LeaderboardPage() {
               <tr className="border-b border-hairline bg-surface-pearl text-left">
                 <th className="px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-center w-16">Hạng</th>
                 <th className="px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Học viên</th>
-                <th className="px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-center w-24">Lớp VIP</th>
+                <th className="hidden min-[480px]:table-cell px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-center w-24">Lớp VIP</th>
                 <th className="px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-center w-24">Điểm TB</th>
-                <th className="px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-right w-48">Danh hiệu</th>
+                <th className="hidden sm:table-cell px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-right w-48">Danh hiệu</th>
               </tr>
             </thead>
             <tbody>
@@ -143,7 +143,7 @@ export default async function LeaderboardPage() {
                         <span className="text-sm font-body-strong text-ink font-semibold">{student.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-center text-xs font-caption text-ink-muted-80">
+                    <td className="hidden min-[480px]:table-cell px-6 py-4 text-center text-xs font-caption text-ink-muted-80">
                       {student.className}
                     </td>
                     <td className="px-6 py-4 text-center">
@@ -151,7 +151,7 @@ export default async function LeaderboardPage() {
                         {student.avgScore.toFixed(1)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right text-xs font-caption text-ink-muted-80 font-semibold">
+                    <td className="hidden sm:table-cell px-6 py-4 text-right text-xs font-caption text-ink-muted-80 font-semibold">
                       {student.badge}
                     </td>
                   </tr>
