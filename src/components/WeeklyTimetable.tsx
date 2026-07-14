@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Clock, MapPin, Plus, Trash2, CheckCircle, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Upload, Download, Eye, Check, X, FileText, Star, Edit3 } from "lucide-react";
+import { Clock, MapPin, Plus, Trash2, CheckCircle, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Upload, Download, Eye, Check, X, FileText, Star, Edit3, Link as LinkIcon } from "lucide-react";
 import { createSchedule, deleteSchedule } from "@/actions/schedules";
 import { updateScheduleFiles, submitHomework, gradeHomework, getScheduleSubmissions, getStudentSubmission } from "@/actions/homework";
 
@@ -92,10 +92,10 @@ export default function WeeklyTimetable({
   const [studentSubmission, setStudentSubmission] = useState<any | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // File uploading states (simulated)
-  const [materialsFile, setMaterialsFile] = useState("");
-  const [homeworkFile, setHomeworkFile] = useState("");
-  const [submissionFile, setSubmissionFile] = useState("");
+  // Link input states for Hướng A (Google Drive / Online Link)
+  const [materialsUrl, setMaterialsUrl] = useState("");
+  const [homeworkUrl, setHomeworkUrl] = useState("");
+  const [submissionUrl, setSubmissionUrl] = useState("");
 
   // Grading states
   const [gradingSubmissionId, setGradingSubmissionId] = useState("");
@@ -125,11 +125,18 @@ export default function WeeklyTimetable({
   // Fetch homework submissions when modal opens
   useEffect(() => {
     if (!selectedSession) return;
+    
+    setMaterialsUrl(selectedSession.materials || "");
+    setHomeworkUrl(selectedSession.homework || "");
+
     setLoadingDetails(true);
     if (userRole === "STUDENT") {
       getStudentSubmission(selectedSession.id)
         .then((res) => {
-          if (res.success) setStudentSubmission(res.data);
+          if (res.success) {
+            setStudentSubmission(res.data);
+            setSubmissionUrl(res.data?.fileUrl || "");
+          }
         })
         .finally(() => setLoadingDetails(false));
     } else {
@@ -360,42 +367,43 @@ export default function WeeklyTimetable({
     return grid;
   }, [currentDate]);
 
-  // Homework file upload simulation
-  const handleTeacherFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: "materials" | "homework") => {
+  // Hướng A handlers: Save online link URLs
+  const handleSaveMaterials = async () => {
     if (!selectedSession) return;
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const virtualUrl = `/api/documents/vip/${encodeURIComponent(file.name)}`;
-    if (type === "materials") {
-      setMaterialsFile(file.name);
-      const res = await updateScheduleFiles({ scheduleId: selectedSession.id, materials: virtualUrl });
-      if (res.success) {
-        setSelectedSession({ ...selectedSession, materials: virtualUrl });
-        alert("Đã lưu tài liệu xem trước thành công!");
-      }
+    const res = await updateScheduleFiles({ scheduleId: selectedSession.id, materials: materialsUrl.trim() || null });
+    if (res.success) {
+      setSelectedSession({ ...selectedSession, materials: materialsUrl.trim() || null });
+      setSchedules(prev => prev.map(s => s.id === selectedSession.id ? { ...s, materials: materialsUrl.trim() || null } : s));
+      alert("Đã cập nhật link tài liệu học tập thành công!");
     } else {
-      setHomeworkFile(file.name);
-      const res = await updateScheduleFiles({ scheduleId: selectedSession.id, homework: virtualUrl });
-      if (res.success) {
-        setSelectedSession({ ...selectedSession, homework: virtualUrl });
-        alert("Đã lưu tệp bài tập về nhà thành công!");
-      }
+      alert(res.error || "Lỗi cập nhật tài liệu.");
     }
   };
 
-  const handleStudentSubmitHomework = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSaveHomework = async () => {
     if (!selectedSession) return;
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const res = await updateScheduleFiles({ scheduleId: selectedSession.id, homework: homeworkUrl.trim() || null });
+    if (res.success) {
+      setSelectedSession({ ...selectedSession, homework: homeworkUrl.trim() || null });
+      setSchedules(prev => prev.map(s => s.id === selectedSession.id ? { ...s, homework: homeworkUrl.trim() || null } : s));
+      alert("Đã giao bài tập về nhà thành công!");
+    } else {
+      alert(res.error || "Lỗi giao bài tập.");
+    }
+  };
 
-    const virtualUrl = `/api/documents/vip/${encodeURIComponent(file.name)}`;
-    setSubmissionFile(file.name);
+  const handleStudentSubmitUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSession) return;
+    if (!submissionUrl.trim()) {
+      alert("Vui lòng nhập link bài làm của bạn.");
+      return;
+    }
 
     const res = await submitHomework({
       scheduleId: selectedSession.id,
-      fileUrl: virtualUrl,
-      fileName: file.name
+      fileUrl: submissionUrl.trim(),
+      fileName: "Link bài làm Google Drive"
     });
 
     if (res.success) {
@@ -688,51 +696,51 @@ export default function WeeklyTimetable({
                 </div>
               </div>
 
-              {/* MATERIALS & HOMEWORK UPLOADER (TEACHER / ADMIN) */}
+              {/* MATERIALS & HOMEWORK LINK INPUTS (TEACHER / ADMIN - Hướng A) */}
               {userRole !== "STUDENT" ? (
                 <div className="flex flex-col gap-4 border-t border-divider-soft pt-4">
-                  <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Quản lý Tài liệu học tập &amp; Bài tập</h4>
+                  <h4 className="text-xs font-bold text-ink uppercase tracking-wider font-tagline">Đường dẫn Tài liệu học tập &amp; Bài tập</h4>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-hairline rounded-lg">
-                      <span className="text-[10px] font-bold text-ink-muted-80">1. Tài liệu xem trước</span>
-                      {selectedSession.materials ? (
-                        <div className="flex items-center justify-between bg-canvas border border-divider-soft p-2 rounded text-xs">
-                          <span className="truncate max-w-[150px] font-semibold">{decodeURIComponent(selectedSession.materials.split("/").pop() || "")}</span>
-                          <a href={selectedSession.materials} download className="text-primary hover:underline flex items-center gap-1">
-                            <Download className="h-3 w-3" /> Tải về
-                          </a>
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-ink-muted-48 italic">Chưa tải tài liệu xem trước</span>
-                      )}
-                      <label className="bg-canvas border border-divider hover:bg-surface-pearl text-ink font-semibold text-center text-xs py-1.5 px-3 rounded-pill shadow-sm cursor-pointer mt-2 flex items-center justify-center gap-1.5">
-                        <Upload className="h-3.5 w-3.5" /> {selectedSession.materials ? "Cập nhật tệp" : "Tải tệp PDF mới"}
-                        <input type="file" accept=".pdf" className="hidden" onChange={(e) => handleTeacherFileChange(e, "materials")} />
-                      </label>
+                      <span className="text-[10px] font-bold text-ink-muted-80">1. Link tài liệu xem trước</span>
+                      <input
+                        type="url"
+                        value={materialsUrl}
+                        onChange={(e) => setMaterialsUrl(e.target.value)}
+                        placeholder="Dán link bài giảng, tài liệu..."
+                        className="bg-canvas border border-divider-soft p-2 rounded text-xs outline-none focus:border-primary w-full"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveMaterials}
+                        className="bg-primary hover:bg-primary-focus text-white text-[10px] font-bold py-1.5 px-3 rounded-pill mt-1 self-end"
+                      >
+                        Lưu Link tài liệu
+                      </button>
                     </div>
 
                     <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-hairline rounded-lg">
-                      <span className="text-[10px] font-bold text-ink-muted-80">2. Đề bài tập về nhà</span>
-                      {selectedSession.homework ? (
-                        <div className="flex items-center justify-between bg-canvas border border-divider-soft p-2 rounded text-xs">
-                          <span className="truncate max-w-[150px] font-semibold">{decodeURIComponent(selectedSession.homework.split("/").pop() || "")}</span>
-                          <a href={selectedSession.homework} download className="text-primary hover:underline flex items-center gap-1">
-                            <Download className="h-3 w-3" /> Tải về
-                          </a>
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-ink-muted-48 italic">Chưa giao bài tập về nhà</span>
-                      )}
-                      <label className="bg-canvas border border-divider hover:bg-surface-pearl text-ink font-semibold text-center text-xs py-1.5 px-3 rounded-pill shadow-sm cursor-pointer mt-2 flex items-center justify-center gap-1.5">
-                        <Upload className="h-3.5 w-3.5" /> {selectedSession.homework ? "Cập nhật bài tập" : "Tải tệp bài tập"}
-                        <input type="file" accept=".pdf" className="hidden" onChange={(e) => handleTeacherFileChange(e, "homework")} />
-                      </label>
+                      <span className="text-[10px] font-bold text-ink-muted-80">2. Link đề bài tập về nhà</span>
+                      <input
+                        type="url"
+                        value={homeworkUrl}
+                        onChange={(e) => setHomeworkUrl(e.target.value)}
+                        placeholder="Dán link đề bài tập (PDF, Docx)..."
+                        className="bg-canvas border border-divider-soft p-2 rounded text-xs outline-none focus:border-primary w-full"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveHomework}
+                        className="bg-primary hover:bg-primary-focus text-white text-[10px] font-bold py-1.5 px-3 rounded-pill mt-1 self-end"
+                      >
+                        Lưu Link bài tập
+                      </button>
                     </div>
                   </div>
                 </div>
               ) : (
-                /* STUDENT DOWNLOAD FILES & HOMEWORK */
+                /* STUDENT DOWNLOAD LINKS */
                 <div className="flex flex-col gap-4 border-t border-divider-soft pt-4">
                   <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Tài liệu học tập tự học</h4>
                   
@@ -745,10 +753,11 @@ export default function WeeklyTimetable({
                       {selectedSession.materials ? (
                         <a
                           href={selectedSession.materials}
-                          download
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold px-3 py-1.5 rounded-pill shadow-sm flex items-center justify-center gap-1.5"
                         >
-                          <Download className="h-3.5 w-3.5" /> Tải tài liệu
+                          <LinkIcon className="h-3.5 w-3.5" /> Xem bài giảng
                         </a>
                       ) : (
                         <span className="text-xs text-ink-muted-48 font-semibold italic text-center block pt-2">Chưa cập nhật</span>
@@ -763,10 +772,11 @@ export default function WeeklyTimetable({
                       {selectedSession.homework ? (
                         <a
                           href={selectedSession.homework}
-                          download
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-1.5 rounded-pill shadow-sm flex items-center justify-center gap-1.5"
                         >
-                          <Download className="h-3.5 w-3.5" /> Tải đề bài tập
+                          <LinkIcon className="h-3.5 w-3.5" /> Xem đề bài tập
                         </a>
                       ) : (
                         <span className="text-xs text-ink-muted-48 font-semibold italic text-center block pt-2">Chưa giao bài tập</span>
@@ -776,7 +786,7 @@ export default function WeeklyTimetable({
                 </div>
               )}
 
-              {/* STUDENT SUBMISSION PORTAL */}
+              {/* STUDENT SUBMISSION PORTAL (Hướng A - Google Drive URL) */}
               {userRole === "STUDENT" && selectedSession.homework && (
                 <div className="border-t border-divider-soft pt-4 flex flex-col gap-4">
                   <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Trạng thái nộp bài tập về nhà</h4>
@@ -784,7 +794,7 @@ export default function WeeklyTimetable({
                   {studentSubmission ? (
                     <div className="bg-canvas border border-hairline rounded-lg p-4 flex flex-col gap-3 shadow-sm">
                       <div className="flex items-center justify-between border-b border-divider pb-2.5">
-                        <span className="text-xs font-bold text-ink flex items-center gap-1">
+                        <span className="text-xs font-bold text-green-700 flex items-center gap-1">
                           <CheckCircle className="h-4 w-4 text-green-600" /> Đã nộp bài tập
                         </span>
                         <span className="text-[10px] text-ink-muted-80 font-mono">
@@ -793,9 +803,9 @@ export default function WeeklyTimetable({
                       </div>
                       
                       <div className="text-xs flex justify-between items-center text-ink-muted-80">
-                        <span>File bài làm:</span>
-                        <a href={studentSubmission.fileUrl} download className="font-bold text-primary hover:underline">
-                          {studentSubmission.fileName}
+                        <span>Đường dẫn bài làm:</span>
+                        <a href={studentSubmission.fileUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:underline truncate max-w-[280px]">
+                          {studentSubmission.fileUrl}
                         </a>
                       </div>
 
@@ -813,34 +823,57 @@ export default function WeeklyTimetable({
                         </div>
                       ) : (
                         <div className="bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-3 rounded mt-2 italic">
-                          Đang chờ giáo viên chấm điểm.
+                          Đang chờ giáo viên chấm điểm. Bạn vẫn có thể cập nhật lại liên kết bài làm dưới đây.
                         </div>
                       )}
                       
                       {studentSubmission.grade === null && (
-                        <label className="border border-divider hover:bg-surface-pearl text-ink font-semibold text-center text-xs py-1.5 px-4 rounded-pill shadow-sm cursor-pointer self-start mt-2 flex items-center gap-1.5">
-                          <Upload className="h-3.5 w-3.5" /> Nộp bài viết khác
-                          <input type="file" accept=".pdf" className="hidden" onChange={handleStudentSubmitHomework} />
-                        </label>
+                        <form onSubmit={handleStudentSubmitUrl} className="flex flex-col gap-2 mt-2 border-t border-divider-soft pt-2">
+                          <span className="text-[10px] font-bold text-ink-muted-80">Thay đổi đường dẫn bài nộp khác:</span>
+                          <div className="flex gap-2">
+                            <input
+                              type="url"
+                              value={submissionUrl}
+                              onChange={(e) => setSubmissionUrl(e.target.value)}
+                              placeholder="Dán link Google Drive hoặc OneDrive bài làm mới..."
+                              className="bg-canvas border border-divider-soft p-2 rounded text-xs outline-none focus:border-primary flex-1"
+                              required
+                            />
+                            <button type="submit" className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold px-4 py-1.5 rounded-pill">
+                              Lưu lại
+                            </button>
+                          </div>
+                        </form>
                       )}
                     </div>
                   ) : (
-                    <div className="bg-red-50 border border-red-100 text-red-800 rounded-lg p-5 text-center flex flex-col items-center justify-center gap-3">
-                      <AlertCircle className="h-8 w-8 text-red-500" />
-                      <div>
-                        <p className="text-xs font-bold">Chưa nộp bài tập về nhà!</p>
-                        <p className="text-[10px] text-red-700 mt-1">Hãy chuẩn bị lời giải và nộp bài trước giờ học.</p>
+                    <form onSubmit={handleStudentSubmitUrl} className="bg-red-50 border border-red-100 rounded-lg p-5 flex flex-col gap-3">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-5 w-5 text-red-500" />
+                        <span className="text-xs font-bold text-red-950">Chưa nộp bài tập về nhà!</span>
                       </div>
-                      <label className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold px-5 py-2 rounded-pill shadow-sm cursor-pointer mt-1 flex items-center gap-1.5">
-                        <Upload className="h-4 w-4" /> Tải lên bài làm (.pdf)
-                        <input type="file" accept=".pdf" className="hidden" onChange={handleStudentSubmitHomework} />
-                      </label>
-                    </div>
+                      <p className="text-[10px] text-red-700 leading-snug">
+                        Hãy dán link bài làm của bạn (ví dụ: Google Drive link chia sẻ chế độ &quot;Mọi người có liên kết đều có thể xem&quot;) để nộp bài.
+                      </p>
+                      <div className="flex flex-col gap-2 mt-1">
+                        <input
+                          type="url"
+                          value={submissionUrl}
+                          onChange={(e) => setSubmissionUrl(e.target.value)}
+                          placeholder="Dán link Google Drive, OneDrive hoặc Dropbox..."
+                          className="bg-canvas border border-divider-soft p-2.5 rounded text-xs outline-none focus:border-primary w-full"
+                          required
+                        />
+                        <button type="submit" className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold py-2 rounded-pill shadow-sm">
+                          Xác nhận nộp bài tập
+                        </button>
+                      </div>
+                    </form>
                   )}
                 </div>
               )}
 
-              {/* TEACHER SUBMISSIONS MANAGEMENT & GRADING */}
+              {/* TEACHER SUBMISSIONS MANAGEMENT & GRADING (Hướng A) */}
               {userRole !== "STUDENT" && (
                 <div className="border-t border-divider-soft pt-4 flex flex-col gap-4">
                   <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Danh sách bài tập học viên nộp ({activeSubmissions.length})</h4>
@@ -863,9 +896,9 @@ export default function WeeklyTimetable({
                           </div>
 
                           <div className="flex items-center justify-between text-xs text-ink-muted-80">
-                            <span>Tệp bài làm học sinh:</span>
-                            <a href={sub.fileUrl} download className="text-primary font-bold hover:underline flex items-center gap-1">
-                              <FileText className="h-3.5 w-3.5" /> {sub.fileName || "Tệp bài làm.pdf"}
+                            <span>Link bài làm của học sinh:</span>
+                            <a href={sub.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline flex items-center gap-1 truncate max-w-[300px]">
+                              <FileText className="h-3.5 w-3.5 flex-shrink-0" /> Mở liên kết bài làm
                             </a>
                           </div>
 
