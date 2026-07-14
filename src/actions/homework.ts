@@ -8,6 +8,7 @@ interface UpdateScheduleFilesInput {
   scheduleId: string;
   materials?: string | null;
   homework?: string | null;
+  homeworkDueDate?: string | null;
 }
 
 export async function updateScheduleFiles(input: UpdateScheduleFilesInput) {
@@ -17,11 +18,14 @@ export async function updateScheduleFiles(input: UpdateScheduleFilesInput) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
     }
 
-    const { scheduleId, materials, homework } = input;
+    const { scheduleId, materials, homework, homeworkDueDate } = input;
 
-    const data: { materials?: string | null; homework?: string | null } = {};
+    const data: { materials?: string | null; homework?: string | null; homeworkDueDate?: Date | null } = {};
     if (materials !== undefined) data.materials = materials;
     if (homework !== undefined) data.homework = homework;
+    if (homeworkDueDate !== undefined) {
+      data.homeworkDueDate = homeworkDueDate ? new Date(homeworkDueDate) : null;
+    }
 
     await db.schedule.update({
       where: { id: scheduleId },

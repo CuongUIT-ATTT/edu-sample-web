@@ -117,6 +117,7 @@ model Schedule {
   recurrenceGroupId String?              // ID to group weekly occurrences together
   materials         String?              // URL or JSON of preview documents
   homework          String?              // URL or JSON of homework files
+  homeworkDueDate   DateTime?            // Deadline for homework submission
   submissions       HomeworkSubmission[]
 }
 

@@ -16,6 +16,7 @@ interface ScheduleItem {
   recurrenceGroupId?: string | null;
   materials?: string | null;
   homework?: string | null;
+  homeworkDueDate?: Date | string | null;
   class: {
     id: string;
     name: string;
@@ -96,6 +97,7 @@ export default function WeeklyTimetable({
   const [materialsUrl, setMaterialsUrl] = useState("");
   const [homeworkUrl, setHomeworkUrl] = useState("");
   const [submissionUrl, setSubmissionUrl] = useState("");
+  const [homeworkDueDate, setHomeworkDueDate] = useState("");
 
   // Grading states
   const [gradingSubmissionId, setGradingSubmissionId] = useState("");
@@ -128,6 +130,7 @@ export default function WeeklyTimetable({
     
     setMaterialsUrl(selectedSession.materials || "");
     setHomeworkUrl(selectedSession.homework || "");
+    setHomeworkDueDate(selectedSession.homeworkDueDate ? new Date(new Date(selectedSession.homeworkDueDate).getTime() - new Date().getTimezoneOffset()*60000).toISOString().substring(0, 16) : "");
 
     setLoadingDetails(true);
     if (userRole === "STUDENT") {
@@ -153,7 +156,9 @@ export default function WeeklyTimetable({
     if (session.recurrenceGroupId) {
       setShowDeleteConfirm(true);
     } else {
-      handleDeleteExecute(session.id, "ONLY_THIS");
+      if (confirm(`Bạn có chắc chắn muốn xóa ca học này không?`)) {
+        handleDeleteExecute(session.id, "ONLY_THIS");
+      }
     }
   };
 
@@ -370,6 +375,11 @@ export default function WeeklyTimetable({
   // Hướng A handlers: Save online link URLs
   const handleSaveMaterials = async () => {
     if (!selectedSession) return;
+    if (!materialsUrl.trim() && selectedSession.materials) {
+      if (!confirm("Bạn có chắc chắn muốn xóa đường dẫn tài liệu xem trước của ca học này?")) {
+        return;
+      }
+    }
     const res = await updateScheduleFiles({ scheduleId: selectedSession.id, materials: materialsUrl.trim() || null });
     if (res.success) {
       setSelectedSession({ ...selectedSession, materials: materialsUrl.trim() || null });
@@ -382,6 +392,11 @@ export default function WeeklyTimetable({
 
   const handleSaveHomework = async () => {
     if (!selectedSession) return;
+    if (!homeworkUrl.trim() && selectedSession.homework) {
+      if (!confirm("Bạn có chắc chắn muốn xóa đường dẫn bài tập về nhà của ca học này?")) {
+        return;
+      }
+    }
     const res = await updateScheduleFiles({ scheduleId: selectedSession.id, homework: homeworkUrl.trim() || null });
     if (res.success) {
       setSelectedSession({ ...selectedSession, homework: homeworkUrl.trim() || null });
@@ -389,6 +404,26 @@ export default function WeeklyTimetable({
       alert("Đã giao bài tập về nhà thành công!");
     } else {
       alert(res.error || "Lỗi giao bài tập.");
+    }
+  };
+
+  const handleSaveDueDate = async () => {
+    if (!selectedSession) return;
+    if (!homeworkDueDate && selectedSession.homeworkDueDate) {
+      if (!confirm("Bạn có chắc chắn muốn xóa hạn nộp bài tập về nhà của ca học này?")) {
+        return;
+      }
+    }
+    const res = await updateScheduleFiles({ 
+      scheduleId: selectedSession.id, 
+      homeworkDueDate: homeworkDueDate || null 
+    });
+    if (res.success) {
+      setSelectedSession({ ...selectedSession, homeworkDueDate: homeworkDueDate || null });
+      setSchedules(prev => prev.map(s => s.id === selectedSession.id ? { ...s, homeworkDueDate: homeworkDueDate || null } : s));
+      alert("Đã cập nhật hạn nộp bài tập!");
+    } else {
+      alert(res.error || "Lỗi cập nhật hạn nộp.");
     }
   };
 
@@ -738,11 +773,37 @@ export default function WeeklyTimetable({
                       </button>
                     </div>
                   </div>
+
+                  <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-hairline rounded-lg">
+                    <span className="text-[10px] font-bold text-ink-muted-80">3. Hạn nộp bài tập về nhà</span>
+                    <div className="flex gap-2">
+                      <input
+                        type="datetime-local"
+                        value={homeworkDueDate}
+                        onChange={(e) => setHomeworkDueDate(e.target.value)}
+                        className="bg-canvas border border-divider-soft p-2 rounded text-xs outline-none focus:border-primary flex-1 h-9"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveDueDate}
+                        className="bg-primary hover:bg-primary-focus text-white text-[10px] font-bold py-1.5 px-4 rounded-pill self-center h-9"
+                      >
+                        Lưu hạn nộp
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 /* STUDENT DOWNLOAD LINKS */
                 <div className="flex flex-col gap-4 border-t border-divider-soft pt-4">
-                  <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Tài liệu học tập tự học</h4>
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Tài liệu học tập tự học</h4>
+                    {selectedSession.homeworkDueDate && (
+                      <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200 font-mono font-bold">
+                        Hạn nộp: {new Date(selectedSession.homeworkDueDate).toLocaleString("vi-VN")}
+                      </span>
+                    )}
+                  </div>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="border border-divider-soft rounded-lg p-4 bg-surface-pearl flex flex-col justify-between h-28">
@@ -797,9 +858,18 @@ export default function WeeklyTimetable({
                         <span className="text-xs font-bold text-green-700 flex items-center gap-1">
                           <CheckCircle className="h-4 w-4 text-green-600" /> Đã nộp bài tập
                         </span>
-                        <span className="text-[10px] text-ink-muted-80 font-mono">
-                          Nộp lúc: {new Date(studentSubmission.submittedAt).toLocaleString("vi-VN")}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {selectedSession.homeworkDueDate && (
+                            new Date(studentSubmission.submittedAt) > new Date(selectedSession.homeworkDueDate) ? (
+                              <span className="text-[9px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">Nộp muộn</span>
+                            ) : (
+                              <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">Đúng hạn</span>
+                            )
+                          )}
+                          <span className="text-[10px] text-ink-muted-80 font-mono">
+                            Nộp lúc: {new Date(studentSubmission.submittedAt).toLocaleString("vi-VN")}
+                          </span>
+                        </div>
                       </div>
                       
                       <div className="text-xs flex justify-between items-center text-ink-muted-80">
@@ -889,7 +959,16 @@ export default function WeeklyTimetable({
                       {activeSubmissions.map((sub) => (
                         <div key={sub.id} className="border border-hairline rounded-lg p-4 bg-canvas flex flex-col gap-3 shadow-sm">
                           <div className="flex items-center justify-between text-xs border-b border-divider-soft pb-2">
-                            <span className="font-bold text-ink">{sub.student.user.name}</span>
+                            <span className="font-bold text-ink flex items-center gap-2">
+                              {sub.student.user.name}
+                              {selectedSession.homeworkDueDate && (
+                                new Date(sub.submittedAt) > new Date(selectedSession.homeworkDueDate) ? (
+                                  <span className="text-[8px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">Nộp muộn</span>
+                                ) : (
+                                  <span className="text-[8px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">Đúng hạn</span>
+                                )
+                              )}
+                            </span>
                             <span className="text-[10px] text-ink-muted-80 font-mono">
                               Nộp lúc: {new Date(sub.submittedAt).toLocaleString("vi-VN")}
                             </span>
@@ -1205,18 +1284,19 @@ export default function WeeklyTimetable({
                   </select>
                 </div>
 
-                {recurrence === "WEEKLY" && (
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-caption-strong text-ink-muted-80">Ngày kết thúc lặp</label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="bg-canvas border border-hairline rounded-pill px-4 py-2 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                      required
-                    />
-                  </div>
-                )}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-caption-strong text-ink-muted-80">Ngày kết thúc</label>
+                  <input
+                    type="date"
+                    value={recurrence === "NONE" ? startDate : endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    disabled={recurrence === "NONE"}
+                    className={`bg-canvas border border-hairline rounded-pill px-4 py-2 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full ${
+                      recurrence === "NONE" ? "opacity-60 bg-slate-50 cursor-not-allowed" : ""
+                    }`}
+                    required
+                  />
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
