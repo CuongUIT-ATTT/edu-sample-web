@@ -9,7 +9,7 @@ Tài liệu này tổng hợp toàn diện bối cảnh, các quyết định k�
 Dự án **edu-web** là một cổng thông tin quản lý học tập đa phân hệ (Multi-role LMS) được thiết kế đặc thù cho các lớp học tương tác cao, kết hợp quản lý lịch biểu chuyên sâu.
 
 ### Công nghệ cốt lõi (Tech Stack):
-* **Framework**: Next.js v16.2.10 (phiên bản build nội bộ thực tế trong dự án, được kiểm chứng qua lệnh `npx next -v`) đi kèm React v19.2.4 và Turbopack tốc độ cao.
+* **Framework**: Next.js v16.2.10 (phiên bản pre-release/canary build thực tế trong dự án, được kiểm chứng qua lệnh `npx next -v`) đi kèm React v19.2.4 và Turbopack tốc độ cao.
 * **Database**: PostgreSQL (Neon Serverless Database) cho môi trường Staging/Production và hỗ trợ tương thích SQLite cho môi trường phát triển cục bộ (Local Offline Development).
 * **ORM**: Prisma ORM hỗ trợ định nghĩa schema, format và đồng bộ dữ liệu.
 * **CSS & Design**: Sử dụng Vanilla CSS & Tailwind CSS kết hợp thư viện biểu tượng **Lucide React**.
