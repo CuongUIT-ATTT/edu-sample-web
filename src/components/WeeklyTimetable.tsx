@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { Clock, MapPin, Plus, Trash2, CheckCircle, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Upload, Download, Eye, Check, X, FileText, Star, Edit3, Link as LinkIcon } from "lucide-react";
-import { createSchedule, deleteSchedule } from "@/actions/schedules";
+import { createSchedule, deleteSchedule, updateSchedule } from "@/actions/schedules";
 import { updateScheduleFiles, submitHomework, gradeHomework, getScheduleSubmissions, getStudentSubmission } from "@/actions/homework";
 
 interface ScheduleItem {
@@ -104,6 +104,18 @@ export default function WeeklyTimetable({
   const [gradingScore, setGradingScore] = useState("");
   const [gradingFeedback, setGradingFeedback] = useState("");
 
+  // Edit Form States
+  const [isEditing, setIsEditing] = useState(false);
+  const [editClassId, setEditClassId] = useState("");
+  const [editSubjectId, setEditSubjectId] = useState("");
+  const [editTeacherId, setEditTeacherId] = useState("");
+  const [editDayOfWeek, setEditDayOfWeek] = useState(1);
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
+  const [editSelectedRoom, setEditSelectedRoom] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
+
   // Deletion choices
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<ScheduleItem | null>(null);
@@ -126,11 +138,25 @@ export default function WeeklyTimetable({
 
   // Fetch homework submissions when modal opens
   useEffect(() => {
-    if (!selectedSession) return;
+    if (!selectedSession) {
+      setIsEditing(false);
+      return;
+    }
     
     setMaterialsUrl(selectedSession.materials || "");
     setHomeworkUrl(selectedSession.homework || "");
     setHomeworkDueDate(selectedSession.homeworkDueDate ? new Date(new Date(selectedSession.homeworkDueDate).getTime() - new Date().getTimezoneOffset()*60000).toISOString().substring(0, 16) : "");
+    setIsEditing(false);
+
+    // Pre-fill edit inputs
+    setEditClassId(selectedSession.class.id);
+    setEditSubjectId(selectedSession.subject.id);
+    setEditTeacherId(selectedSession.teacher.id);
+    setEditDayOfWeek(selectedSession.dayOfWeek);
+    setEditStartTime(selectedSession.startTime);
+    setEditEndTime(selectedSession.endTime);
+    setEditSelectedRoom(selectedSession.room || "");
+    setEditDate(selectedSession.date ? new Date(selectedSession.date).toISOString().split("T")[0] : "");
 
     setLoadingDetails(true);
     if (userRole === "STUDENT") {
@@ -213,7 +239,57 @@ export default function WeeklyTimetable({
 
   const handleConfirmOverride = () => {
     if (pendingInput) {
-      handleFormSubmit(null, true);
+      if (pendingInput.scheduleId) {
+        handleUpdateExecute(pendingInput.updateMode, true);
+      } else {
+        handleFormSubmit(null, true);
+      }
+    }
+  };
+
+  const handleUpdateTrigger = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSession) return;
+
+    if (selectedSession.recurrenceGroupId) {
+      setShowUpdateConfirm(true);
+    } else {
+      if (confirm("Bạn có chắc chắn muốn cập nhật ca học này không?")) {
+        handleUpdateExecute("ONLY_THIS");
+      }
+    }
+  };
+
+  const handleUpdateExecute = async (updateMode: "ONLY_THIS" | "ALL_FUTURE", ignoreWarning = false) => {
+    if (!selectedSession) return;
+    setSuccessMsg(null);
+    setErrorMsg(null);
+    setShowUpdateConfirm(false);
+
+    const payload = {
+      scheduleId: selectedSession.id,
+      classId: editClassId,
+      subjectId: editSubjectId,
+      teacherId: editTeacherId,
+      dayOfWeek: editDayOfWeek,
+      startTime: editStartTime,
+      endTime: editEndTime,
+      room: editSelectedRoom,
+      date: editDate,
+      updateMode,
+      ignoreWarning,
+    };
+
+    const res = await updateSchedule(payload);
+    if (res.success) {
+      setSuccessMsg(res.message || "Cập nhật ca học thành công.");
+      setSelectedSession(null);
+      window.location.reload();
+    } else if (res.isWarning) {
+      setWarningMsg(res.error || "Phát hiện trùng lịch học.");
+      setPendingInput(payload);
+    } else {
+      setErrorMsg(res.error || "Cập nhật ca học thất bại.");
     }
   };
 
@@ -700,36 +776,185 @@ export default function WeeklyTimetable({
             <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
               <div>
                 <h3 className="font-tagline text-base font-bold text-ink">
-                  Chi tiết buổi học: Lớp {selectedSession.class.name}
+                  {isEditing ? "Chỉnh sửa ca học" : `Chi tiết buổi học: Lớp ${selectedSession.class.name}`}
                 </h3>
                 <p className="text-[10px] text-ink-muted-80 font-mono mt-0.5">
                   Chuyên đề: {selectedSession.subject.name} | Phòng: {selectedSession.room || "—"}
                 </p>
               </div>
-              <button onClick={() => setSelectedSession(null)} className="text-ink-muted-80 hover:text-ink">
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-3">
+                {userRole !== "STUDENT" && !isEditing && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="text-xs text-primary hover:text-primary-focus font-bold border border-primary/20 bg-primary/5 px-3 py-1.5 rounded-pill shadow-sm"
+                  >
+                    Sửa ca học
+                  </button>
+                )}
+                <button onClick={() => setSelectedSession(null)} className="text-ink-muted-80 hover:text-ink">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             {/* Modal Body */}
             <div className="p-6 flex flex-col gap-6 overflow-y-auto max-h-[70vh]">
-              {/* Session Meta */}
-              <div className="grid grid-cols-2 gap-4 bg-blue-50 border border-blue-100 rounded-lg p-4 text-xs">
-                <div className="flex flex-col gap-1">
-                  <span className="text-ink-muted-80 font-semibold">Thời gian:</span>
-                  <span className="font-bold text-blue-900">{selectedSession.startTime} - {selectedSession.endTime}</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-ink-muted-80 font-semibold">Ngày học:</span>
-                  <span className="font-bold text-blue-900">
-                    {selectedSession.date ? new Date(selectedSession.date).toLocaleDateString("vi-VN", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "Hàng tuần"}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1 col-span-2 border-t border-blue-200/50 pt-2">
-                  <span className="text-ink-muted-80 font-semibold">Giáo viên phụ trách:</span>
-                  <span className="font-bold text-blue-900">{selectedSession.teacher.user.name}</span>
-                </div>
-              </div>
+              {isEditing ? (
+                <form onSubmit={handleUpdateTrigger} className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1.5 text-xs">
+                    <label className="font-caption-strong text-ink-muted-80">Lớp học</label>
+                    <select
+                      value={editClassId}
+                      onChange={(e) => setEditClassId(e.target.value)}
+                      className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                      required
+                    >
+                      <option value="">— Chọn lớp —</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 text-xs">
+                    <label className="font-caption-strong text-ink-muted-80">Môn học</label>
+                    <select
+                      value={editSubjectId}
+                      onChange={(e) => setEditSubjectId(e.target.value)}
+                      className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                      required
+                    >
+                      <option value="">— Chọn môn —</option>
+                      {subjects.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {userRole === "ADMIN" && (
+                    <div className="flex flex-col gap-1.5 text-xs">
+                      <label className="font-caption-strong text-ink-muted-80">Giáo viên giảng dạy</label>
+                      <select
+                        value={editTeacherId}
+                        onChange={(e) => setEditTeacherId(e.target.value)}
+                        className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                        required
+                      >
+                        <option value="">— Chọn giáo viên —</option>
+                        {teachers.map((t) => (
+                          <option key={t.id} value={t.id}>{t.user.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="font-caption-strong text-ink-muted-80">Thứ trong tuần</label>
+                      <select
+                        value={editDayOfWeek}
+                        onChange={(e) => setEditDayOfWeek(parseInt(e.target.value))}
+                        className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                        required
+                      >
+                        <option value={1}>Thứ Hai</option>
+                        <option value={2}>Thứ Ba</option>
+                        <option value={3}>Thứ Tư</option>
+                        <option value={4}>Thứ Năm</option>
+                        <option value={5}>Thứ Sáu</option>
+                        <option value={6}>Thứ Bảy</option>
+                        <option value={7}>Chủ Nhật</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="font-caption-strong text-ink-muted-80">Ngày học</label>
+                      <input
+                        type="date"
+                        value={editDate}
+                        onChange={(e) => setEditDate(e.target.value)}
+                        className="bg-canvas border border-hairline rounded-pill px-4 py-2 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="font-caption-strong text-ink-muted-80">Giờ bắt đầu</label>
+                      <input
+                        type="text"
+                        value={editStartTime}
+                        onChange={(e) => setEditStartTime(e.target.value)}
+                        placeholder="08:00"
+                        className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full text-center"
+                        required
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="font-caption-strong text-ink-muted-80">Giờ kết thúc</label>
+                      <input
+                        type="text"
+                        value={editEndTime}
+                        onChange={(e) => setEditEndTime(e.target.value)}
+                        placeholder="09:30"
+                        className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full text-center"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 text-xs">
+                    <label className="font-caption-strong text-ink-muted-80">Phòng học (Room)</label>
+                    <select
+                      value={editSelectedRoom}
+                      onChange={(e) => setEditSelectedRoom(e.target.value)}
+                      className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                      required
+                    >
+                      <option value="">— Chọn phòng học —</option>
+                      {rooms.map((r) => (
+                        <option key={r.id} value={r.name}>{r.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex justify-end gap-3 border-t border-divider-soft pt-4 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(false)}
+                      className="border border-divider-soft hover:bg-surface-pearl text-ink-muted-80 text-xs px-4 py-2 rounded-pill font-semibold"
+                    >
+                      Hủy chỉnh sửa
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-primary hover:bg-primary-focus text-white text-xs px-5 py-2 rounded-pill font-semibold shadow-sm"
+                    >
+                      Lưu thay đổi
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  {/* Session Meta */}
+                  <div className="grid grid-cols-2 gap-4 bg-blue-50 border border-blue-100 rounded-lg p-4 text-xs">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-ink-muted-80 font-semibold">Thời gian:</span>
+                      <span className="font-bold text-blue-900">{selectedSession.startTime} - {selectedSession.endTime}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-ink-muted-80 font-semibold">Ngày học:</span>
+                      <span className="font-bold text-blue-900">
+                        {selectedSession.date ? new Date(selectedSession.date).toLocaleDateString("vi-VN", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "Hàng tuần"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1 col-span-2 border-t border-blue-200/50 pt-2">
+                      <span className="text-ink-muted-80 font-semibold">Giáo viên phụ trách:</span>
+                      <span className="font-bold text-blue-900">{selectedSession.teacher.user.name}</span>
+                    </div>
+                  </div>
 
               {/* MATERIALS & HOMEWORK LINK INPUTS (TEACHER / ADMIN - Hướng A) */}
               {userRole !== "STUDENT" ? (
@@ -1059,6 +1284,7 @@ export default function WeeklyTimetable({
                   )}
                 </div>
               )}
+            </>)}
             </div>
           </div>
         </div>
@@ -1094,6 +1320,53 @@ export default function WeeklyTimetable({
                 onClick={() => {
                   setShowDeleteConfirm(false);
                   setSessionToDelete(null);
+                }}
+                className="w-full border border-divider hover:bg-surface-pearl text-ink-muted-80 text-xs font-semibold py-2.5 rounded-pill"
+              >
+                Hủy bỏ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RECURRING UPDATE CHOICES POPUP */}
+      {showUpdateConfirm && selectedSession && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-canvas border border-hairline rounded-lg w-[450px] shadow-product p-6 flex flex-col gap-4 animate-fade-in">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-tagline text-base font-bold text-ink">Cập nhật lịch học lặp lại</h3>
+                <p className="text-xs text-ink-muted-80 mt-2 leading-relaxed">
+                  Lịch học này được thiết lập lặp lại hàng tuần. Bạn muốn thực hiện cập nhật chuỗi lịch học như thế nào?
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 mt-2">
+              <button
+                onClick={() => {
+                  if (confirm("Xác nhận cập nhật duy nhất ca học này?")) {
+                    handleUpdateExecute("ONLY_THIS");
+                  }
+                }}
+                className="w-full bg-slate-100 hover:bg-slate-200 border border-divider text-ink text-xs font-semibold py-2.5 rounded-pill"
+              >
+                Chỉ áp dụng cập nhật cho ca học này
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm("Xác nhận cập nhật ca học này và tất cả các ca học tiếp theo?")) {
+                    handleUpdateExecute("ALL_FUTURE");
+                  }
+                }}
+                className="w-full bg-primary hover:bg-primary-focus text-white text-xs font-semibold py-2.5 rounded-pill shadow-sm"
+              >
+                Áp dụng cho ca học này và tất cả các ca học tiếp theo
+              </button>
+              <button
+                onClick={() => {
+                  setShowUpdateConfirm(false);
                 }}
                 className="w-full border border-divider hover:bg-surface-pearl text-ink-muted-80 text-xs font-semibold py-2.5 rounded-pill"
               >
