@@ -9,12 +9,12 @@ Tài liệu này tổng hợp toàn diện bối cảnh, các quyết định k�
 Dự án **edu-web** là một cổng thông tin quản lý học tập đa phân hệ (Multi-role LMS) được thiết kế đặc thù cho các lớp học tương tác cao, kết hợp quản lý lịch biểu chuyên sâu.
 
 ### Công nghệ cốt lõi (Tech Stack):
-* **Framework**: Next.js 16 (App Router) với trình biên dịch Turbopack tối tốc.
-* **Database**: PostgreSQL (Được lưu trữ trên cụm Neon Serverless Database).
-* **ORM**: Prisma ORM hỗ trợ định nghĩa schema đồng bộ dữ liệu chặt chẽ qua db push.
+* **Framework**: Next.js 16.2.10 (App Router) với React 19.2.4 và trình biên dịch Turbopack tốc độ cao.
+* **Database**: PostgreSQL (Neon Serverless Database) cho môi trường Staging/Production và hỗ trợ tương thích SQLite cho môi trường phát triển cục bộ (Local Offline Development).
+* **ORM**: Prisma ORM hỗ trợ định nghĩa schema, format và đồng bộ dữ liệu.
 * **CSS & Design**: Sử dụng Vanilla CSS & Tailwind CSS kết hợp thư viện biểu tượng **Lucide React**.
-* **Authentication**: Cookie session dựa trên JWT được bảo mật cao hỗ trợ 4 vai trò: `ADMIN`, `TEACHER`, `STUDENT`, `PARENT`.
-* **Data Flow**: Các Server Actions đóng vai trò API Endpoints an toàn, tối ưu hóa quá trình revalidate dữ liệu phía máy chủ (Server-side Cache).
+* **Authentication**: Cookie session dựa trên JWT hỗ trợ 4 vai trò: `ADMIN`, `TEACHER`, `STUDENT`, `PARENT`.
+* **Data Flow**: Server Actions đóng vai trò API Endpoints an toàn, tối ưu hóa quá trình revalidate dữ liệu phía máy chủ (Server-side Cache).
 
 ---
 
@@ -49,6 +49,7 @@ Hỗ trợ hai phương án xóa an toàn khi click xóa lịch lặp:
 
 ### A. Đăng tải Bài học & Tài liệu học tập
 * Giáo viên/Admin dán trực tiếp link tài liệu xem trước và đề bài tập về nhà vào từng ca học.
+* Quyết định kiến trúc: Đường dẫn được lưu dạng `String` (phân tách bằng dấu phẩy hoặc dạng JSON list) thay vì sử dụng mảng nguyên bản của PostgreSQL (`String[]`). Điều này giúp duy trì khả năng tương thích chéo (cross-db portability), cho phép sử dụng SQLite ở môi trường phát triển cục bộ và PostgreSQL ở môi trường Live.
 * Cho phép cấu hình **Hạn nộp bài (Due date)** cụ thể dạng ngày và giờ (`datetime-local`).
 
 ### B. Trạng thái nộp bài của Học sinh
@@ -59,7 +60,8 @@ Hỗ trợ hai phương án xóa an toàn khi click xóa lịch lặp:
 
 ### C. Chấm điểm & Tự động đồng bộ (Sync)
 * Giáo viên chấm điểm và nhận xét bài làm trực tiếp trên Modal chi tiết ca học.
-* Khi điểm số được lưu, hệ thống tự động gọi cơ chế `upsert` trên bảng điểm `Grade` để cập nhật bảng điểm chung của học viên theo môn học tương ứng, giúp giảm thiểu thời gian nhập liệu thủ công của giáo viên.
+* Khi điểm số được lưu, hệ thống tự động gọi cơ chế `upsert` trên bảng điểm `Grade` để cập nhật bảng điểm chung của học viên theo môn học tương ứng.
+* Quyết định kiến trúc: Để tối ưu hiệu năng câu lệnh truy vấn của Client (tránh câu lệnh `JOIN` phức tạp khi lấy trạng thái nộp bài), điểm số được lưu trữ song song ở cả `HomeworkSubmission.grade` và `Grade.score`. Tiến trình đồng bộ được thực hiện an toàn, đồng nhất thông qua Transaction cô lập của Prisma.
 
 ---
 
@@ -74,7 +76,7 @@ erDiagram
     TeacherProfile ||--o{ Schedule : teaches
     Schedule ||--o{ HomeworkSubmission : has
     StudentProfile ||--o{ HomeworkSubmission : submits
-    HomeworkSubmission ||--|| Grade : syncs
+    HomeworkSubmission ||--o| Grade : links(1-1)
     
     Schedule {
         string id PK
@@ -106,8 +108,9 @@ erDiagram
     Grade {
         string id PK
         string studentId FK
-        string classId FK
         string subjectId FK
+        string teacherId FK
+        string homeworkSubmissionId FK
         float score
         string remarks
     }

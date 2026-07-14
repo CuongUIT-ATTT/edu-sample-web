@@ -144,16 +144,14 @@ export async function gradeHomework(input: GradeHomeworkInput) {
 
     await db.grade.upsert({
       where: {
-        // Since studentId, subjectId, and type is not unique by default, 
-        // we can lookup if a grade record already exists for this homework 
-        // using remarks containing the submission ID, or just find it by student + subject + remarks
-        id: submissionId, // Using the same ID as submissionId makes it 1-to-1 and uniquely linked!
+        id: submissionId,
       },
       create: {
         id: submissionId,
         studentId: submission.studentId,
         subjectId: submission.schedule.subjectId,
         teacherId: submission.schedule.teacherId,
+        homeworkSubmissionId: submissionId,
         type: "QUIZ", // Map to existing type enum or column
         score: grade,
         weight: 0.1, // Homework weight

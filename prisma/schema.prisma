@@ -132,6 +132,7 @@ model HomeworkSubmission {
   submittedAt DateTime       @default(now())
   grade       Float?         // Optional grade given by teacher
   feedback    String?        // Teacher feedback
+  gradeRelation Grade?
   
   @@unique([scheduleId, studentId])
 }
@@ -150,13 +151,15 @@ model Attendance {
 }
 
 model Grade {
-  id        String         @id @default(uuid())
-  studentId String
-  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subjectId String
-  subject   Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacherId String
-  teacher   TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  id                   String              @id @default(uuid())
+  studentId            String
+  student              StudentProfile      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectId            String
+  subject              Subject             @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId            String
+  teacher              TeacherProfile      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  homeworkSubmissionId String?             @unique
+  homeworkSubmission   HomeworkSubmission? @relation(fields: [homeworkSubmissionId], references: [id], onDelete: Cascade)
   
   type      String         // e.g., "QUIZ", "MIDTERM", "FINAL"
   score     Float          // numeric score
