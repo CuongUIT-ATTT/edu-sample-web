@@ -2,9 +2,25 @@ import React from "react";
 import { db } from "@/lib/db";
 import QuizClient from "./QuizClient";
 
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
+
 export const dynamic = "force-dynamic";
 
 export default async function StudentQuizzesPage() {
+  const session = await getSession();
+  if (!session || session.role !== "STUDENT") {
+    redirect("/login");
+  }
+
+  const studentProfile = await db.studentProfile.findUnique({
+    where: { userId: session.userId },
+  });
+
+  if (!studentProfile) {
+    redirect("/login");
+  }
+
   let quizzes: {
     id: string;
     title: string;
@@ -16,6 +32,12 @@ export default async function StudentQuizzesPage() {
 
   try {
     const dbQuizzes = await db.quiz.findMany({
+      where: {
+        OR: [
+          { classId: null },
+          { classId: studentProfile.classId }
+        ]
+      },
       include: {
         questions: true,
       },

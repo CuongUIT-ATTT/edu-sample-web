@@ -16,6 +16,10 @@ interface QuizItem {
     id: string;
     name: string;
   };
+  class?: {
+    id: string;
+    name: string;
+  } | null;
   _count: {
     questions: number;
   };
@@ -24,9 +28,10 @@ interface QuizItem {
 interface TeacherQuizManagerProps {
   quizzes: QuizItem[];
   subjects: { id: string; name: string }[];
+  classes: { id: string; name: string }[];
 }
 
-export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizManagerProps) {
+export default function TeacherQuizManager({ quizzes, subjects, classes }: TeacherQuizManagerProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -37,10 +42,12 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
   const [duration, setDuration] = useState(15);
   const [passingScore, setPassingScore] = useState(5);
   const [subjectId, setSubjectId] = useState("");
+  const [classId, setClassId] = useState("");
   
   // Custom type toggle inside form
-  const [importMethod, setImportMethod] = useState<"MANUAL" | "PASTE_TEXT" | "CSV">("MANUAL");
+  const [importMethod, setImportMethod] = useState<"MANUAL" | "PASTE_TEXT" | "CSV" | "JSON">("MANUAL");
   const [rawPastedText, setRawPastedText] = useState("");
+  const [jsonText, setJsonText] = useState("");
 
   // Questions array state supporting Section I, II, III
   const [questions, setQuestions] = useState<{
@@ -197,6 +204,34 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
     reader.readAsText(file, "UTF-8");
   };
 
+  const handleImportJson = () => {
+    if (!jsonText.trim()) {
+      alert("Vui lòng dán văn bản JSON vào ô.");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(jsonText);
+      if (!Array.isArray(parsed)) {
+        alert("JSON không hợp lệ. Vui lòng cung cấp một mảng các câu hỏi.");
+        return;
+      }
+      
+      const formattedQuestions = parsed.map((q: any) => ({
+        questionText: q.questionText || q.text || "",
+        type: ["MULTIPLE_CHOICE", "TRUE_FALSE", "SHORT_ANSWER"].includes(q.type) ? q.type : "MULTIPLE_CHOICE",
+        options: Array.isArray(q.options) ? q.options : [],
+        correctAnswer: q.correctAnswer || q.answer || "0",
+        score: parseFloat(q.score) || 1.0
+      }));
+
+      setQuestions(formattedQuestions);
+      alert(`Đã tải thành công ${formattedQuestions.length} câu hỏi từ JSON!`);
+      setJsonText("");
+    } catch (e) {
+      alert("Lỗi parse JSON. Vui lòng kiểm tra lại cấu trúc JSON.");
+    }
+  };
+
   // AI Paste text parser - Free parsing!
   const parsePastedText = () => {
     if (!rawPastedText.trim()) {
@@ -322,6 +357,7 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
       duration: Number(duration),
       passingScore: Number(passingScore),
       subjectId,
+      classId: classId || undefined,
       questions,
     });
 
@@ -333,6 +369,7 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
       setDuration(15);
       setPassingScore(5);
       setSubjectId("");
+      setClassId("");
       setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1 }]);
       window.location.reload();
     } else {
@@ -391,6 +428,11 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
                   <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-primary px-2.5 py-0.5 rounded-full">
                     {q.subject.name}
                   </span>
+                  {q.class && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-orange-50 text-orange-600 px-2.5 py-0.5 rounded-full">
+                      Lớp {q.class.name}
+                    </span>
+                  )}
                   <span className="text-xs text-ink-muted-48 font-semibold">{q._count.questions} câu hỏi</span>
                 </div>
                 <h3 className="font-body-strong text-base font-bold text-ink leading-snug">
@@ -469,7 +511,21 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-caption-strong text-ink-muted-80">Lớp học (Tùy chọn)</label>
+                  <select
+                    value={classId}
+                    onChange={(e) => setClassId(e.target.value)}
+                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                  >
+                    <option value="">— Tất cả học viên (Mặc định) —</option>
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 md:col-span-2">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-caption-strong text-ink-muted-80">Thời gian (phút)</label>
                     <input
@@ -522,6 +578,15 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
                 >
                   Import file CSV
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setImportMethod("JSON")}
+                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold ${
+                    importMethod === "JSON" ? "bg-canvas text-primary shadow-sm" : "text-ink-muted-80"
+                  }`}
+                >
+                  Dán JSON
+                </button>
               </div>
 
               {/* PASTE TEXT / COPY PASTE AI PARSER */}
@@ -572,6 +637,31 @@ export default function TeacherQuizManager({ quizzes, subjects }: TeacherQuizMan
                     onChange={handleImportCsv}
                     className="bg-canvas border border-hairline rounded p-2 text-xs w-full"
                   />
+                </div>
+              )}
+
+              {/* JSON FILE IMPORT */}
+              {importMethod === "JSON" && (
+                <div className="border border-divider rounded-lg p-4 bg-surface-pearl flex flex-col gap-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-ink flex items-center gap-1.5">
+                      <FileText className="h-4 w-4 text-orange-600" /> Nhập danh sách câu hỏi bằng mã JSON
+                    </span>
+                  </div>
+                  <textarea
+                    rows={8}
+                    value={jsonText}
+                    onChange={(e) => setJsonText(e.target.value)}
+                    placeholder="Dán mảng cấu trúc JSON vào đây. Ví dụ: [{ &quot;questionText&quot;: &quot;...&quot;, &quot;options&quot;: [&quot;A&quot;,&quot;B&quot;], &quot;correctAnswer&quot;: &quot;0&quot; }]"
+                    className="bg-canvas border border-hairline rounded-lg p-3 text-xs outline-none focus:border-primary-focus w-full font-mono text-[10px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleImportJson}
+                    className="bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold px-4 py-2 rounded-pill shadow-sm self-end"
+                  >
+                    Import từ JSON
+                  </button>
                 </div>
               )}
 

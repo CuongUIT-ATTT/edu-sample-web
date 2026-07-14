@@ -93,6 +93,7 @@ interface CreateQuizInput {
   duration: number;
   passingScore: number;
   subjectId: string;
+  classId?: string;
   questions: {
     questionText: string;
     type?: string;
@@ -117,7 +118,7 @@ export async function createQuiz(input: CreateQuizInput) {
       return { success: false, error: "Hồ sơ giảng viên của bạn không tồn tại." };
     }
 
-    const { title, description, duration, passingScore, subjectId, questions } = input;
+    const { title, description, duration, passingScore, subjectId, classId, questions } = input;
 
     if (!title || isNaN(duration) || isNaN(passingScore) || !subjectId || questions.length === 0) {
       return { success: false, error: "Vui lòng nhập đầy đủ thông tin đề thi và ít nhất 1 câu hỏi." };
@@ -131,6 +132,7 @@ export async function createQuiz(input: CreateQuizInput) {
           duration,
           passingScore,
           subjectId,
+          classId: classId || null,
           teacherId: teacher.id,
         },
       });

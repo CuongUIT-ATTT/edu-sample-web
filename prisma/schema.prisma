@@ -87,6 +87,7 @@ model Class {
   
   students         StudentProfile[]
   schedules        Schedule[]
+  quizzes          Quiz[]
 }
 
 model Subject {
@@ -224,6 +225,9 @@ model Quiz {
   subject      Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   teacherId    String
   teacher      TeacherProfile   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  classId      String?
+  class        Class?           @relation(fields: [classId], references: [id], onDelete: SetNull)
   
   questions    Question[]
   submissions  QuizSubmission[]

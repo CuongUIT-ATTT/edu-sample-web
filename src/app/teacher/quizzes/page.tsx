@@ -26,6 +26,7 @@ export default async function TeacherQuizzesPage() {
     where: { teacherId: teacher.id },
     include: {
       subject: true,
+      class: true,
       _count: {
         select: { questions: true },
       },
@@ -34,6 +35,23 @@ export default async function TeacherQuizzesPage() {
   });
 
   const subjects = await db.subject.findMany({
+    orderBy: { name: "asc" },
+  });
+
+  // Fetch classes where the teacher is either form teacher or teaches schedules in them
+  const schedules = await db.schedule.findMany({
+    where: { teacherId: teacher.id },
+    select: { classId: true }
+  });
+  const scheduledClassIds = schedules.map(s => s.classId);
+
+  const classes = await db.class.findMany({
+    where: {
+      OR: [
+        { formTeacherId: teacher.id },
+        { id: { in: scheduledClassIds } }
+      ]
+    },
     orderBy: { name: "asc" },
   });
 
@@ -46,7 +64,7 @@ export default async function TeacherQuizzesPage() {
         </p>
       </div>
 
-      <TeacherQuizManager quizzes={quizzes as any} subjects={subjects} />
+      <TeacherQuizManager quizzes={quizzes as any} subjects={subjects} classes={classes} />
     </div>
   );
 }

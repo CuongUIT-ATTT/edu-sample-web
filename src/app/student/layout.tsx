@@ -72,6 +72,14 @@ export default function StudentDashboardLayout({
               <TrendingUp className="h-4 w-4 flex-shrink-0" />
               <span className="hidden md:inline">Kết quả thi thử</span>
             </Link>
+            <Link
+              href="/student/quizzes"
+              onClick={closeSidebar}
+              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+            >
+              <CheckSquare className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden md:inline">Bài tập &amp; Đề thi</span>
+            </Link>
           </nav>
         </div>
 
@@ -142,6 +150,14 @@ export default function StudentDashboardLayout({
                 >
                   <TrendingUp className="h-4 w-4 flex-shrink-0" />
                   <span>Kết quả thi thử</span>
+                </Link>
+                <Link
+                  href="/student/quizzes"
+                  onClick={closeSidebar}
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
+                >
+                  <CheckSquare className="h-4 w-4 flex-shrink-0" />
+                  <span>Bài tập &amp; Đề thi</span>
                 </Link>
               </nav>
             </div>
