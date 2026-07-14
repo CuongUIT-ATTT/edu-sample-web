@@ -2,9 +2,39 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Clock, MapPin, Plus, Trash2, CheckCircle, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Upload, Download, Eye, Check, X, FileText, Star, Edit3, Link as LinkIcon } from "lucide-react";
-import { createSchedule, deleteSchedule, updateSchedule } from "@/actions/schedules";
-import { updateScheduleFiles, submitHomework, gradeHomework, getScheduleSubmissions, getStudentSubmission } from "@/actions/homework";
+import {
+  Clock,
+  MapPin,
+  Plus,
+  Trash2,
+  CheckCircle,
+  AlertTriangle,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Calendar as CalendarIcon,
+  Upload,
+  Download,
+  Eye,
+  Check,
+  X,
+  FileText,
+  Star,
+  Edit3,
+  Link as LinkIcon,
+} from "lucide-react";
+import {
+  createSchedule,
+  deleteSchedule,
+  updateSchedule,
+} from "@/actions/schedules";
+import {
+  updateScheduleFiles,
+  submitHomework,
+  gradeHomework,
+  getScheduleSubmissions,
+  getStudentSubmission,
+} from "@/actions/homework";
 
 interface ScheduleItem {
   id: string;
@@ -56,9 +86,22 @@ const DAYS_OF_WEEK = [
 ];
 
 const HOUR_LABELS = [
-  "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", 
-  "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", 
-  "19:00", "20:00", "21:00", "22:00"
+  "07:00",
+  "08:00",
+  "09:00",
+  "10:00",
+  "11:00",
+  "12:00",
+  "13:00",
+  "14:00",
+  "15:00",
+  "16:00",
+  "17:00",
+  "18:00",
+  "19:00",
+  "20:00",
+  "21:00",
+  "22:00",
 ];
 
 function parseTimeToMinutes(timeStr: string): number {
@@ -68,27 +111,44 @@ function parseTimeToMinutes(timeStr: string): number {
   return parts[0] * 60 + parts[1];
 }
 
-export default function WeeklyTimetable({ 
-  initialSchedules, 
-  classes, 
-  subjects, 
+export default function WeeklyTimetable({
+  initialSchedules,
+  classes,
+  subjects,
   teachers,
   rooms,
   isTeacherRole = false,
   currentTeacherProfileId = "",
   userRole = "ADMIN",
-  currentStudentProfileId = ""
+  currentStudentProfileId = "",
 }: WeeklyTimetableProps) {
   const [schedules, setSchedules] = useState<ScheduleItem[]>(initialSchedules);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const useWindowWidth = () => {
+    const [width, setWidth] = useState(0);
+    useEffect(() => {
+      const updateWidth = () => setWidth(window.innerWidth);
+      updateWidth();
+      window.addEventListener("resize", updateWidth);
+      return () => window.removeEventListener("resize", updateWidth);
+    }, []);
+    return width;
+  };
+  const windowWidth = useWindowWidth();
+  const isMobile = windowWidth > 0 && windowWidth < 768;
 
   // Calendar States
-  const [viewMode, setViewMode] = useState<"WEEK" | "MONTH">("WEEK");
+  const [viewMode, setViewMode] = useState<"DAY" | "WEEK" | "MONTH">("WEEK");
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [dayViewDate, setDayViewDate] = useState<string>(
+    new Date().toISOString().split("T")[0],
+  );
 
   // Details Modal state
-  const [selectedSession, setSelectedSession] = useState<ScheduleItem | null>(null);
+  const [selectedSession, setSelectedSession] = useState<ScheduleItem | null>(
+    null,
+  );
   const [activeSubmissions, setActiveSubmissions] = useState<any[]>([]);
   const [studentSubmission, setStudentSubmission] = useState<any | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -118,7 +178,16 @@ export default function WeeklyTimetable({
 
   // Deletion choices
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [sessionToDelete, setSessionToDelete] = useState<ScheduleItem | null>(null);
+  useEffect(() => {
+    if (isMobile) {
+      setViewMode("DAY");
+    } else if (viewMode === "DAY") {
+      setViewMode("WEEK");
+    }
+  }, [isMobile, viewMode]);
+  const [sessionToDelete, setSessionToDelete] = useState<ScheduleItem | null>(
+    null,
+  );
 
   // Overlap Warning State
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
@@ -127,12 +196,16 @@ export default function WeeklyTimetable({
   // Form states
   const [classId, setClassId] = useState("");
   const [subjectId, setSubjectId] = useState("");
-  const [teacherId, setTeacherId] = useState(isTeacherRole ? currentTeacherProfileId : "");
+  const [teacherId, setTeacherId] = useState(
+    isTeacherRole ? currentTeacherProfileId : "",
+  );
   const [dayOfWeek, setDayOfWeek] = useState(1);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [selectedRoom, setSelectedRoom] = useState("");
-  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [endDate, setEndDate] = useState("");
   const [recurrence, setRecurrence] = useState<"NONE" | "WEEKLY">("NONE");
 
@@ -142,10 +215,19 @@ export default function WeeklyTimetable({
       setIsEditing(false);
       return;
     }
-    
+
     setMaterialsUrl(selectedSession.materials || "");
     setHomeworkUrl(selectedSession.homework || "");
-    setHomeworkDueDate(selectedSession.homeworkDueDate ? new Date(new Date(selectedSession.homeworkDueDate).getTime() - new Date().getTimezoneOffset()*60000).toISOString().substring(0, 16) : "");
+    setHomeworkDueDate(
+      selectedSession.homeworkDueDate
+        ? new Date(
+            new Date(selectedSession.homeworkDueDate).getTime() -
+              new Date().getTimezoneOffset() * 60000,
+          )
+            .toISOString()
+            .substring(0, 16)
+        : "",
+    );
     setIsEditing(false);
 
     // Pre-fill edit inputs
@@ -156,7 +238,11 @@ export default function WeeklyTimetable({
     setEditStartTime(selectedSession.startTime);
     setEditEndTime(selectedSession.endTime);
     setEditSelectedRoom(selectedSession.room || "");
-    setEditDate(selectedSession.date ? new Date(selectedSession.date).toISOString().split("T")[0] : "");
+    setEditDate(
+      selectedSession.date
+        ? new Date(selectedSession.date).toISOString().split("T")[0]
+        : "",
+    );
 
     setLoadingDetails(true);
     if (userRole === "STUDENT") {
@@ -188,7 +274,10 @@ export default function WeeklyTimetable({
     }
   };
 
-  const handleDeleteExecute = async (id: string, deleteMode: "ONLY_THIS" | "ALL_FUTURE") => {
+  const handleDeleteExecute = async (
+    id: string,
+    deleteMode: "ONLY_THIS" | "ALL_FUTURE",
+  ) => {
     setSuccessMsg(null);
     setErrorMsg(null);
     setWarningMsg(null);
@@ -204,7 +293,10 @@ export default function WeeklyTimetable({
     }
   };
 
-  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement> | null, ignoreWarning = false) => {
+  const handleFormSubmit = async (
+    e: React.FormEvent<HTMLFormElement> | null,
+    ignoreWarning = false,
+  ) => {
     if (e) e.preventDefault();
     setSuccessMsg(null);
     setErrorMsg(null);
@@ -260,7 +352,10 @@ export default function WeeklyTimetable({
     }
   };
 
-  const handleUpdateExecute = async (updateMode: "ONLY_THIS" | "ALL_FUTURE", ignoreWarning = false) => {
+  const handleUpdateExecute = async (
+    updateMode: "ONLY_THIS" | "ALL_FUTURE",
+    ignoreWarning = false,
+  ) => {
     if (!selectedSession) return;
     setSuccessMsg(null);
     setErrorMsg(null);
@@ -305,34 +400,141 @@ export default function WeeklyTimetable({
     const next = new Date(currentDate);
     if (viewMode === "WEEK") {
       next.setDate(currentDate.getDate() - 7);
+    } else if (viewMode === "DAY") {
+      next.setDate(currentDate.getDate() - 1);
     } else {
       next.setMonth(currentDate.getMonth() - 1);
     }
     setCurrentDate(next);
+    if (viewMode === "DAY") {
+      setDayViewDate(next.toISOString().split("T")[0]);
+    }
   };
 
   const navigateNext = () => {
     const next = new Date(currentDate);
     if (viewMode === "WEEK") {
       next.setDate(currentDate.getDate() + 7);
+    } else if (viewMode === "DAY") {
+      next.setDate(currentDate.getDate() + 1);
     } else {
       next.setMonth(currentDate.getMonth() + 1);
     }
     setCurrentDate(next);
+    if (viewMode === "DAY") {
+      setDayViewDate(next.toISOString().split("T")[0]);
+    }
   };
 
   const navigateToday = () => {
-    setCurrentDate(new Date());
+    const today = new Date();
+    setCurrentDate(today);
+    if (viewMode === "DAY") {
+      setDayViewDate(today.toISOString().split("T")[0]);
+    }
   };
 
   const formatHeaderLabel = () => {
+    if (viewMode === "DAY") {
+      return new Date(dayViewDate).toLocaleDateString("vi-VN", {
+        weekday: "long",
+        day: "numeric",
+        month: "numeric",
+        year: "numeric",
+      });
+    }
     if (viewMode === "WEEK") {
       const mon = getMonday(currentDate);
       const sun = new Date(mon);
       sun.setDate(mon.getDate() + 6);
       return `${mon.toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })} - ${sun.toLocaleDateString("vi-VN", { day: "numeric", month: "numeric", year: "numeric" })}`;
     }
-    return currentDate.toLocaleDateString("vi-VN", { month: "long", year: "numeric" });
+    return currentDate.toLocaleDateString("vi-VN", {
+      month: "long",
+      year: "numeric",
+    });
+  };
+  const currentDayDate =
+    viewMode === "DAY" ? new Date(dayViewDate) : currentDate;
+  const processedSchedulesForDate = (date: Date) => {
+    const dayValue = date.getDay() === 0 ? 7 : date.getDay();
+    const targetDateStr = date.toISOString().split("T")[0];
+    const daySchedules = schedules.filter((s) => {
+      if (s.dayOfWeek !== dayValue) return false;
+      if (!s.date) return true;
+      const sDateStr = new Date(s.date).toISOString().split("T")[0];
+      return sDateStr === targetDateStr;
+    });
+    const parsed = daySchedules.map((s) => {
+      const startMin = parseTimeToMinutes(s.startTime);
+      const endMin = parseTimeToMinutes(s.endTime);
+      return {
+        ...s,
+        startMin: startMin === -1 ? 480 : startMin,
+        endMin: endMin === -1 ? 570 : endMin,
+        top: 0,
+        height: 0,
+        left: 0,
+        width: 100,
+      };
+    });
+    parsed.sort(
+      (a, b) =>
+        a.startMin - b.startMin ||
+        b.endMin - b.startMin - (a.endMin - a.startMin),
+    );
+    const viewStart = 420;
+    const viewEnd = 1320;
+    parsed.forEach((e) => {
+      const start = Math.max(viewStart, Math.min(viewEnd, e.startMin));
+      const end = Math.max(viewStart, Math.min(viewEnd, e.endMin));
+      e.top = ((start - viewStart) * 2) / 3;
+      e.height = ((end - start) * 2) / 3;
+    });
+    const clusters: (typeof parsed)[] = [];
+    parsed.forEach((e) => {
+      let placed = false;
+      for (const c of clusters) {
+        const clusterStart = Math.min(...c.map((item) => item.startMin));
+        const clusterEnd = Math.max(...c.map((item) => item.endMin));
+        if (e.startMin < clusterEnd && e.endMin > clusterStart) {
+          c.push(e);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        clusters.push([e]);
+      }
+    });
+    clusters.forEach((c) => {
+      const columns: (typeof parsed)[] = [];
+      c.forEach((e) => {
+        let colIdx = 0;
+        while (true) {
+          if (!columns[colIdx]) {
+            columns[colIdx] = [e];
+            break;
+          }
+          const overlaps = columns[colIdx].some(
+            (item) => e.startMin < item.endMin && e.endMin > item.startMin,
+          );
+          if (!overlaps) {
+            columns[colIdx].push(e);
+            break;
+          }
+          colIdx++;
+        }
+      });
+      const totalCols = columns.length;
+      columns.forEach((col, colIdx) => {
+        col.forEach((e) => {
+          e.left = (colIdx / totalCols) * 100;
+          e.width = 100 / totalCols;
+        });
+      });
+    });
+    return parsed;
   };
 
   // Google Calendar Overlap Algorithm for WEEK View
@@ -356,7 +558,7 @@ export default function WeeklyTimetable({
       return {
         ...s,
         startMin: startMin === -1 ? 480 : startMin, // 08:00
-        endMin: endMin === -1 ? 570 : endMin,       // 09:30
+        endMin: endMin === -1 ? 570 : endMin, // 09:30
         top: 0,
         height: 0,
         left: 0,
@@ -364,7 +566,11 @@ export default function WeeklyTimetable({
       };
     });
 
-    parsed.sort((a, b) => a.startMin - b.startMin || (b.endMin - b.startMin) - (a.endMin - a.startMin));
+    parsed.sort(
+      (a, b) =>
+        a.startMin - b.startMin ||
+        b.endMin - b.startMin - (a.endMin - a.startMin),
+    );
 
     // View boundaries: 07:00 (420 mins) to 22:00 (1320 mins) -> 900 minutes total.
     // 600px height content area. 1 minute = 600/900 = 2/3 px.
@@ -374,12 +580,12 @@ export default function WeeklyTimetable({
     parsed.forEach((e) => {
       const start = Math.max(viewStart, Math.min(viewEnd, e.startMin));
       const end = Math.max(viewStart, Math.min(viewEnd, e.endMin));
-      e.top = (start - viewStart) * 2 / 3;
-      e.height = (end - start) * 2 / 3;
+      e.top = ((start - viewStart) * 2) / 3;
+      e.height = ((end - start) * 2) / 3;
     });
 
     // Cluster overlaps
-    const clusters: typeof parsed[] = [];
+    const clusters: (typeof parsed)[] = [];
     parsed.forEach((e) => {
       let placed = false;
       for (const c of clusters) {
@@ -397,7 +603,7 @@ export default function WeeklyTimetable({
     });
 
     clusters.forEach((c) => {
-      const columns: typeof parsed[] = [];
+      const columns: (typeof parsed)[] = [];
       c.forEach((e) => {
         let colIdx = 0;
         while (true) {
@@ -405,8 +611,8 @@ export default function WeeklyTimetable({
             columns[colIdx] = [e];
             break;
           }
-          const overlaps = columns[colIdx].some((item) => 
-            e.startMin < item.endMin && e.endMin > item.startMin
+          const overlaps = columns[colIdx].some(
+            (item) => e.startMin < item.endMin && e.endMin > item.startMin,
           );
           if (!overlaps) {
             columns[colIdx].push(e);
@@ -452,14 +658,30 @@ export default function WeeklyTimetable({
   const handleSaveMaterials = async () => {
     if (!selectedSession) return;
     if (!materialsUrl.trim() && selectedSession.materials) {
-      if (!confirm("Bạn có chắc chắn muốn xóa đường dẫn tài liệu xem trước của ca học này?")) {
+      if (
+        !confirm(
+          "Bạn có chắc chắn muốn xóa đường dẫn tài liệu xem trước của ca học này?",
+        )
+      ) {
         return;
       }
     }
-    const res = await updateScheduleFiles({ scheduleId: selectedSession.id, materials: materialsUrl.trim() || null });
+    const res = await updateScheduleFiles({
+      scheduleId: selectedSession.id,
+      materials: materialsUrl.trim() || null,
+    });
     if (res.success) {
-      setSelectedSession({ ...selectedSession, materials: materialsUrl.trim() || null });
-      setSchedules(prev => prev.map(s => s.id === selectedSession.id ? { ...s, materials: materialsUrl.trim() || null } : s));
+      setSelectedSession({
+        ...selectedSession,
+        materials: materialsUrl.trim() || null,
+      });
+      setSchedules((prev) =>
+        prev.map((s) =>
+          s.id === selectedSession.id
+            ? { ...s, materials: materialsUrl.trim() || null }
+            : s,
+        ),
+      );
       alert("Đã cập nhật link tài liệu học tập thành công!");
     } else {
       alert(res.error || "Lỗi cập nhật tài liệu.");
@@ -469,14 +691,30 @@ export default function WeeklyTimetable({
   const handleSaveHomework = async () => {
     if (!selectedSession) return;
     if (!homeworkUrl.trim() && selectedSession.homework) {
-      if (!confirm("Bạn có chắc chắn muốn xóa đường dẫn bài tập về nhà của ca học này?")) {
+      if (
+        !confirm(
+          "Bạn có chắc chắn muốn xóa đường dẫn bài tập về nhà của ca học này?",
+        )
+      ) {
         return;
       }
     }
-    const res = await updateScheduleFiles({ scheduleId: selectedSession.id, homework: homeworkUrl.trim() || null });
+    const res = await updateScheduleFiles({
+      scheduleId: selectedSession.id,
+      homework: homeworkUrl.trim() || null,
+    });
     if (res.success) {
-      setSelectedSession({ ...selectedSession, homework: homeworkUrl.trim() || null });
-      setSchedules(prev => prev.map(s => s.id === selectedSession.id ? { ...s, homework: homeworkUrl.trim() || null } : s));
+      setSelectedSession({
+        ...selectedSession,
+        homework: homeworkUrl.trim() || null,
+      });
+      setSchedules((prev) =>
+        prev.map((s) =>
+          s.id === selectedSession.id
+            ? { ...s, homework: homeworkUrl.trim() || null }
+            : s,
+        ),
+      );
       alert("Đã giao bài tập về nhà thành công!");
     } else {
       alert(res.error || "Lỗi giao bài tập.");
@@ -486,17 +724,30 @@ export default function WeeklyTimetable({
   const handleSaveDueDate = async () => {
     if (!selectedSession) return;
     if (!homeworkDueDate && selectedSession.homeworkDueDate) {
-      if (!confirm("Bạn có chắc chắn muốn xóa hạn nộp bài tập về nhà của ca học này?")) {
+      if (
+        !confirm(
+          "Bạn có chắc chắn muốn xóa hạn nộp bài tập về nhà của ca học này?",
+        )
+      ) {
         return;
       }
     }
-    const res = await updateScheduleFiles({ 
-      scheduleId: selectedSession.id, 
-      homeworkDueDate: homeworkDueDate || null 
+    const res = await updateScheduleFiles({
+      scheduleId: selectedSession.id,
+      homeworkDueDate: homeworkDueDate || null,
     });
     if (res.success) {
-      setSelectedSession({ ...selectedSession, homeworkDueDate: homeworkDueDate || null });
-      setSchedules(prev => prev.map(s => s.id === selectedSession.id ? { ...s, homeworkDueDate: homeworkDueDate || null } : s));
+      setSelectedSession({
+        ...selectedSession,
+        homeworkDueDate: homeworkDueDate || null,
+      });
+      setSchedules((prev) =>
+        prev.map((s) =>
+          s.id === selectedSession.id
+            ? { ...s, homeworkDueDate: homeworkDueDate || null }
+            : s,
+        ),
+      );
       alert("Đã cập nhật hạn nộp bài tập!");
     } else {
       alert(res.error || "Lỗi cập nhật hạn nộp.");
@@ -514,7 +765,7 @@ export default function WeeklyTimetable({
     const res = await submitHomework({
       scheduleId: selectedSession.id,
       fileUrl: submissionUrl.trim(),
-      fileName: "Link bài làm Google Drive"
+      fileName: "Link bài làm Google Drive",
     });
 
     if (res.success) {
@@ -532,14 +783,22 @@ export default function WeeklyTimetable({
     const res = await gradeHomework({
       submissionId: gradingSubmissionId,
       grade: parseFloat(gradingScore),
-      feedback: gradingFeedback
+      feedback: gradingFeedback,
     });
 
     if (res.success) {
       alert("Chấm điểm bài tập thành công!");
       // Update local state list
-      setActiveSubmissions(prev => 
-        prev.map(sub => sub.id === gradingSubmissionId ? { ...sub, grade: parseFloat(gradingScore), feedback: gradingFeedback } : sub)
+      setActiveSubmissions((prev) =>
+        prev.map((sub) =>
+          sub.id === gradingSubmissionId
+            ? {
+                ...sub,
+                grade: parseFloat(gradingScore),
+                feedback: gradingFeedback,
+              }
+            : sub,
+        ),
       );
       setGradingSubmissionId("");
       setGradingScore("");
@@ -575,10 +834,16 @@ export default function WeeklyTimetable({
             Hôm nay
           </button>
           <div className="flex items-center border border-divider rounded-pill overflow-hidden bg-canvas">
-            <button onClick={navigatePrevious} className="p-2 hover:bg-surface-pearl text-ink-muted-80">
+            <button
+              onClick={navigatePrevious}
+              className="p-2 hover:bg-surface-pearl text-ink-muted-80"
+            >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <button onClick={navigateNext} className="p-2 hover:bg-surface-pearl text-ink-muted-80">
+            <button
+              onClick={navigateNext}
+              className="p-2 hover:bg-surface-pearl text-ink-muted-80"
+            >
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
@@ -590,9 +855,11 @@ export default function WeeklyTimetable({
         {/* View mode toggle tabs */}
         <div className="flex border border-divider rounded-pill overflow-hidden bg-surface-pearl p-0.5 self-start">
           <button
-            onClick={() => setViewMode("WEEK")}
+            onClick={() => setViewMode(isMobile ? "DAY" : "WEEK")}
             className={`px-4 py-1.5 rounded-pill text-xs font-semibold transition-all ${
-              viewMode === "WEEK" ? "bg-canvas text-primary shadow-sm" : "text-ink-muted-80 hover:text-ink"
+              viewMode === "WEEK"
+                ? "bg-canvas text-primary shadow-sm"
+                : "text-ink-muted-80 hover:text-ink"
             }`}
           >
             Tuần
@@ -600,7 +867,9 @@ export default function WeeklyTimetable({
           <button
             onClick={() => setViewMode("MONTH")}
             className={`px-4 py-1.5 rounded-pill text-xs font-semibold transition-all ${
-              viewMode === "MONTH" ? "bg-canvas text-primary shadow-sm" : "text-ink-muted-80 hover:text-ink"
+              viewMode === "MONTH"
+                ? "bg-canvas text-primary shadow-sm"
+                : "text-ink-muted-80 hover:text-ink"
             }`}
           >
             Tháng
@@ -609,14 +878,145 @@ export default function WeeklyTimetable({
       </div>
 
       {/* TIMETABLE GRID */}
-      {viewMode === "WEEK" ? (
+      {viewMode === "DAY" ? (
+        <div className="flex flex-col gap-4">
+          <div className="bg-canvas border border-hairline rounded-lg p-4 shadow-sm flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={navigatePrevious}
+                  className="p-2 rounded-pill border border-divider hover:bg-surface-pearl text-ink-muted-80"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={navigateNext}
+                  className="p-2 rounded-pill border border-divider hover:bg-surface-pearl text-ink-muted-80"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={navigateToday}
+                  className="border border-divider hover:bg-surface-pearl text-ink text-xs font-semibold px-4 py-2 rounded-pill shadow-sm"
+                >
+                  Hôm nay
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="date"
+                  value={dayViewDate}
+                  onChange={(e) => {
+                    setDayViewDate(e.target.value);
+                    setCurrentDate(new Date(e.target.value));
+                  }}
+                  className="h-11 rounded-pill border border-divider bg-canvas px-3 text-sm text-ink outline-none focus:border-primary"
+                />
+                <span className="font-tagline text-lg font-bold text-ink">
+                  {formatHeaderLabel()}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-canvas border border-hairline rounded-lg overflow-hidden">
+              <div className="flex relative min-h-[640px]">
+                <div className="w-16 flex-shrink-0 border-r border-divider-soft pr-2 pt-10 text-right text-[10px] font-mono text-ink-muted-48 flex flex-col justify-between h-[640px]">
+                  {HOUR_LABELS.map((hl) => (
+                    <div
+                      key={hl}
+                      className="h-[40px] leading-none flex items-start justify-end"
+                    >
+                      {hl}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex-1 relative h-[640px]">
+                  <div className="absolute inset-x-0 top-10 bottom-0 pointer-events-none flex flex-col justify-between z-0">
+                    {HOUR_LABELS.slice(0, -1).map((_, idx) => (
+                      <div
+                        key={idx}
+                        className="border-b border-divider-soft/40 h-[40px] w-full"
+                      />
+                    ))}
+                  </div>
+
+                  {processedSchedulesForDate(currentDayDate).map((e) => {
+                    const isOwn =
+                      userRole === "ADMIN" ||
+                      !isTeacherRole ||
+                      e.teacher.id === currentTeacherProfileId ||
+                      e.class.id === classes[0]?.id;
+                    const displayTitle = isOwn ? e.class.name : "Đã bận";
+                    const displaySub = isOwn
+                      ? `${e.subject.name} - ${e.room}`
+                      : `Phòng ${e.room}`;
+                    const displayTime = `${e.startTime} - ${e.endTime}`;
+
+                    return (
+                      <div
+                        key={e.id}
+                        style={{
+                          top: `${e.top}px`,
+                          height: `${e.height}px`,
+                          left: `${e.left}%`,
+                          width: `${e.width - 2}%`,
+                        }}
+                        onClick={() => {
+                          if (isOwn) setSelectedSession(e);
+                        }}
+                        className={`absolute border rounded p-2 flex flex-col justify-between overflow-hidden text-[10px] transition-all group hover:z-20 shadow-sm cursor-pointer ${
+                          isOwn
+                            ? "bg-blue-50/95 hover:bg-blue-100 border-blue-200 text-blue-800"
+                            : "bg-gray-100/90 border-gray-300 text-gray-600"
+                        }`}
+                        title={`${displayTitle} (${displayTime})`}
+                      >
+                        <div className="flex flex-col leading-tight">
+                          <span className="font-bold truncate">
+                            {displayTitle}
+                          </span>
+                          <span className="opacity-80 truncate mt-0.5">
+                            {displaySub}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center text-[8px] opacity-75 mt-1 font-mono">
+                          <span>{e.startTime}</span>
+                          {isOwn && userRole !== "STUDENT" && (
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDeleteTrigger(e);
+                              }}
+                              className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
+                            >
+                              <Trash2 className="h-2.5 w-2.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : viewMode === "WEEK" ? (
         <div className="flex flex-col gap-4">
           <div className="bg-canvas border border-hairline rounded-lg p-4 shadow-sm overflow-x-auto min-w-[850px]">
             <div className="flex relative">
               {/* Hour labels axis on left */}
               <div className="w-14 flex-shrink-0 border-r border-divider-soft pr-2 pt-10 text-right text-[10px] font-mono text-ink-muted-48 flex flex-col justify-between h-[640px]">
                 {HOUR_LABELS.map((hl) => (
-                  <div key={hl} className="h-[40px] leading-none flex items-start justify-end">{hl}</div>
+                  <div
+                    key={hl}
+                    className="h-[40px] leading-none flex items-start justify-end"
+                  >
+                    {hl}
+                  </div>
                 ))}
               </div>
 
@@ -625,26 +1025,42 @@ export default function WeeklyTimetable({
                 {/* Background Grid Lines */}
                 <div className="absolute inset-x-0 top-10 bottom-0 pointer-events-none flex flex-col justify-between z-0">
                   {HOUR_LABELS.slice(0, -1).map((_, idx) => (
-                    <div key={idx} className="border-b border-divider-soft/40 h-[40px] w-full" />
+                    <div
+                      key={idx}
+                      className="border-b border-divider-soft/40 h-[40px] w-full"
+                    />
                   ))}
                 </div>
 
                 {DAYS_OF_WEEK.map((day) => {
                   const dayEvents = processedSchedulesByDay(day.value);
                   return (
-                    <div key={day.value} className="border-r border-divider-soft last:border-0 relative h-[640px] bg-slate-50/10 z-10">
+                    <div
+                      key={day.value}
+                      className="border-r border-divider-soft last:border-0 relative h-[640px] bg-slate-50/10 z-10"
+                    >
                       {/* Header title */}
                       <div className="absolute top-0 inset-x-0 h-9 border-b border-divider-soft flex flex-col items-center justify-center bg-surface-pearl">
-                        <span className="text-[10px] font-bold text-ink">{day.label}</span>
-                        <span className="text-[8px] text-ink-muted-48">{dayEvents.length} ca học</span>
+                        <span className="text-[10px] font-bold text-ink">
+                          {day.label}
+                        </span>
+                        <span className="text-[8px] text-ink-muted-48">
+                          {dayEvents.length} ca học
+                        </span>
                       </div>
 
                       {/* Content Area containing events */}
                       <div className="absolute top-10 bottom-0 inset-x-0">
                         {dayEvents.map((e) => {
-                          const isOwn = userRole === "ADMIN" || !isTeacherRole || e.teacher.id === currentTeacherProfileId || e.class.id === (classes[0]?.id);
+                          const isOwn =
+                            userRole === "ADMIN" ||
+                            !isTeacherRole ||
+                            e.teacher.id === currentTeacherProfileId ||
+                            e.class.id === classes[0]?.id;
                           const displayTitle = isOwn ? e.class.name : "Đã bận";
-                          const displaySub = isOwn ? `${e.subject.name} - ${e.room}` : `Phòng ${e.room}`;
+                          const displaySub = isOwn
+                            ? `${e.subject.name} - ${e.room}`
+                            : `Phòng ${e.room}`;
                           const displayTime = `${e.startTime} - ${e.endTime}`;
 
                           return (
@@ -667,10 +1083,14 @@ export default function WeeklyTimetable({
                               title={`${displayTitle} (${displayTime})`}
                             >
                               <div className="flex flex-col leading-tight">
-                                <span className="font-bold truncate">{displayTitle}</span>
-                                <span className="opacity-80 truncate mt-0.5">{displaySub}</span>
+                                <span className="font-bold truncate">
+                                  {displayTitle}
+                                </span>
+                                <span className="opacity-80 truncate mt-0.5">
+                                  {displaySub}
+                                </span>
                               </div>
-                              
+
                               <div className="flex justify-between items-center text-[8px] opacity-75 mt-1 font-mono">
                                 <span>{e.startTime}</span>
                                 {isOwn && userRole !== "STUDENT" && (
@@ -712,7 +1132,8 @@ export default function WeeklyTimetable({
               {monthDaysGrid.map((day, idx) => {
                 const dayNum = day.getDate();
                 const dayOfWeekValue = day.getDay() === 0 ? 7 : day.getDay();
-                const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+                const isCurrentMonth =
+                  day.getMonth() === currentDate.getMonth();
 
                 // Find schedules for this specific date
                 const daySchedules = schedules.filter((s) => {
@@ -727,21 +1148,29 @@ export default function WeeklyTimetable({
                   <div
                     key={idx}
                     className={`min-h-[100px] border-r border-b border-hairline p-2 flex flex-col gap-1 transition-all hover:bg-surface-pearl/30 ${
-                      isCurrentMonth ? "bg-canvas" : "bg-slate-50 text-ink-muted-48 opacity-60"
+                      isCurrentMonth
+                        ? "bg-canvas"
+                        : "bg-slate-50 text-ink-muted-48 opacity-60"
                     }`}
                   >
-                    <span className={`text-xs font-bold self-end px-1.5 py-0.5 rounded-full ${
-                      day.toDateString() === new Date().toDateString() 
-                        ? "bg-primary text-white" 
-                        : "text-ink"
-                    }`}>
+                    <span
+                      className={`text-xs font-bold self-end px-1.5 py-0.5 rounded-full ${
+                        day.toDateString() === new Date().toDateString()
+                          ? "bg-primary text-white"
+                          : "text-ink"
+                      }`}
+                    >
                       {dayNum}
                     </span>
 
                     {/* Compact schedule cards */}
                     <div className="flex flex-col gap-1 overflow-y-auto max-h-16">
                       {daySchedules.map((s) => {
-                        const isOwn = userRole === "ADMIN" || !isTeacherRole || s.teacher.id === currentTeacherProfileId || s.class.id === (classes[0]?.id);
+                        const isOwn =
+                          userRole === "ADMIN" ||
+                          !isTeacherRole ||
+                          s.teacher.id === currentTeacherProfileId ||
+                          s.class.id === classes[0]?.id;
                         return (
                           <div
                             key={s.id}
@@ -749,8 +1178,8 @@ export default function WeeklyTimetable({
                               if (isOwn) setSelectedSession(s);
                             }}
                             className={`px-1.5 py-0.5 rounded text-[9px] font-semibold truncate cursor-pointer ${
-                              isOwn 
-                                ? "bg-blue-50 border border-blue-100 text-blue-700 hover:bg-blue-100" 
+                              isOwn
+                                ? "bg-blue-50 border border-blue-100 text-blue-700 hover:bg-blue-100"
                                 : "bg-gray-100 border border-gray-200 text-gray-500"
                             }`}
                             title={`${isOwn ? `${s.class.name} • ${s.subject.name}` : "Đã bận"} (${s.startTime} - ${s.endTime})`}
@@ -776,10 +1205,13 @@ export default function WeeklyTimetable({
             <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
               <div>
                 <h3 className="font-tagline text-base font-bold text-ink">
-                  {isEditing ? "Chỉnh sửa ca học" : `Chi tiết buổi học: Lớp ${selectedSession.class.name}`}
+                  {isEditing
+                    ? "Chỉnh sửa ca học"
+                    : `Chi tiết buổi học: Lớp ${selectedSession.class.name}`}
                 </h3>
                 <p className="text-[10px] text-ink-muted-80 font-mono mt-0.5">
-                  Chuyên đề: {selectedSession.subject.name} | Phòng: {selectedSession.room || "—"}
+                  Chuyên đề: {selectedSession.subject.name} | Phòng:{" "}
+                  {selectedSession.room || "—"}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -791,7 +1223,10 @@ export default function WeeklyTimetable({
                     Sửa ca học
                   </button>
                 )}
-                <button onClick={() => setSelectedSession(null)} className="text-ink-muted-80 hover:text-ink">
+                <button
+                  onClick={() => setSelectedSession(null)}
+                  className="text-ink-muted-80 hover:text-ink"
+                >
                   <X className="h-5 w-5" />
                 </button>
               </div>
@@ -800,9 +1235,14 @@ export default function WeeklyTimetable({
             {/* Modal Body */}
             <div className="p-6 flex flex-col gap-6 overflow-y-auto max-h-[70vh]">
               {isEditing ? (
-                <form onSubmit={handleUpdateTrigger} className="flex flex-col gap-4">
+                <form
+                  onSubmit={handleUpdateTrigger}
+                  className="flex flex-col gap-4"
+                >
                   <div className="flex flex-col gap-1.5 text-xs">
-                    <label className="font-caption-strong text-ink-muted-80">Lớp học</label>
+                    <label className="font-caption-strong text-ink-muted-80">
+                      Lớp học
+                    </label>
                     <select
                       value={editClassId}
                       onChange={(e) => setEditClassId(e.target.value)}
@@ -811,13 +1251,17 @@ export default function WeeklyTimetable({
                     >
                       <option value="">— Chọn lớp —</option>
                       {classes.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   <div className="flex flex-col gap-1.5 text-xs">
-                    <label className="font-caption-strong text-ink-muted-80">Môn học</label>
+                    <label className="font-caption-strong text-ink-muted-80">
+                      Môn học
+                    </label>
                     <select
                       value={editSubjectId}
                       onChange={(e) => setEditSubjectId(e.target.value)}
@@ -826,14 +1270,18 @@ export default function WeeklyTimetable({
                     >
                       <option value="">— Chọn môn —</option>
                       {subjects.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.code})
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   {userRole === "ADMIN" && (
                     <div className="flex flex-col gap-1.5 text-xs">
-                      <label className="font-caption-strong text-ink-muted-80">Giáo viên giảng dạy</label>
+                      <label className="font-caption-strong text-ink-muted-80">
+                        Giáo viên giảng dạy
+                      </label>
                       <select
                         value={editTeacherId}
                         onChange={(e) => setEditTeacherId(e.target.value)}
@@ -842,7 +1290,9 @@ export default function WeeklyTimetable({
                       >
                         <option value="">— Chọn giáo viên —</option>
                         {teachers.map((t) => (
-                          <option key={t.id} value={t.id}>{t.user.name}</option>
+                          <option key={t.id} value={t.id}>
+                            {t.user.name}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -850,10 +1300,14 @@ export default function WeeklyTimetable({
 
                   <div className="grid grid-cols-2 gap-4 text-xs">
                     <div className="flex flex-col gap-1.5">
-                      <label className="font-caption-strong text-ink-muted-80">Thứ trong tuần</label>
+                      <label className="font-caption-strong text-ink-muted-80">
+                        Thứ trong tuần
+                      </label>
                       <select
                         value={editDayOfWeek}
-                        onChange={(e) => setEditDayOfWeek(parseInt(e.target.value))}
+                        onChange={(e) =>
+                          setEditDayOfWeek(parseInt(e.target.value))
+                        }
                         className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
                         required
                       >
@@ -868,7 +1322,9 @@ export default function WeeklyTimetable({
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <label className="font-caption-strong text-ink-muted-80">Ngày học</label>
+                      <label className="font-caption-strong text-ink-muted-80">
+                        Ngày học
+                      </label>
                       <input
                         type="date"
                         value={editDate}
@@ -881,7 +1337,9 @@ export default function WeeklyTimetable({
 
                   <div className="grid grid-cols-2 gap-4 text-xs">
                     <div className="flex flex-col gap-1.5">
-                      <label className="font-caption-strong text-ink-muted-80">Giờ bắt đầu</label>
+                      <label className="font-caption-strong text-ink-muted-80">
+                        Giờ bắt đầu
+                      </label>
                       <input
                         type="text"
                         value={editStartTime}
@@ -893,7 +1351,9 @@ export default function WeeklyTimetable({
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <label className="font-caption-strong text-ink-muted-80">Giờ kết thúc</label>
+                      <label className="font-caption-strong text-ink-muted-80">
+                        Giờ kết thúc
+                      </label>
                       <input
                         type="text"
                         value={editEndTime}
@@ -906,7 +1366,9 @@ export default function WeeklyTimetable({
                   </div>
 
                   <div className="flex flex-col gap-1.5 text-xs">
-                    <label className="font-caption-strong text-ink-muted-80">Phòng học (Room)</label>
+                    <label className="font-caption-strong text-ink-muted-80">
+                      Phòng học (Room)
+                    </label>
                     <select
                       value={editSelectedRoom}
                       onChange={(e) => setEditSelectedRoom(e.target.value)}
@@ -915,7 +1377,9 @@ export default function WeeklyTimetable({
                     >
                       <option value="">— Chọn phòng học —</option>
                       {rooms.map((r) => (
-                        <option key={r.id} value={r.name}>{r.name}</option>
+                        <option key={r.id} value={r.name}>
+                          {r.name}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -941,350 +1405,485 @@ export default function WeeklyTimetable({
                   {/* Session Meta */}
                   <div className="grid grid-cols-2 gap-4 bg-blue-50 border border-blue-100 rounded-lg p-4 text-xs">
                     <div className="flex flex-col gap-1">
-                      <span className="text-ink-muted-80 font-semibold">Thời gian:</span>
-                      <span className="font-bold text-blue-900">{selectedSession.startTime} - {selectedSession.endTime}</span>
+                      <span className="text-ink-muted-80 font-semibold">
+                        Thời gian:
+                      </span>
+                      <span className="font-bold text-blue-900">
+                        {selectedSession.startTime} - {selectedSession.endTime}
+                      </span>
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-ink-muted-80 font-semibold">Ngày học:</span>
+                      <span className="text-ink-muted-80 font-semibold">
+                        Ngày học:
+                      </span>
                       <span className="font-bold text-blue-900">
-                        {selectedSession.date ? new Date(selectedSession.date).toLocaleDateString("vi-VN", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "Hàng tuần"}
+                        {selectedSession.date
+                          ? new Date(selectedSession.date).toLocaleDateString(
+                              "vi-VN",
+                              {
+                                weekday: "long",
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              },
+                            )
+                          : "Hàng tuần"}
                       </span>
                     </div>
                     <div className="flex flex-col gap-1 col-span-2 border-t border-blue-200/50 pt-2">
-                      <span className="text-ink-muted-80 font-semibold">Giáo viên phụ trách:</span>
-                      <span className="font-bold text-blue-900">{selectedSession.teacher.user.name}</span>
-                    </div>
-                  </div>
-
-              {/* MATERIALS & HOMEWORK LINK INPUTS (TEACHER / ADMIN - Hướng A) */}
-              {userRole !== "STUDENT" ? (
-                <div className="flex flex-col gap-4 border-t border-divider-soft pt-4">
-                  <h4 className="text-xs font-bold text-ink uppercase tracking-wider font-tagline">Đường dẫn Tài liệu học tập &amp; Bài tập</h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-hairline rounded-lg">
-                      <span className="text-[10px] font-bold text-ink-muted-80">1. Link tài liệu xem trước</span>
-                      <input
-                        type="url"
-                        value={materialsUrl}
-                        onChange={(e) => setMaterialsUrl(e.target.value)}
-                        placeholder="Dán link bài giảng, tài liệu..."
-                        className="bg-canvas border border-divider-soft p-2 rounded text-xs outline-none focus:border-primary w-full"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSaveMaterials}
-                        className="bg-primary hover:bg-primary-focus text-white text-[10px] font-bold py-1.5 px-3 rounded-pill mt-1 self-end"
-                      >
-                        Lưu Link tài liệu
-                      </button>
-                    </div>
-
-                    <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-hairline rounded-lg">
-                      <span className="text-[10px] font-bold text-ink-muted-80">2. Link đề bài tập về nhà</span>
-                      <input
-                        type="url"
-                        value={homeworkUrl}
-                        onChange={(e) => setHomeworkUrl(e.target.value)}
-                        placeholder="Dán link đề bài tập (PDF, Docx)..."
-                        className="bg-canvas border border-divider-soft p-2 rounded text-xs outline-none focus:border-primary w-full"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSaveHomework}
-                        className="bg-primary hover:bg-primary-focus text-white text-[10px] font-bold py-1.5 px-3 rounded-pill mt-1 self-end"
-                      >
-                        Lưu Link bài tập
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-hairline rounded-lg">
-                    <span className="text-[10px] font-bold text-ink-muted-80">3. Hạn nộp bài tập về nhà</span>
-                    <div className="flex gap-2">
-                      <input
-                        type="datetime-local"
-                        value={homeworkDueDate}
-                        onChange={(e) => setHomeworkDueDate(e.target.value)}
-                        className="bg-canvas border border-divider-soft p-2 rounded text-xs outline-none focus:border-primary flex-1 h-9"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSaveDueDate}
-                        className="bg-primary hover:bg-primary-focus text-white text-[10px] font-bold py-1.5 px-4 rounded-pill self-center h-9"
-                      >
-                        Lưu hạn nộp
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* STUDENT DOWNLOAD LINKS */
-                <div className="flex flex-col gap-4 border-t border-divider-soft pt-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Tài liệu học tập tự học</h4>
-                    {selectedSession.homeworkDueDate && (
-                      <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200 font-mono font-bold">
-                        Hạn nộp: {new Date(selectedSession.homeworkDueDate).toLocaleString("vi-VN")}
+                      <span className="text-ink-muted-80 font-semibold">
+                        Giáo viên phụ trách:
                       </span>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="border border-divider-soft rounded-lg p-4 bg-surface-pearl flex flex-col justify-between h-auto min-h-[112px] gap-3">
-                      <div>
-                        <span className="text-[10px] font-bold text-ink-muted-80 block">Tài liệu xem trước</span>
-                        <p className="text-[10px] text-ink-muted-48 mt-1 leading-snug">Xem tài liệu để chuẩn bị kiến thức trước buổi học</p>
-                      </div>
-                      {selectedSession.materials ? (
-                        <a
-                          href={selectedSession.materials}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold px-3 py-1.5 rounded-pill shadow-sm flex items-center justify-center gap-1.5"
-                        >
-                          <LinkIcon className="h-3.5 w-3.5" /> Xem bài giảng
-                        </a>
-                      ) : (
-                        <span className="text-xs text-ink-muted-48 font-semibold italic text-center block pt-2">Chưa cập nhật</span>
-                      )}
-                    </div>
-
-                    <div className="border border-divider-soft rounded-lg p-4 bg-surface-pearl flex flex-col justify-between h-auto min-h-[112px] gap-3">
-                      <div>
-                        <span className="text-[10px] font-bold text-ink-muted-80 block">Bài tập về nhà</span>
-                        <p className="text-[10px] text-ink-muted-48 mt-1 leading-snug">Hoàn thành bài tập được giao và nộp lại đúng hạn</p>
-                      </div>
-                      {selectedSession.homework ? (
-                        <a
-                          href={selectedSession.homework}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-1.5 rounded-pill shadow-sm flex items-center justify-center gap-1.5"
-                        >
-                          <LinkIcon className="h-3.5 w-3.5" /> Xem đề bài tập
-                        </a>
-                      ) : (
-                        <span className="text-xs text-ink-muted-48 font-semibold italic text-center block pt-2">Chưa giao bài tập</span>
-                      )}
+                      <span className="font-bold text-blue-900">
+                        {selectedSession.teacher.user.name}
+                      </span>
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* STUDENT SUBMISSION PORTAL (Hướng A - Google Drive URL) */}
-              {userRole === "STUDENT" && selectedSession.homework && (
-                <div className="border-t border-divider-soft pt-4 flex flex-col gap-4">
-                  <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Trạng thái nộp bài tập về nhà</h4>
+                  {/* MATERIALS & HOMEWORK LINK INPUTS (TEACHER / ADMIN - Hướng A) */}
+                  {userRole !== "STUDENT" ? (
+                    <div className="flex flex-col gap-4 border-t border-divider-soft pt-4">
+                      <h4 className="text-xs font-bold text-ink uppercase tracking-wider font-tagline">
+                        Đường dẫn Tài liệu học tập &amp; Bài tập
+                      </h4>
 
-                  {studentSubmission ? (
-                    <div className="bg-canvas border border-hairline rounded-lg p-4 flex flex-col gap-3 shadow-sm">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-divider pb-2.5 gap-2">
-                        <span className="text-xs font-bold text-green-700 flex items-center gap-1">
-                          <CheckCircle className="h-4 w-4 text-green-600" /> Đã nộp bài tập
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {selectedSession.homeworkDueDate && (
-                            new Date(studentSubmission.submittedAt) > new Date(selectedSession.homeworkDueDate) ? (
-                              <span className="text-[9px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">Nộp muộn</span>
-                            ) : (
-                              <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">Đúng hạn</span>
-                            )
-                          )}
-                          <span className="text-[10px] text-ink-muted-80 font-mono">
-                            Nộp lúc: {new Date(studentSubmission.submittedAt).toLocaleString("vi-VN")}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-hairline rounded-lg">
+                          <span className="text-[10px] font-bold text-ink-muted-80">
+                            1. Link tài liệu xem trước
                           </span>
+                          <input
+                            type="url"
+                            value={materialsUrl}
+                            onChange={(e) => setMaterialsUrl(e.target.value)}
+                            placeholder="Dán link bài giảng, tài liệu..."
+                            className="bg-canvas border border-divider-soft p-2 rounded text-xs outline-none focus:border-primary w-full"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSaveMaterials}
+                            className="bg-primary hover:bg-primary-focus text-white text-[10px] font-bold py-1.5 px-3 rounded-pill mt-1 self-end"
+                          >
+                            Lưu Link tài liệu
+                          </button>
+                        </div>
+
+                        <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-hairline rounded-lg">
+                          <span className="text-[10px] font-bold text-ink-muted-80">
+                            2. Link đề bài tập về nhà
+                          </span>
+                          <input
+                            type="url"
+                            value={homeworkUrl}
+                            onChange={(e) => setHomeworkUrl(e.target.value)}
+                            placeholder="Dán link đề bài tập (PDF, Docx)..."
+                            className="bg-canvas border border-divider-soft p-2 rounded text-xs outline-none focus:border-primary w-full"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSaveHomework}
+                            className="bg-primary hover:bg-primary-focus text-white text-[10px] font-bold py-1.5 px-3 rounded-pill mt-1 self-end"
+                          >
+                            Lưu Link bài tập
+                          </button>
                         </div>
                       </div>
-                      
-                      <div className="text-xs flex flex-col sm:flex-row sm:justify-between sm:items-center text-ink-muted-80 gap-1.5">
-                        <span>Đường dẫn bài làm:</span>
-                        <a href={studentSubmission.fileUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:underline truncate max-w-[280px]">
-                          {studentSubmission.fileUrl}
-                        </a>
+
+                      <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-hairline rounded-lg">
+                        <span className="text-[10px] font-bold text-ink-muted-80">
+                          3. Hạn nộp bài tập về nhà
+                        </span>
+                        <div className="flex gap-2">
+                          <input
+                            type="datetime-local"
+                            value={homeworkDueDate}
+                            onChange={(e) => setHomeworkDueDate(e.target.value)}
+                            className="bg-canvas border border-divider-soft p-2 rounded text-xs outline-none focus:border-primary flex-1 h-9"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSaveDueDate}
+                            className="bg-primary hover:bg-primary-focus text-white text-[10px] font-bold py-1.5 px-4 rounded-pill self-center h-9"
+                          >
+                            Lưu hạn nộp
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* STUDENT DOWNLOAD LINKS */
+                    <div className="flex flex-col gap-4 border-t border-divider-soft pt-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-xs font-bold text-ink uppercase tracking-wider">
+                          Tài liệu học tập tự học
+                        </h4>
+                        {selectedSession.homeworkDueDate && (
+                          <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200 font-mono font-bold">
+                            Hạn nộp:{" "}
+                            {new Date(
+                              selectedSession.homeworkDueDate,
+                            ).toLocaleString("vi-VN")}
+                          </span>
+                        )}
                       </div>
 
-                      {studentSubmission.grade !== null ? (
-                        <div className="bg-green-50 border border-green-100 rounded p-3.5 text-xs flex flex-col gap-2 mt-2">
-                          <div className="flex justify-between items-center font-bold text-green-800">
-                            <span>Điểm chấm của giáo viên:</span>
-                            <span className="text-sm bg-canvas border border-green-200 px-3 py-0.5 rounded-full">{studentSubmission.grade} / 10 đ</span>
-                          </div>
-                          {studentSubmission.feedback && (
-                            <p className="text-[11px] text-green-700 italic mt-1 block">
-                              Lời phê: {studentSubmission.feedback}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="border border-divider-soft rounded-lg p-4 bg-surface-pearl flex flex-col justify-between h-auto min-h-[112px] gap-3">
+                          <div>
+                            <span className="text-[10px] font-bold text-ink-muted-80 block">
+                              Tài liệu xem trước
+                            </span>
+                            <p className="text-[10px] text-ink-muted-48 mt-1 leading-snug">
+                              Xem tài liệu để chuẩn bị kiến thức trước buổi học
                             </p>
+                          </div>
+                          {selectedSession.materials ? (
+                            <a
+                              href={selectedSession.materials}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold px-3 py-1.5 rounded-pill shadow-sm flex items-center justify-center gap-1.5"
+                            >
+                              <LinkIcon className="h-3.5 w-3.5" /> Xem bài giảng
+                            </a>
+                          ) : (
+                            <span className="text-xs text-ink-muted-48 font-semibold italic text-center block pt-2">
+                              Chưa cập nhật
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="border border-divider-soft rounded-lg p-4 bg-surface-pearl flex flex-col justify-between h-auto min-h-[112px] gap-3">
+                          <div>
+                            <span className="text-[10px] font-bold text-ink-muted-80 block">
+                              Bài tập về nhà
+                            </span>
+                            <p className="text-[10px] text-ink-muted-48 mt-1 leading-snug">
+                              Hoàn thành bài tập được giao và nộp lại đúng hạn
+                            </p>
+                          </div>
+                          {selectedSession.homework ? (
+                            <a
+                              href={selectedSession.homework}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-1.5 rounded-pill shadow-sm flex items-center justify-center gap-1.5"
+                            >
+                              <LinkIcon className="h-3.5 w-3.5" /> Xem đề bài
+                              tập
+                            </a>
+                          ) : (
+                            <span className="text-xs text-ink-muted-48 font-semibold italic text-center block pt-2">
+                              Chưa giao bài tập
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STUDENT SUBMISSION PORTAL (Hướng A - Google Drive URL) */}
+                  {userRole === "STUDENT" && selectedSession.homework && (
+                    <div className="border-t border-divider-soft pt-4 flex flex-col gap-4">
+                      <h4 className="text-xs font-bold text-ink uppercase tracking-wider">
+                        Trạng thái nộp bài tập về nhà
+                      </h4>
+
+                      {studentSubmission ? (
+                        <div className="bg-canvas border border-hairline rounded-lg p-4 flex flex-col gap-3 shadow-sm">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-divider pb-2.5 gap-2">
+                            <span className="text-xs font-bold text-green-700 flex items-center gap-1">
+                              <CheckCircle className="h-4 w-4 text-green-600" />{" "}
+                              Đã nộp bài tập
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {selectedSession.homeworkDueDate &&
+                                (new Date(studentSubmission.submittedAt) >
+                                new Date(selectedSession.homeworkDueDate) ? (
+                                  <span className="text-[9px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">
+                                    Nộp muộn
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">
+                                    Đúng hạn
+                                  </span>
+                                ))}
+                              <span className="text-[10px] text-ink-muted-80 font-mono">
+                                Nộp lúc:{" "}
+                                {new Date(
+                                  studentSubmission.submittedAt,
+                                ).toLocaleString("vi-VN")}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="text-xs flex flex-col sm:flex-row sm:justify-between sm:items-center text-ink-muted-80 gap-1.5">
+                            <span>Đường dẫn bài làm:</span>
+                            <a
+                              href={studentSubmission.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-bold text-primary hover:underline truncate max-w-[280px]"
+                            >
+                              {studentSubmission.fileUrl}
+                            </a>
+                          </div>
+
+                          {studentSubmission.grade !== null ? (
+                            <div className="bg-green-50 border border-green-100 rounded p-3.5 text-xs flex flex-col gap-2 mt-2">
+                              <div className="flex justify-between items-center font-bold text-green-800">
+                                <span>Điểm chấm của giáo viên:</span>
+                                <span className="text-sm bg-canvas border border-green-200 px-3 py-0.5 rounded-full">
+                                  {studentSubmission.grade} / 10 đ
+                                </span>
+                              </div>
+                              {studentSubmission.feedback && (
+                                <p className="text-[11px] text-green-700 italic mt-1 block">
+                                  Lời phê: {studentSubmission.feedback}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-3 rounded mt-2 italic">
+                              Đang chờ giáo viên chấm điểm. Bạn vẫn có thể cập
+                              nhật lại liên kết bài làm dưới đây.
+                            </div>
+                          )}
+
+                          {studentSubmission.grade === null && (
+                            <form
+                              onSubmit={handleStudentSubmitUrl}
+                              className="flex flex-col gap-2 mt-2 border-t border-divider-soft pt-2"
+                            >
+                              <span className="text-[10px] font-bold text-ink-muted-80">
+                                Thay đổi đường dẫn bài nộp khác:
+                              </span>
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <input
+                                  type="url"
+                                  value={submissionUrl}
+                                  onChange={(e) =>
+                                    setSubmissionUrl(e.target.value)
+                                  }
+                                  placeholder="Dán link Google Drive hoặc OneDrive bài làm mới..."
+                                  className="bg-canvas border border-divider-soft p-2 rounded text-xs outline-none focus:border-primary flex-1"
+                                  required
+                                />
+                                <button
+                                  type="submit"
+                                  className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold px-4 py-1.5 rounded-pill"
+                                >
+                                  Lưu lại
+                                </button>
+                              </div>
+                            </form>
                           )}
                         </div>
                       ) : (
-                        <div className="bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-3 rounded mt-2 italic">
-                          Đang chờ giáo viên chấm điểm. Bạn vẫn có thể cập nhật lại liên kết bài làm dưới đây.
-                        </div>
-                      )}
-                      
-                      {studentSubmission.grade === null && (
-                        <form onSubmit={handleStudentSubmitUrl} className="flex flex-col gap-2 mt-2 border-t border-divider-soft pt-2">
-                          <span className="text-[10px] font-bold text-ink-muted-80">Thay đổi đường dẫn bài nộp khác:</span>
-                          <div className="flex flex-col sm:flex-row gap-2">
+                        <form
+                          onSubmit={handleStudentSubmitUrl}
+                          className="bg-red-50 border border-red-100 rounded-lg p-5 flex flex-col gap-3"
+                        >
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="h-5 w-5 text-red-500" />
+                            <span className="text-xs font-bold text-red-950">
+                              Chưa nộp bài tập về nhà!
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-red-700 leading-snug">
+                            Hãy dán link bài làm của bạn (ví dụ: Google Drive
+                            link chia sẻ chế độ &quot;Mọi người có liên kết đều
+                            có thể xem&quot;) để nộp bài.
+                          </p>
+                          <div className="flex flex-col sm:flex-row gap-2 mt-1">
                             <input
                               type="url"
                               value={submissionUrl}
                               onChange={(e) => setSubmissionUrl(e.target.value)}
-                              placeholder="Dán link Google Drive hoặc OneDrive bài làm mới..."
-                              className="bg-canvas border border-divider-soft p-2 rounded text-xs outline-none focus:border-primary flex-1"
+                              placeholder="Dán link Google Drive, OneDrive hoặc Dropbox..."
+                              className="bg-canvas border border-divider-soft p-2.5 rounded text-xs outline-none focus:border-primary w-full"
                               required
                             />
-                            <button type="submit" className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold px-4 py-1.5 rounded-pill">
-                              Lưu lại
+                            <button
+                              type="submit"
+                              className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold py-2 rounded-pill shadow-sm whitespace-nowrap px-4"
+                            >
+                              Xác nhận nộp bài tập
                             </button>
                           </div>
                         </form>
                       )}
                     </div>
-                  ) : (
-                    <form onSubmit={handleStudentSubmitUrl} className="bg-red-50 border border-red-100 rounded-lg p-5 flex flex-col gap-3">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="h-5 w-5 text-red-500" />
-                        <span className="text-xs font-bold text-red-950">Chưa nộp bài tập về nhà!</span>
-                      </div>
-                      <p className="text-[10px] text-red-700 leading-snug">
-                        Hãy dán link bài làm của bạn (ví dụ: Google Drive link chia sẻ chế độ &quot;Mọi người có liên kết đều có thể xem&quot;) để nộp bài.
-                      </p>
-                      <div className="flex flex-col sm:flex-row gap-2 mt-1">
-                        <input
-                          type="url"
-                          value={submissionUrl}
-                          onChange={(e) => setSubmissionUrl(e.target.value)}
-                          placeholder="Dán link Google Drive, OneDrive hoặc Dropbox..."
-                          className="bg-canvas border border-divider-soft p-2.5 rounded text-xs outline-none focus:border-primary w-full"
-                          required
-                        />
-                        <button type="submit" className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold py-2 rounded-pill shadow-sm whitespace-nowrap px-4">
-                          Xác nhận nộp bài tập
-                        </button>
-                      </div>
-                    </form>
                   )}
-                </div>
-              )}
 
-              {/* TEACHER SUBMISSIONS MANAGEMENT & GRADING (Hướng A) */}
-              {userRole !== "STUDENT" && (
-                <div className="border-t border-divider-soft pt-4 flex flex-col gap-4">
-                  <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Danh sách bài tập học viên nộp ({activeSubmissions.length})</h4>
+                  {/* TEACHER SUBMISSIONS MANAGEMENT & GRADING (Hướng A) */}
+                  {userRole !== "STUDENT" && (
+                    <div className="border-t border-divider-soft pt-4 flex flex-col gap-4">
+                      <h4 className="text-xs font-bold text-ink uppercase tracking-wider">
+                        Danh sách bài tập học viên nộp (
+                        {activeSubmissions.length})
+                      </h4>
 
-                  {loadingDetails ? (
-                    <p className="text-xs text-ink-muted-48 italic">Đang tải danh sách bài tập...</p>
-                  ) : activeSubmissions.length === 0 ? (
-                    <div className="bg-slate-50 border border-divider-soft rounded-lg p-8 text-center text-ink-muted-80 text-xs italic">
-                      Chưa có học sinh nào nộp bài tập cho ca học này.
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-4">
-                      {activeSubmissions.map((sub) => (
-                        <div key={sub.id} className="border border-hairline rounded-lg p-4 bg-canvas flex flex-col gap-3 shadow-sm">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs border-b border-divider-soft pb-2 gap-2">
-                            <span className="font-bold text-ink flex items-center gap-2">
-                              {sub.student.user.name}
-                              {selectedSession.homeworkDueDate && (
-                                new Date(sub.submittedAt) > new Date(selectedSession.homeworkDueDate) ? (
-                                  <span className="text-[8px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">Nộp muộn</span>
-                                ) : (
-                                  <span className="text-[8px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">Đúng hạn</span>
-                                )
-                              )}
-                            </span>
-                            <span className="text-[10px] text-ink-muted-80 font-mono">
-                              Nộp lúc: {new Date(sub.submittedAt).toLocaleString("vi-VN")}
-                            </span>
-                          </div>
-
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-ink-muted-80 gap-1.5">
-                            <span>Link bài làm của học sinh:</span>
-                            <a href={sub.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline flex items-center gap-1 truncate max-w-[300px]">
-                              <FileText className="h-3.5 w-3.5 flex-shrink-0" /> Mở liên kết bài làm
-                            </a>
-                          </div>
-
-                          {/* Grade representation / editing */}
-                          {gradingSubmissionId === sub.id ? (
-                            <form onSubmit={handleGradeSubmit} className="bg-surface-pearl border border-divider rounded-lg p-3 flex flex-col gap-3 mt-1.5">
-                              <span className="text-[10px] font-bold text-ink-muted-80">Chấm điểm trực tiếp</span>
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                <div className="flex flex-col gap-1 sm:col-span-1">
-                                  <label className="text-[9px] font-semibold text-ink-muted-80">Điểm số</label>
-                                  <input
-                                    type="number"
-                                    step="0.5"
-                                    min="0"
-                                    max="10"
-                                    value={gradingScore}
-                                    onChange={(e) => setGradingScore(e.target.value)}
-                                    placeholder="8.5"
-                                    className="bg-canvas border border-hairline rounded px-3 py-1.5 text-xs text-center outline-none"
-                                    required
-                                  />
-                                </div>
-                                <div className="flex flex-col gap-1 sm:col-span-2">
-                                  <label className="text-[9px] font-semibold text-ink-muted-80">Lời phê / Nhận xét</label>
-                                  <input
-                                    type="text"
-                                    value={gradingFeedback}
-                                    onChange={(e) => setGradingFeedback(e.target.value)}
-                                    placeholder="Làm bài tốt, cần cẩn thận phần lượng giác..."
-                                    className="bg-canvas border border-hairline rounded px-3 py-1.5 text-xs outline-none"
-                                  />
-                                </div>
-                              </div>
-                              <div className="flex flex-col sm:flex-row justify-end gap-2 mt-1 w-full sm:w-auto">
-                                <button
-                                  type="button"
-                                  onClick={() => setGradingSubmissionId("")}
-                                  className="border border-divider text-xs px-3 py-1.5 rounded-pill text-ink w-full sm:w-auto"
-                                >
-                                  Hủy
-                                </button>
-                                <button
-                                  type="submit"
-                                  className="bg-primary text-white text-xs px-4 py-1.5 rounded-pill font-semibold shadow-sm w-full sm:w-auto"
-                                >
-                                  Lưu kết quả
-                                </button>
-                              </div>
-                            </form>
-                          ) : (
-                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-surface-pearl/50 border border-hairline rounded p-2.5 mt-1 gap-2">
-                              <div>
-                                {sub.grade !== null ? (
-                                  <div className="text-xs">
-                                    <span className="font-bold text-green-700">Điểm chấm: {sub.grade} / 10 đ</span>
-                                    {sub.feedback && <p className="text-[10px] text-ink-muted-80 italic mt-0.5">Lời phê: {sub.feedback}</p>}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-amber-600 font-semibold flex items-center gap-1">
-                                    <AlertTriangle className="h-3.5 w-3.5" /> Chưa chấm điểm
-                                  </span>
-                                )}
-                              </div>
-                              <button
-                                onClick={() => {
-                                  setGradingSubmissionId(sub.id);
-                                  setGradingScore(sub.grade !== null ? sub.grade.toString() : "");
-                                  setGradingFeedback(sub.feedback || "");
-                                }}
-                                className="text-xs text-primary hover:underline font-bold flex items-center gap-1 self-start sm:self-auto"
-                              >
-                                <Edit3 className="h-3.5 w-3.5" /> {sub.grade !== null ? "Sửa điểm" : "Chấm bài"}
-                              </button>
-                            </div>
-                          )}
+                      {loadingDetails ? (
+                        <p className="text-xs text-ink-muted-48 italic">
+                          Đang tải danh sách bài tập...
+                        </p>
+                      ) : activeSubmissions.length === 0 ? (
+                        <div className="bg-slate-50 border border-divider-soft rounded-lg p-8 text-center text-ink-muted-80 text-xs italic">
+                          Chưa có học sinh nào nộp bài tập cho ca học này.
                         </div>
-                      ))}
+                      ) : (
+                        <div className="flex flex-col gap-4">
+                          {activeSubmissions.map((sub) => (
+                            <div
+                              key={sub.id}
+                              className="border border-hairline rounded-lg p-4 bg-canvas flex flex-col gap-3 shadow-sm"
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs border-b border-divider-soft pb-2 gap-2">
+                                <span className="font-bold text-ink flex items-center gap-2">
+                                  {sub.student.user.name}
+                                  {selectedSession.homeworkDueDate &&
+                                    (new Date(sub.submittedAt) >
+                                    new Date(
+                                      selectedSession.homeworkDueDate,
+                                    ) ? (
+                                      <span className="text-[8px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">
+                                        Nộp muộn
+                                      </span>
+                                    ) : (
+                                      <span className="text-[8px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">
+                                        Đúng hạn
+                                      </span>
+                                    ))}
+                                </span>
+                                <span className="text-[10px] text-ink-muted-80 font-mono">
+                                  Nộp lúc:{" "}
+                                  {new Date(sub.submittedAt).toLocaleString(
+                                    "vi-VN",
+                                  )}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-ink-muted-80 gap-1.5">
+                                <span>Link bài làm của học sinh:</span>
+                                <a
+                                  href={sub.fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary font-bold hover:underline flex items-center gap-1 truncate max-w-[300px]"
+                                >
+                                  <FileText className="h-3.5 w-3.5 flex-shrink-0" />{" "}
+                                  Mở liên kết bài làm
+                                </a>
+                              </div>
+
+                              {/* Grade representation / editing */}
+                              {gradingSubmissionId === sub.id ? (
+                                <form
+                                  onSubmit={handleGradeSubmit}
+                                  className="bg-surface-pearl border border-divider rounded-lg p-3 flex flex-col gap-3 mt-1.5"
+                                >
+                                  <span className="text-[10px] font-bold text-ink-muted-80">
+                                    Chấm điểm trực tiếp
+                                  </span>
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div className="flex flex-col gap-1 sm:col-span-1">
+                                      <label className="text-[9px] font-semibold text-ink-muted-80">
+                                        Điểm số
+                                      </label>
+                                      <input
+                                        type="number"
+                                        step="0.5"
+                                        min="0"
+                                        max="10"
+                                        value={gradingScore}
+                                        onChange={(e) =>
+                                          setGradingScore(e.target.value)
+                                        }
+                                        placeholder="8.5"
+                                        className="bg-canvas border border-hairline rounded px-3 py-1.5 text-xs text-center outline-none"
+                                        required
+                                      />
+                                    </div>
+                                    <div className="flex flex-col gap-1 sm:col-span-2">
+                                      <label className="text-[9px] font-semibold text-ink-muted-80">
+                                        Lời phê / Nhận xét
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={gradingFeedback}
+                                        onChange={(e) =>
+                                          setGradingFeedback(e.target.value)
+                                        }
+                                        placeholder="Làm bài tốt, cần cẩn thận phần lượng giác..."
+                                        className="bg-canvas border border-hairline rounded px-3 py-1.5 text-xs outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col sm:flex-row justify-end gap-2 mt-1 w-full sm:w-auto">
+                                    <button
+                                      type="button"
+                                      onClick={() => setGradingSubmissionId("")}
+                                      className="border border-divider text-xs px-3 py-1.5 rounded-pill text-ink w-full sm:w-auto"
+                                    >
+                                      Hủy
+                                    </button>
+                                    <button
+                                      type="submit"
+                                      className="bg-primary text-white text-xs px-4 py-1.5 rounded-pill font-semibold shadow-sm w-full sm:w-auto"
+                                    >
+                                      Lưu kết quả
+                                    </button>
+                                  </div>
+                                </form>
+                              ) : (
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-surface-pearl/50 border border-hairline rounded p-2.5 mt-1 gap-2">
+                                  <div>
+                                    {sub.grade !== null ? (
+                                      <div className="text-xs">
+                                        <span className="font-bold text-green-700">
+                                          Điểm chấm: {sub.grade} / 10 đ
+                                        </span>
+                                        {sub.feedback && (
+                                          <p className="text-[10px] text-ink-muted-80 italic mt-0.5">
+                                            Lời phê: {sub.feedback}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-amber-600 font-semibold flex items-center gap-1">
+                                        <AlertTriangle className="h-3.5 w-3.5" />{" "}
+                                        Chưa chấm điểm
+                                      </span>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      setGradingSubmissionId(sub.id);
+                                      setGradingScore(
+                                        sub.grade !== null
+                                          ? sub.grade.toString()
+                                          : "",
+                                      );
+                                      setGradingFeedback(sub.feedback || "");
+                                    }}
+                                    className="text-xs text-primary hover:underline font-bold flex items-center gap-1 self-start sm:self-auto"
+                                  >
+                                    <Edit3 className="h-3.5 w-3.5" />{" "}
+                                    {sub.grade !== null
+                                      ? "Sửa điểm"
+                                      : "Chấm bài"}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
+                </>
               )}
-            </>)}
             </div>
           </div>
         </div>
@@ -1297,21 +1896,28 @@ export default function WeeklyTimetable({
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-6 w-6 text-red-500 flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-tagline text-base font-bold text-ink">Xóa ca học lặp lại</h3>
+                <h3 className="font-tagline text-base font-bold text-ink">
+                  Xóa ca học lặp lại
+                </h3>
                 <p className="text-xs text-ink-muted-80 mt-2 leading-relaxed">
-                  Lịch học này được thiết lập lặp lại hàng tuần. Bạn muốn thực hiện xóa ca học như thế nào?
+                  Lịch học này được thiết lập lặp lại hàng tuần. Bạn muốn thực
+                  hiện xóa ca học như thế nào?
                 </p>
               </div>
             </div>
             <div className="flex flex-col gap-2 mt-2">
               <button
-                onClick={() => handleDeleteExecute(sessionToDelete.id, "ONLY_THIS")}
+                onClick={() =>
+                  handleDeleteExecute(sessionToDelete.id, "ONLY_THIS")
+                }
                 className="w-full bg-slate-100 hover:bg-slate-200 border border-divider text-ink text-xs font-semibold py-2.5 rounded-pill"
               >
                 Chỉ xóa duy nhất ca học này
               </button>
               <button
-                onClick={() => handleDeleteExecute(sessionToDelete.id, "ALL_FUTURE")}
+                onClick={() =>
+                  handleDeleteExecute(sessionToDelete.id, "ALL_FUTURE")
+                }
                 className="w-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-2.5 rounded-pill shadow-sm"
               >
                 Xóa ca học này và tất cả các ca lặp lại trong tương lai
@@ -1337,9 +1943,12 @@ export default function WeeklyTimetable({
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-tagline text-base font-bold text-ink">Cập nhật lịch học lặp lại</h3>
+                <h3 className="font-tagline text-base font-bold text-ink">
+                  Cập nhật lịch học lặp lại
+                </h3>
                 <p className="text-xs text-ink-muted-80 mt-2 leading-relaxed">
-                  Lịch học này được thiết lập lặp lại hàng tuần. Bạn muốn thực hiện cập nhật chuỗi lịch học như thế nào?
+                  Lịch học này được thiết lập lặp lại hàng tuần. Bạn muốn thực
+                  hiện cập nhật chuỗi lịch học như thế nào?
                 </p>
               </div>
             </div>
@@ -1356,7 +1965,11 @@ export default function WeeklyTimetable({
               </button>
               <button
                 onClick={() => {
-                  if (confirm("Xác nhận cập nhật ca học này và tất cả các ca học tiếp theo?")) {
+                  if (
+                    confirm(
+                      "Xác nhận cập nhật ca học này và tất cả các ca học tiếp theo?",
+                    )
+                  ) {
                     handleUpdateExecute("ALL_FUTURE");
                   }
                 }}
@@ -1384,8 +1997,12 @@ export default function WeeklyTimetable({
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-tagline text-base font-bold text-ink">Phát hiện trùng lịch học!</h3>
-                <p className="text-xs text-ink-muted-80 mt-2 leading-relaxed">{warningMsg}</p>
+                <h3 className="font-tagline text-base font-bold text-ink">
+                  Phát hiện trùng lịch học!
+                </h3>
+                <p className="text-xs text-ink-muted-80 mt-2 leading-relaxed">
+                  {warningMsg}
+                </p>
               </div>
             </div>
             <div className="flex justify-end gap-3 border-t border-divider-soft pt-4 mt-2">
@@ -1412,9 +2029,14 @@ export default function WeeklyTimetable({
       {/* FORM AND ACTIONS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 border-t border-divider-soft pt-8">
         <div className="lg:col-span-2 flex flex-col gap-4">
-          <h2 className="font-tagline text-lg font-semibold text-ink">Danh sách ca học chi tiết</h2>
-          <p className="font-caption text-ink-muted-80">Bảng danh mục chi tiết tất cả các ca học đã được sắp xếp trong hệ thống</p>
-          
+          <h2 className="font-tagline text-lg font-semibold text-ink">
+            Danh sách ca học chi tiết
+          </h2>
+          <p className="font-caption text-ink-muted-80">
+            Bảng danh mục chi tiết tất cả các ca học đã được sắp xếp trong hệ
+            thống
+          </p>
+
           <div className="bg-canvas border border-hairline rounded-lg overflow-hidden shadow-sm">
             <table className="w-full text-xs text-left">
               <thead>
@@ -1429,15 +2051,27 @@ export default function WeeklyTimetable({
               </thead>
               <tbody className="divide-y divide-hairline">
                 {schedules.map((s) => {
-                  const isOwn = userRole === "ADMIN" || !isTeacherRole || s.teacher.id === currentTeacherProfileId;
+                  const isOwn =
+                    userRole === "ADMIN" ||
+                    !isTeacherRole ||
+                    s.teacher.id === currentTeacherProfileId;
                   return (
                     <tr key={s.id} className="hover:bg-surface-pearl/50">
-                      <td className="p-3 font-semibold">{isOwn ? s.class.name : "Đã bận"}</td>
-                      <td className="p-3 font-semibold text-primary">{isOwn ? s.subject.name : "—"}</td>
-                      <td className="p-3">
-                        {s.date ? new Date(s.date).toLocaleDateString("vi-VN") : `Thứ ${s.dayOfWeek + 1}`} ({s.startTime} - {s.endTime})
+                      <td className="p-3 font-semibold">
+                        {isOwn ? s.class.name : "Đã bận"}
                       </td>
-                      <td className="p-3">{isOwn ? s.teacher.user.name : "Giảng viên khác"}</td>
+                      <td className="p-3 font-semibold text-primary">
+                        {isOwn ? s.subject.name : "—"}
+                      </td>
+                      <td className="p-3">
+                        {s.date
+                          ? new Date(s.date).toLocaleDateString("vi-VN")
+                          : `Thứ ${s.dayOfWeek + 1}`}{" "}
+                        ({s.startTime} - {s.endTime})
+                      </td>
+                      <td className="p-3">
+                        {isOwn ? s.teacher.user.name : "Giảng viên khác"}
+                      </td>
                       <td className="p-3">{s.room || "—"}</td>
                       <td className="p-3 text-center">
                         {isOwn && userRole !== "STUDENT" && (
@@ -1461,14 +2095,23 @@ export default function WeeklyTimetable({
         {userRole !== "STUDENT" ? (
           <div className="flex flex-col gap-6">
             <div>
-              <h2 className="font-tagline text-lg font-semibold text-ink">Thêm lịch học</h2>
-              <p className="font-caption text-ink-muted-80 mt-1">Thiết lập thời gian biểu cho lớp</p>
+              <h2 className="font-tagline text-lg font-semibold text-ink">
+                Thêm lịch học
+              </h2>
+              <p className="font-caption text-ink-muted-80 mt-1">
+                Thiết lập thời gian biểu cho lớp
+              </p>
             </div>
 
             <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm">
-              <form onSubmit={(e) => handleFormSubmit(e)} className="flex flex-col gap-4">
+              <form
+                onSubmit={(e) => handleFormSubmit(e)}
+                className="flex flex-col gap-4"
+              >
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-caption-strong text-ink-muted-80">Lớp học</label>
+                  <label className="text-xs font-caption-strong text-ink-muted-80">
+                    Lớp học
+                  </label>
                   <select
                     value={classId}
                     onChange={(e) => setClassId(e.target.value)}
@@ -1477,13 +2120,17 @@ export default function WeeklyTimetable({
                   >
                     <option value="">— Chọn lớp —</option>
                     {classes.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-caption-strong text-ink-muted-80">Môn học</label>
+                  <label className="text-xs font-caption-strong text-ink-muted-80">
+                    Môn học
+                  </label>
                   <select
                     value={subjectId}
                     onChange={(e) => setSubjectId(e.target.value)}
@@ -1492,14 +2139,18 @@ export default function WeeklyTimetable({
                   >
                     <option value="">— Chọn môn —</option>
                     {subjects.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.code})
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 {!isTeacherRole && (
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-caption-strong text-ink-muted-80">Giáo viên giảng dạy</label>
+                    <label className="text-xs font-caption-strong text-ink-muted-80">
+                      Giáo viên giảng dạy
+                    </label>
                     <select
                       value={teacherId}
                       onChange={(e) => setTeacherId(e.target.value)}
@@ -1508,14 +2159,18 @@ export default function WeeklyTimetable({
                     >
                       <option value="">— Chọn giáo viên —</option>
                       {teachers.map((t) => (
-                        <option key={t.id} value={t.id}>{t.user.name}</option>
+                        <option key={t.id} value={t.id}>
+                          {t.user.name}
+                        </option>
                       ))}
                     </select>
                   </div>
                 )}
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-caption-strong text-ink-muted-80">Thứ trong tuần</label>
+                  <label className="text-xs font-caption-strong text-ink-muted-80">
+                    Thứ trong tuần
+                  </label>
                   <select
                     value={dayOfWeek}
                     onChange={(e) => setDayOfWeek(parseInt(e.target.value))}
@@ -1534,7 +2189,9 @@ export default function WeeklyTimetable({
 
                 {/* Specific Dates ranges for Google calendar */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-caption-strong text-ink-muted-80">Ngày bắt đầu</label>
+                  <label className="text-xs font-caption-strong text-ink-muted-80">
+                    Ngày bắt đầu
+                  </label>
                   <input
                     type="date"
                     value={startDate}
@@ -1545,27 +2202,35 @@ export default function WeeklyTimetable({
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-caption-strong text-ink-muted-80">Cơ chế lặp</label>
+                  <label className="text-xs font-caption-strong text-ink-muted-80">
+                    Cơ chế lặp
+                  </label>
                   <select
                     value={recurrence}
                     onChange={(e) => setRecurrence(e.target.value as any)}
                     className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
                     required
                   >
-                    <option value="NONE">Không lặp lại (Chỉ ngày đã chọn)</option>
+                    <option value="NONE">
+                      Không lặp lại (Chỉ ngày đã chọn)
+                    </option>
                     <option value="WEEKLY">Lặp lại hàng tuần</option>
                   </select>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-caption-strong text-ink-muted-80">Ngày kết thúc</label>
+                  <label className="text-xs font-caption-strong text-ink-muted-80">
+                    Ngày kết thúc
+                  </label>
                   <input
                     type="date"
                     value={recurrence === "NONE" ? startDate : endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     disabled={recurrence === "NONE"}
                     className={`bg-canvas border border-hairline rounded-pill px-4 py-2 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full ${
-                      recurrence === "NONE" ? "opacity-60 bg-slate-50 cursor-not-allowed" : ""
+                      recurrence === "NONE"
+                        ? "opacity-60 bg-slate-50 cursor-not-allowed"
+                        : ""
                     }`}
                     required
                   />
@@ -1573,7 +2238,9 @@ export default function WeeklyTimetable({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-caption-strong text-ink-muted-80">Giờ bắt đầu</label>
+                    <label className="text-xs font-caption-strong text-ink-muted-80">
+                      Giờ bắt đầu
+                    </label>
                     <input
                       type="text"
                       value={startTime}
@@ -1584,7 +2251,9 @@ export default function WeeklyTimetable({
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-caption-strong text-ink-muted-80">Giờ kết thúc</label>
+                    <label className="text-xs font-caption-strong text-ink-muted-80">
+                      Giờ kết thúc
+                    </label>
                     <input
                       type="text"
                       value={endTime}
@@ -1597,7 +2266,9 @@ export default function WeeklyTimetable({
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-caption-strong text-ink-muted-80">Phòng học (Room)</label>
+                  <label className="text-xs font-caption-strong text-ink-muted-80">
+                    Phòng học (Room)
+                  </label>
                   <select
                     value={selectedRoom}
                     onChange={(e) => setSelectedRoom(e.target.value)}
@@ -1606,7 +2277,9 @@ export default function WeeklyTimetable({
                   >
                     <option value="">— Chọn phòng học —</option>
                     {rooms.map((r) => (
-                      <option key={r.id} value={r.name}>{r.name} (Sức chứa: {r.capacity || "KGH"})</option>
+                      <option key={r.id} value={r.name}>
+                        {r.name} (Sức chứa: {r.capacity || "KGH"})
+                      </option>
                     ))}
                   </select>
                 </div>
