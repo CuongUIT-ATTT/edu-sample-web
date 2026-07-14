@@ -57,6 +57,7 @@ export default async function TeacherSchedulesPage() {
         rooms={rooms}
         isTeacherRole={true}
         currentTeacherProfileId={teacherProfile.id}
+        userRole="TEACHER"
       />
     </div>
   );

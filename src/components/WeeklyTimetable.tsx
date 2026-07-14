@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { Clock, MapPin, Plus, Trash2, CheckCircle, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
+import React, { useState, useMemo, useEffect } from "react";
+import { Clock, MapPin, Plus, Trash2, CheckCircle, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Upload, Download, Eye, Check, X, FileText, Star, Edit3 } from "lucide-react";
 import { createSchedule, deleteSchedule } from "@/actions/schedules";
+import { updateScheduleFiles, submitHomework, gradeHomework, getScheduleSubmissions, getStudentSubmission } from "@/actions/homework";
 
 interface ScheduleItem {
   id: string;
@@ -11,6 +12,10 @@ interface ScheduleItem {
   startTime: string;
   endTime: string;
   room?: string | null;
+  date?: Date | string | null;
+  recurrenceGroupId?: string | null;
+  materials?: string | null;
+  homework?: string | null;
   class: {
     id: string;
     name: string;
@@ -35,6 +40,8 @@ interface WeeklyTimetableProps {
   rooms: { id: string; name: string; capacity?: number | null }[];
   isTeacherRole?: boolean;
   currentTeacherProfileId?: string;
+  userRole?: string; // "STUDENT" | "TEACHER" | "ADMIN"
+  currentStudentProfileId?: string;
 }
 
 const DAYS_OF_WEEK = [
@@ -67,7 +74,9 @@ export default function WeeklyTimetable({
   teachers,
   rooms,
   isTeacherRole = false,
-  currentTeacherProfileId = ""
+  currentTeacherProfileId = "",
+  userRole = "ADMIN",
+  currentStudentProfileId = ""
 }: WeeklyTimetableProps) {
   const [schedules, setSchedules] = useState<ScheduleItem[]>(initialSchedules);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -76,6 +85,26 @@ export default function WeeklyTimetable({
   // Calendar States
   const [viewMode, setViewMode] = useState<"WEEK" | "MONTH">("WEEK");
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
+
+  // Details Modal state
+  const [selectedSession, setSelectedSession] = useState<ScheduleItem | null>(null);
+  const [activeSubmissions, setActiveSubmissions] = useState<any[]>([]);
+  const [studentSubmission, setStudentSubmission] = useState<any | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  // File uploading states (simulated)
+  const [materialsFile, setMaterialsFile] = useState("");
+  const [homeworkFile, setHomeworkFile] = useState("");
+  const [submissionFile, setSubmissionFile] = useState("");
+
+  // Grading states
+  const [gradingSubmissionId, setGradingSubmissionId] = useState("");
+  const [gradingScore, setGradingScore] = useState("");
+  const [gradingFeedback, setGradingFeedback] = useState("");
+
+  // Deletion choices
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<ScheduleItem | null>(null);
 
   // Overlap Warning State
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
@@ -89,14 +118,46 @@ export default function WeeklyTimetable({
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [selectedRoom, setSelectedRoom] = useState("");
+  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState("");
+  const [recurrence, setRecurrence] = useState<"NONE" | "WEEKLY">("NONE");
 
-  const handleDelete = async (id: string, label: string) => {
-    if (!confirm(`Bạn có chắc muốn xoá ca học ${label}?`)) return;
+  // Fetch homework submissions when modal opens
+  useEffect(() => {
+    if (!selectedSession) return;
+    setLoadingDetails(true);
+    if (userRole === "STUDENT") {
+      getStudentSubmission(selectedSession.id)
+        .then((res) => {
+          if (res.success) setStudentSubmission(res.data);
+        })
+        .finally(() => setLoadingDetails(false));
+    } else {
+      getScheduleSubmissions(selectedSession.id)
+        .then((res) => {
+          if (res.success) setActiveSubmissions(res.data || []);
+        })
+        .finally(() => setLoadingDetails(false));
+    }
+  }, [selectedSession, userRole]);
+
+  const handleDeleteTrigger = (session: ScheduleItem) => {
+    setSessionToDelete(session);
+    if (session.recurrenceGroupId) {
+      setShowDeleteConfirm(true);
+    } else {
+      handleDeleteExecute(session.id, "ONLY_THIS");
+    }
+  };
+
+  const handleDeleteExecute = async (id: string, deleteMode: "ONLY_THIS" | "ALL_FUTURE") => {
     setSuccessMsg(null);
     setErrorMsg(null);
     setWarningMsg(null);
+    setShowDeleteConfirm(false);
+    setSessionToDelete(null);
 
-    const res = await deleteSchedule(id);
+    const res = await deleteSchedule(id, deleteMode);
     if (res.success) {
       setSuccessMsg(res.message || "Xoá thành công");
       window.location.reload();
@@ -119,6 +180,9 @@ export default function WeeklyTimetable({
       endTime,
       room: selectedRoom,
       ignoreWarning,
+      startDate,
+      endDate: recurrence === "WEEKLY" ? endDate : undefined,
+      recurrence,
     };
 
     const res = await createSchedule(payload);
@@ -185,7 +249,19 @@ export default function WeeklyTimetable({
 
   // Google Calendar Overlap Algorithm for WEEK View
   const processedSchedulesByDay = (day: number) => {
-    const daySchedules = schedules.filter((s) => s.dayOfWeek === day);
+    const monday = getMonday(currentDate);
+    const targetDate = new Date(monday);
+    targetDate.setDate(monday.getDate() + (day - 1));
+    const targetDateStr = targetDate.toISOString().split("T")[0];
+
+    // Filter schedules for target day and date range
+    const daySchedules = schedules.filter((s) => {
+      if (s.dayOfWeek !== day) return false;
+      if (!s.date) return true; // legacy repeats weekly
+      const sDateStr = new Date(s.date).toISOString().split("T")[0];
+      return sDateStr === targetDateStr;
+    });
+
     const parsed = daySchedules.map((s) => {
       const startMin = parseTimeToMinutes(s.startTime);
       const endMin = parseTimeToMinutes(s.endTime);
@@ -210,8 +286,6 @@ export default function WeeklyTimetable({
     parsed.forEach((e) => {
       const start = Math.max(viewStart, Math.min(viewEnd, e.startMin));
       const end = Math.max(viewStart, Math.min(viewEnd, e.endMin));
-      
-      // Calculate top and height in pixels for precision alignment
       e.top = (start - viewStart) * 2 / 3;
       e.height = (end - start) * 2 / 3;
     });
@@ -272,7 +346,6 @@ export default function WeeklyTimetable({
     const month = currentDate.getMonth();
 
     const firstDay = new Date(year, month, 1);
-    // JS getDay(): 0 = Sun, 1 = Mon, ..., 6 = Sat
     const startOffset = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
 
     const grid = [];
@@ -286,6 +359,76 @@ export default function WeeklyTimetable({
     }
     return grid;
   }, [currentDate]);
+
+  // Homework file upload simulation
+  const handleTeacherFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: "materials" | "homework") => {
+    if (!selectedSession) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const virtualUrl = `/api/documents/vip/${encodeURIComponent(file.name)}`;
+    if (type === "materials") {
+      setMaterialsFile(file.name);
+      const res = await updateScheduleFiles({ scheduleId: selectedSession.id, materials: virtualUrl });
+      if (res.success) {
+        setSelectedSession({ ...selectedSession, materials: virtualUrl });
+        alert("Đã lưu tài liệu xem trước thành công!");
+      }
+    } else {
+      setHomeworkFile(file.name);
+      const res = await updateScheduleFiles({ scheduleId: selectedSession.id, homework: virtualUrl });
+      if (res.success) {
+        setSelectedSession({ ...selectedSession, homework: virtualUrl });
+        alert("Đã lưu tệp bài tập về nhà thành công!");
+      }
+    }
+  };
+
+  const handleStudentSubmitHomework = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedSession) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const virtualUrl = `/api/documents/vip/${encodeURIComponent(file.name)}`;
+    setSubmissionFile(file.name);
+
+    const res = await submitHomework({
+      scheduleId: selectedSession.id,
+      fileUrl: virtualUrl,
+      fileName: file.name
+    });
+
+    if (res.success) {
+      setStudentSubmission(res.data);
+      alert("Đã nộp bài tập về nhà thành công!");
+    } else {
+      alert(res.error || "Gửi bài tập thất bại.");
+    }
+  };
+
+  const handleGradeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!gradingSubmissionId) return;
+
+    const res = await gradeHomework({
+      submissionId: gradingSubmissionId,
+      grade: parseFloat(gradingScore),
+      feedback: gradingFeedback
+    });
+
+    if (res.success) {
+      alert("Chấm điểm bài tập thành công!");
+      // Update local state list
+      setActiveSubmissions(prev => 
+        prev.map(sub => sub.id === gradingSubmissionId ? { ...sub, grade: parseFloat(gradingScore), feedback: gradingFeedback } : sub)
+      );
+      setGradingSubmissionId("");
+      setGradingScore("");
+      setGradingFeedback("");
+    } else {
+      alert(res.error || "Lỗi chấm điểm.");
+    }
+  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -303,7 +446,7 @@ export default function WeeklyTimetable({
         </div>
       )}
 
-      {/* HEADER CONTROL BAR (GOOGLE CALENDAR STYLE) */}
+      {/* HEADER CONTROL BAR */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-canvas border border-hairline rounded-lg p-4 shadow-sm">
         <div className="flex items-center gap-3">
           <button
@@ -360,7 +503,7 @@ export default function WeeklyTimetable({
 
               {/* Day Columns */}
               <div className="flex-1 grid grid-cols-7 relative h-[640px]">
-                {/* Background Grid Lines every 40px (1 hour) */}
+                {/* Background Grid Lines */}
                 <div className="absolute inset-x-0 top-10 bottom-0 pointer-events-none flex flex-col justify-between z-0">
                   {HOUR_LABELS.slice(0, -1).map((_, idx) => (
                     <div key={idx} className="border-b border-divider-soft/40 h-[40px] w-full" />
@@ -380,7 +523,7 @@ export default function WeeklyTimetable({
                       {/* Content Area containing events */}
                       <div className="absolute top-10 bottom-0 inset-x-0">
                         {dayEvents.map((e) => {
-                          const isOwn = !isTeacherRole || e.teacher.id === currentTeacherProfileId;
+                          const isOwn = userRole === "ADMIN" || !isTeacherRole || e.teacher.id === currentTeacherProfileId || e.class.id === (classes[0]?.id);
                           const displayTitle = isOwn ? e.class.name : "Đã bận";
                           const displaySub = isOwn ? `${e.subject.name} - ${e.room}` : `Phòng ${e.room}`;
                           const displayTime = `${e.startTime} - ${e.endTime}`;
@@ -394,7 +537,10 @@ export default function WeeklyTimetable({
                                 left: `${e.left}%`,
                                 width: `${e.width - 2}%`,
                               }}
-                              className={`absolute border rounded p-1.5 flex flex-col justify-between overflow-hidden text-[9px] transition-all group hover:z-20 shadow-sm ${
+                              onClick={() => {
+                                if (isOwn) setSelectedSession(e);
+                              }}
+                              className={`absolute border rounded p-1.5 flex flex-col justify-between overflow-hidden text-[9px] transition-all group hover:z-20 shadow-sm cursor-pointer ${
                                 isOwn
                                   ? "bg-blue-50/95 hover:bg-blue-100 border-blue-200 text-blue-800"
                                   : "bg-gray-100/90 border-gray-300 text-gray-600"
@@ -408,9 +554,12 @@ export default function WeeklyTimetable({
                               
                               <div className="flex justify-between items-center text-[8px] opacity-75 mt-1 font-mono">
                                 <span>{e.startTime}</span>
-                                {isOwn && (
+                                {isOwn && userRole !== "STUDENT" && (
                                   <button
-                                    onClick={() => handleDelete(e.id, `${e.class.name} - ${e.subject.name}`)}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleDeleteTrigger(e);
+                                    }}
                                     className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
                                   >
                                     <Trash2 className="h-2.5 w-2.5" />
@@ -446,8 +595,14 @@ export default function WeeklyTimetable({
                 const dayOfWeekValue = day.getDay() === 0 ? 7 : day.getDay();
                 const isCurrentMonth = day.getMonth() === currentDate.getMonth();
 
-                // Find schedules for this day of week
-                const daySchedules = schedules.filter((s) => s.dayOfWeek === dayOfWeekValue);
+                // Find schedules for this specific date
+                const daySchedules = schedules.filter((s) => {
+                  if (s.dayOfWeek !== dayOfWeekValue) return false;
+                  if (!s.date) return true;
+                  const sDateStr = new Date(s.date).toISOString().split("T")[0];
+                  const targetDateStr = day.toISOString().split("T")[0];
+                  return sDateStr === targetDateStr;
+                });
 
                 return (
                   <div
@@ -467,13 +622,16 @@ export default function WeeklyTimetable({
                     {/* Compact schedule cards */}
                     <div className="flex flex-col gap-1 overflow-y-auto max-h-16">
                       {daySchedules.map((s) => {
-                        const isOwn = !isTeacherRole || s.teacher.id === currentTeacherProfileId;
+                        const isOwn = userRole === "ADMIN" || !isTeacherRole || s.teacher.id === currentTeacherProfileId || s.class.id === (classes[0]?.id);
                         return (
                           <div
                             key={s.id}
-                            className={`px-1.5 py-0.5 rounded text-[9px] font-semibold truncate ${
+                            onClick={() => {
+                              if (isOwn) setSelectedSession(s);
+                            }}
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-semibold truncate cursor-pointer ${
                               isOwn 
-                                ? "bg-blue-50 border border-blue-100 text-blue-700" 
+                                ? "bg-blue-50 border border-blue-100 text-blue-700 hover:bg-blue-100" 
                                 : "bg-gray-100 border border-gray-200 text-gray-500"
                             }`}
                             title={`${isOwn ? `${s.class.name} • ${s.subject.name}` : "Đã bận"} (${s.startTime} - ${s.endTime})`}
@@ -491,9 +649,352 @@ export default function WeeklyTimetable({
         </div>
       )}
 
+      {/* DETAILED SESSION MODAL (HOMEWORK, MATERIALS & SUBMISSIONS) */}
+      {selectedSession && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-canvas border border-hairline rounded-lg w-[600px] max-w-full shadow-product flex flex-col overflow-hidden animate-fade-in">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
+              <div>
+                <h3 className="font-tagline text-base font-bold text-ink">
+                  Chi tiết buổi học: Lớp {selectedSession.class.name}
+                </h3>
+                <p className="text-[10px] text-ink-muted-80 font-mono mt-0.5">
+                  Chuyên đề: {selectedSession.subject.name} | Phòng: {selectedSession.room || "—"}
+                </p>
+              </div>
+              <button onClick={() => setSelectedSession(null)} className="text-ink-muted-80 hover:text-ink">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex flex-col gap-6 overflow-y-auto max-h-[70vh]">
+              {/* Session Meta */}
+              <div className="grid grid-cols-2 gap-4 bg-blue-50 border border-blue-100 rounded-lg p-4 text-xs">
+                <div className="flex flex-col gap-1">
+                  <span className="text-ink-muted-80 font-semibold">Thời gian:</span>
+                  <span className="font-bold text-blue-900">{selectedSession.startTime} - {selectedSession.endTime}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-ink-muted-80 font-semibold">Ngày học:</span>
+                  <span className="font-bold text-blue-900">
+                    {selectedSession.date ? new Date(selectedSession.date).toLocaleDateString("vi-VN", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "Hàng tuần"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1 col-span-2 border-t border-blue-200/50 pt-2">
+                  <span className="text-ink-muted-80 font-semibold">Giáo viên phụ trách:</span>
+                  <span className="font-bold text-blue-900">{selectedSession.teacher.user.name}</span>
+                </div>
+              </div>
+
+              {/* MATERIALS & HOMEWORK UPLOADER (TEACHER / ADMIN) */}
+              {userRole !== "STUDENT" ? (
+                <div className="flex flex-col gap-4 border-t border-divider-soft pt-4">
+                  <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Quản lý Tài liệu học tập &amp; Bài tập</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-hairline rounded-lg">
+                      <span className="text-[10px] font-bold text-ink-muted-80">1. Tài liệu xem trước</span>
+                      {selectedSession.materials ? (
+                        <div className="flex items-center justify-between bg-canvas border border-divider-soft p-2 rounded text-xs">
+                          <span className="truncate max-w-[150px] font-semibold">{decodeURIComponent(selectedSession.materials.split("/").pop() || "")}</span>
+                          <a href={selectedSession.materials} download className="text-primary hover:underline flex items-center gap-1">
+                            <Download className="h-3 w-3" /> Tải về
+                          </a>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-ink-muted-48 italic">Chưa tải tài liệu xem trước</span>
+                      )}
+                      <label className="bg-canvas border border-divider hover:bg-surface-pearl text-ink font-semibold text-center text-xs py-1.5 px-3 rounded-pill shadow-sm cursor-pointer mt-2 flex items-center justify-center gap-1.5">
+                        <Upload className="h-3.5 w-3.5" /> {selectedSession.materials ? "Cập nhật tệp" : "Tải tệp PDF mới"}
+                        <input type="file" accept=".pdf" className="hidden" onChange={(e) => handleTeacherFileChange(e, "materials")} />
+                      </label>
+                    </div>
+
+                    <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-hairline rounded-lg">
+                      <span className="text-[10px] font-bold text-ink-muted-80">2. Đề bài tập về nhà</span>
+                      {selectedSession.homework ? (
+                        <div className="flex items-center justify-between bg-canvas border border-divider-soft p-2 rounded text-xs">
+                          <span className="truncate max-w-[150px] font-semibold">{decodeURIComponent(selectedSession.homework.split("/").pop() || "")}</span>
+                          <a href={selectedSession.homework} download className="text-primary hover:underline flex items-center gap-1">
+                            <Download className="h-3 w-3" /> Tải về
+                          </a>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-ink-muted-48 italic">Chưa giao bài tập về nhà</span>
+                      )}
+                      <label className="bg-canvas border border-divider hover:bg-surface-pearl text-ink font-semibold text-center text-xs py-1.5 px-3 rounded-pill shadow-sm cursor-pointer mt-2 flex items-center justify-center gap-1.5">
+                        <Upload className="h-3.5 w-3.5" /> {selectedSession.homework ? "Cập nhật bài tập" : "Tải tệp bài tập"}
+                        <input type="file" accept=".pdf" className="hidden" onChange={(e) => handleTeacherFileChange(e, "homework")} />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* STUDENT DOWNLOAD FILES & HOMEWORK */
+                <div className="flex flex-col gap-4 border-t border-divider-soft pt-4">
+                  <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Tài liệu học tập tự học</h4>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="border border-divider-soft rounded-lg p-4 bg-surface-pearl flex flex-col justify-between h-28">
+                      <div>
+                        <span className="text-[10px] font-bold text-ink-muted-80 block">Tài liệu xem trước</span>
+                        <p className="text-[10px] text-ink-muted-48 mt-1 leading-snug">Xem tài liệu để chuẩn bị kiến thức trước buổi học</p>
+                      </div>
+                      {selectedSession.materials ? (
+                        <a
+                          href={selectedSession.materials}
+                          download
+                          className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold px-3 py-1.5 rounded-pill shadow-sm flex items-center justify-center gap-1.5"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Tải tài liệu
+                        </a>
+                      ) : (
+                        <span className="text-xs text-ink-muted-48 font-semibold italic text-center block pt-2">Chưa cập nhật</span>
+                      )}
+                    </div>
+
+                    <div className="border border-divider-soft rounded-lg p-4 bg-surface-pearl flex flex-col justify-between h-28">
+                      <div>
+                        <span className="text-[10px] font-bold text-ink-muted-80 block">Bài tập về nhà</span>
+                        <p className="text-[10px] text-ink-muted-48 mt-1 leading-snug">Hoàn thành bài tập được giao và nộp lại đúng hạn</p>
+                      </div>
+                      {selectedSession.homework ? (
+                        <a
+                          href={selectedSession.homework}
+                          download
+                          className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-1.5 rounded-pill shadow-sm flex items-center justify-center gap-1.5"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Tải đề bài tập
+                        </a>
+                      ) : (
+                        <span className="text-xs text-ink-muted-48 font-semibold italic text-center block pt-2">Chưa giao bài tập</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STUDENT SUBMISSION PORTAL */}
+              {userRole === "STUDENT" && selectedSession.homework && (
+                <div className="border-t border-divider-soft pt-4 flex flex-col gap-4">
+                  <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Trạng thái nộp bài tập về nhà</h4>
+
+                  {studentSubmission ? (
+                    <div className="bg-canvas border border-hairline rounded-lg p-4 flex flex-col gap-3 shadow-sm">
+                      <div className="flex items-center justify-between border-b border-divider pb-2.5">
+                        <span className="text-xs font-bold text-ink flex items-center gap-1">
+                          <CheckCircle className="h-4 w-4 text-green-600" /> Đã nộp bài tập
+                        </span>
+                        <span className="text-[10px] text-ink-muted-80 font-mono">
+                          Nộp lúc: {new Date(studentSubmission.submittedAt).toLocaleString("vi-VN")}
+                        </span>
+                      </div>
+                      
+                      <div className="text-xs flex justify-between items-center text-ink-muted-80">
+                        <span>File bài làm:</span>
+                        <a href={studentSubmission.fileUrl} download className="font-bold text-primary hover:underline">
+                          {studentSubmission.fileName}
+                        </a>
+                      </div>
+
+                      {studentSubmission.grade !== null ? (
+                        <div className="bg-green-50 border border-green-100 rounded p-3.5 text-xs flex flex-col gap-2 mt-2">
+                          <div className="flex justify-between items-center font-bold text-green-800">
+                            <span>Điểm chấm của giáo viên:</span>
+                            <span className="text-sm bg-canvas border border-green-200 px-3 py-0.5 rounded-full">{studentSubmission.grade} / 10 đ</span>
+                          </div>
+                          {studentSubmission.feedback && (
+                            <p className="text-[11px] text-green-700 italic mt-1 block">
+                              Lời phê: {studentSubmission.feedback}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-3 rounded mt-2 italic">
+                          Đang chờ giáo viên chấm điểm.
+                        </div>
+                      )}
+                      
+                      {studentSubmission.grade === null && (
+                        <label className="border border-divider hover:bg-surface-pearl text-ink font-semibold text-center text-xs py-1.5 px-4 rounded-pill shadow-sm cursor-pointer self-start mt-2 flex items-center gap-1.5">
+                          <Upload className="h-3.5 w-3.5" /> Nộp bài viết khác
+                          <input type="file" accept=".pdf" className="hidden" onChange={handleStudentSubmitHomework} />
+                        </label>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-red-50 border border-red-100 text-red-800 rounded-lg p-5 text-center flex flex-col items-center justify-center gap-3">
+                      <AlertCircle className="h-8 w-8 text-red-500" />
+                      <div>
+                        <p className="text-xs font-bold">Chưa nộp bài tập về nhà!</p>
+                        <p className="text-[10px] text-red-700 mt-1">Hãy chuẩn bị lời giải và nộp bài trước giờ học.</p>
+                      </div>
+                      <label className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold px-5 py-2 rounded-pill shadow-sm cursor-pointer mt-1 flex items-center gap-1.5">
+                        <Upload className="h-4 w-4" /> Tải lên bài làm (.pdf)
+                        <input type="file" accept=".pdf" className="hidden" onChange={handleStudentSubmitHomework} />
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TEACHER SUBMISSIONS MANAGEMENT & GRADING */}
+              {userRole !== "STUDENT" && (
+                <div className="border-t border-divider-soft pt-4 flex flex-col gap-4">
+                  <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Danh sách bài tập học viên nộp ({activeSubmissions.length})</h4>
+
+                  {loadingDetails ? (
+                    <p className="text-xs text-ink-muted-48 italic">Đang tải danh sách bài tập...</p>
+                  ) : activeSubmissions.length === 0 ? (
+                    <div className="bg-slate-50 border border-divider-soft rounded-lg p-8 text-center text-ink-muted-80 text-xs italic">
+                      Chưa có học sinh nào nộp bài tập cho ca học này.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      {activeSubmissions.map((sub) => (
+                        <div key={sub.id} className="border border-hairline rounded-lg p-4 bg-canvas flex flex-col gap-3 shadow-sm">
+                          <div className="flex items-center justify-between text-xs border-b border-divider-soft pb-2">
+                            <span className="font-bold text-ink">{sub.student.user.name}</span>
+                            <span className="text-[10px] text-ink-muted-80 font-mono">
+                              Nộp lúc: {new Date(sub.submittedAt).toLocaleString("vi-VN")}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs text-ink-muted-80">
+                            <span>Tệp bài làm học sinh:</span>
+                            <a href={sub.fileUrl} download className="text-primary font-bold hover:underline flex items-center gap-1">
+                              <FileText className="h-3.5 w-3.5" /> {sub.fileName || "Tệp bài làm.pdf"}
+                            </a>
+                          </div>
+
+                          {/* Grade representation / editing */}
+                          {gradingSubmissionId === sub.id ? (
+                            <form onSubmit={handleGradeSubmit} className="bg-surface-pearl border border-divider rounded-lg p-3 flex flex-col gap-3 mt-1.5">
+                              <span className="text-[10px] font-bold text-ink-muted-80">Chấm điểm trực tiếp</span>
+                              <div className="grid grid-cols-3 gap-3">
+                                <div className="flex flex-col gap-1 col-span-1">
+                                  <label className="text-[9px] font-semibold text-ink-muted-80">Điểm số</label>
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    max="10"
+                                    value={gradingScore}
+                                    onChange={(e) => setGradingScore(e.target.value)}
+                                    placeholder="8.5"
+                                    className="bg-canvas border border-hairline rounded px-3 py-1.5 text-xs text-center outline-none"
+                                    required
+                                  />
+                                </div>
+                                <div className="flex flex-col gap-1 col-span-2">
+                                  <label className="text-[9px] font-semibold text-ink-muted-80">Lời phê / Nhận xét</label>
+                                  <input
+                                    type="text"
+                                    value={gradingFeedback}
+                                    onChange={(e) => setGradingFeedback(e.target.value)}
+                                    placeholder="Làm bài tốt, cần cẩn thận phần lượng giác..."
+                                    className="bg-canvas border border-hairline rounded px-3 py-1.5 text-xs outline-none"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex justify-end gap-2 mt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setGradingSubmissionId("")}
+                                  className="border border-divider text-xs px-3 py-1 rounded-pill text-ink"
+                                >
+                                  Hủy
+                                </button>
+                                <button
+                                  type="submit"
+                                  className="bg-primary text-white text-xs px-4 py-1 rounded-pill font-semibold shadow-sm"
+                                >
+                                  Lưu kết quả
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <div className="flex justify-between items-center bg-surface-pearl/50 border border-hairline rounded p-2.5 mt-1">
+                              <div>
+                                {sub.grade !== null ? (
+                                  <div className="text-xs">
+                                    <span className="font-bold text-green-700">Điểm chấm: {sub.grade} / 10 đ</span>
+                                    {sub.feedback && <p className="text-[10px] text-ink-muted-80 italic mt-0.5">Lời phê: {sub.feedback}</p>}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-amber-600 font-semibold flex items-center gap-1">
+                                    <AlertTriangle className="h-3.5 w-3.5" /> Chưa chấm điểm
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setGradingSubmissionId(sub.id);
+                                  setGradingScore(sub.grade !== null ? sub.grade.toString() : "");
+                                  setGradingFeedback(sub.feedback || "");
+                                }}
+                                className="text-xs text-primary hover:underline font-bold flex items-center gap-1"
+                              >
+                                <Edit3 className="h-3.5 w-3.5" /> {sub.grade !== null ? "Sửa điểm" : "Chấm bài"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RECURRING DELETE CHOICES POPUP */}
+      {showDeleteConfirm && sessionToDelete && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-canvas border border-hairline rounded-lg w-[450px] shadow-product p-6 flex flex-col gap-4 animate-fade-in">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-6 w-6 text-red-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-tagline text-base font-bold text-ink">Xóa ca học lặp lại</h3>
+                <p className="text-xs text-ink-muted-80 mt-2 leading-relaxed">
+                  Lịch học này được thiết lập lặp lại hàng tuần. Bạn muốn thực hiện xóa ca học như thế nào?
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 mt-2">
+              <button
+                onClick={() => handleDeleteExecute(sessionToDelete.id, "ONLY_THIS")}
+                className="w-full bg-slate-100 hover:bg-slate-200 border border-divider text-ink text-xs font-semibold py-2.5 rounded-pill"
+              >
+                Chỉ xóa duy nhất ca học này
+              </button>
+              <button
+                onClick={() => handleDeleteExecute(sessionToDelete.id, "ALL_FUTURE")}
+                className="w-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-2.5 rounded-pill shadow-sm"
+              >
+                Xóa ca học này và tất cả các ca lặp lại trong tương lai
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setSessionToDelete(null);
+                }}
+                className="w-full border border-divider hover:bg-surface-pearl text-ink-muted-80 text-xs font-semibold py-2.5 rounded-pill"
+              >
+                Hủy bỏ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* OVERLAP WARNING DIALOG */}
       {warningMsg && (
-        <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-canvas border border-hairline rounded-lg w-[450px] shadow-product p-6 flex flex-col gap-4 animate-fade-in">
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" />
@@ -543,19 +1044,21 @@ export default function WeeklyTimetable({
               </thead>
               <tbody className="divide-y divide-hairline">
                 {schedules.map((s) => {
-                  const isOwn = !isTeacherRole || s.teacher.id === currentTeacherProfileId;
+                  const isOwn = userRole === "ADMIN" || !isTeacherRole || s.teacher.id === currentTeacherProfileId;
                   return (
                     <tr key={s.id} className="hover:bg-surface-pearl/50">
                       <td className="p-3 font-semibold">{isOwn ? s.class.name : "Đã bận"}</td>
                       <td className="p-3 font-semibold text-primary">{isOwn ? s.subject.name : "—"}</td>
-                      <td className="p-3">Thứ {s.dayOfWeek + 1} ({s.startTime} - {s.endTime})</td>
+                      <td className="p-3">
+                        {s.date ? new Date(s.date).toLocaleDateString("vi-VN") : `Thứ ${s.dayOfWeek + 1}`} ({s.startTime} - {s.endTime})
+                      </td>
                       <td className="p-3">{isOwn ? s.teacher.user.name : "Giảng viên khác"}</td>
                       <td className="p-3">{s.room || "—"}</td>
                       <td className="p-3 text-center">
-                        {isOwn && (
+                        {isOwn && userRole !== "STUDENT" && (
                           <button
-                            onClick={() => handleDelete(s.id, `${s.class.name} - ${s.subject.name}`)}
-                            className="text-red-500 hover:bg-red-50 p-1.5 rounded-full"
+                            onClick={() => handleDeleteTrigger(s)}
+                            className="text-red-500 hover:bg-red-55 p-1.5 rounded-full"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -569,130 +1072,170 @@ export default function WeeklyTimetable({
           </div>
         </div>
 
-        {/* Right Form */}
-        <div className="flex flex-col gap-6">
-          <div>
-            <h2 className="font-tagline text-lg font-semibold text-ink">Thêm lịch học</h2>
-            <p className="font-caption text-ink-muted-80 mt-1">Thiết lập thời gian biểu cho lớp</p>
-          </div>
+        {/* Right Form (Hidden for students) */}
+        {userRole !== "STUDENT" ? (
+          <div className="flex flex-col gap-6">
+            <div>
+              <h2 className="font-tagline text-lg font-semibold text-ink">Thêm lịch học</h2>
+              <p className="font-caption text-ink-muted-80 mt-1">Thiết lập thời gian biểu cho lớp</p>
+            </div>
 
-          <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm">
-            <form onSubmit={(e) => handleFormSubmit(e)} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-caption-strong text-ink-muted-80">Lớp học</label>
-                <select
-                  value={classId}
-                  onChange={(e) => setClassId(e.target.value)}
-                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                  required
-                >
-                  <option value="">— Chọn lớp —</option>
-                  {classes.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-caption-strong text-ink-muted-80">Môn học</label>
-                <select
-                  value={subjectId}
-                  onChange={(e) => setSubjectId(e.target.value)}
-                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                  required
-                >
-                  <option value="">— Chọn môn —</option>
-                  {subjects.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
-                  ))}
-                </select>
-              </div>
-
-              {!isTeacherRole && (
+            <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm">
+              <form onSubmit={(e) => handleFormSubmit(e)} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-caption-strong text-ink-muted-80">Giáo viên giảng dạy</label>
+                  <label className="text-xs font-caption-strong text-ink-muted-80">Lớp học</label>
                   <select
-                    value={teacherId}
-                    onChange={(e) => setTeacherId(e.target.value)}
+                    value={classId}
+                    onChange={(e) => setClassId(e.target.value)}
                     className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
                     required
                   >
-                    <option value="">— Chọn giáo viên —</option>
-                    {teachers.map((t) => (
-                      <option key={t.id} value={t.id}>{t.user.name}</option>
+                    <option value="">— Chọn lớp —</option>
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </div>
-              )}
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-caption-strong text-ink-muted-80">Thứ trong tuần</label>
-                <select
-                  value={dayOfWeek}
-                  onChange={(e) => setDayOfWeek(parseInt(e.target.value))}
-                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                  required
-                >
-                  <option value={1}>Thứ Hai (Monday)</option>
-                  <option value={2}>Thứ Ba (Tuesday)</option>
-                  <option value={3}>Thứ Tư (Wednesday)</option>
-                  <option value={4}>Thứ Năm (Thursday)</option>
-                  <option value={5}>Thứ Sáu (Friday)</option>
-                  <option value={6}>Thứ Bảy (Saturday)</option>
-                  <option value={7}>Chủ Nhật (Sunday)</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-caption-strong text-ink-muted-80">Giờ bắt đầu</label>
+                  <label className="text-xs font-caption-strong text-ink-muted-80">Môn học</label>
+                  <select
+                    value={subjectId}
+                    onChange={(e) => setSubjectId(e.target.value)}
+                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                    required
+                  >
+                    <option value="">— Chọn môn —</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {!isTeacherRole && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-caption-strong text-ink-muted-80">Giáo viên giảng dạy</label>
+                    <select
+                      value={teacherId}
+                      onChange={(e) => setTeacherId(e.target.value)}
+                      className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                      required
+                    >
+                      <option value="">— Chọn giáo viên —</option>
+                      {teachers.map((t) => (
+                        <option key={t.id} value={t.id}>{t.user.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-caption-strong text-ink-muted-80">Thứ trong tuần</label>
+                  <select
+                    value={dayOfWeek}
+                    onChange={(e) => setDayOfWeek(parseInt(e.target.value))}
+                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                    required
+                  >
+                    <option value={1}>Thứ Hai (Monday)</option>
+                    <option value={2}>Thứ Ba (Tuesday)</option>
+                    <option value={3}>Thứ Tư (Wednesday)</option>
+                    <option value={4}>Thứ Năm (Thursday)</option>
+                    <option value={5}>Thứ Sáu (Friday)</option>
+                    <option value={6}>Thứ Bảy (Saturday)</option>
+                    <option value={7}>Chủ Nhật (Sunday)</option>
+                  </select>
+                </div>
+
+                {/* Specific Dates ranges for Google calendar */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-caption-strong text-ink-muted-80">Ngày bắt đầu</label>
                   <input
-                    type="text"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    placeholder="08:00"
-                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full text-center"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-canvas border border-hairline rounded-pill px-4 py-2 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
                     required
                   />
                 </div>
+
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-caption-strong text-ink-muted-80">Giờ kết thúc</label>
-                  <input
-                    type="text"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    placeholder="09:30"
-                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full text-center"
+                  <label className="text-xs font-caption-strong text-ink-muted-80">Cơ chế lặp</label>
+                  <select
+                    value={recurrence}
+                    onChange={(e) => setRecurrence(e.target.value as any)}
+                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
                     required
-                  />
+                  >
+                    <option value="NONE">Không lặp lại (Chỉ ngày đã chọn)</option>
+                    <option value="WEEKLY">Lặp lại hàng tuần</option>
+                  </select>
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-caption-strong text-ink-muted-80">Phòng học (Room)</label>
-                <select
-                  value={selectedRoom}
-                  onChange={(e) => setSelectedRoom(e.target.value)}
-                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                  required
+                {recurrence === "WEEKLY" && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-caption-strong text-ink-muted-80">Ngày kết thúc lặp</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="bg-canvas border border-hairline rounded-pill px-4 py-2 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                      required
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-caption-strong text-ink-muted-80">Giờ bắt đầu</label>
+                    <input
+                      type="text"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      placeholder="08:00"
+                      className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full text-center"
+                      required
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-caption-strong text-ink-muted-80">Giờ kết thúc</label>
+                    <input
+                      type="text"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      placeholder="09:30"
+                      className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full text-center"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-caption-strong text-ink-muted-80">Phòng học (Room)</label>
+                  <select
+                    value={selectedRoom}
+                    onChange={(e) => setSelectedRoom(e.target.value)}
+                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                    required
+                  >
+                    <option value="">— Chọn phòng học —</option>
+                    {rooms.map((r) => (
+                      <option key={r.id} value={r.name}>{r.name} (Sức chứa: {r.capacity || "KGH"})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  className="bg-primary hover:bg-primary-focus text-white px-6 py-2.5 rounded-pill font-body font-semibold transition-colors shadow-sm w-full mt-4 flex items-center justify-center gap-2 text-sm"
                 >
-                  <option value="">— Chọn phòng học —</option>
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.name}>{r.name} (Sức chứa: {r.capacity || "KGH"})</option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="bg-primary hover:bg-primary-focus text-white px-6 py-2.5 rounded-pill font-body font-semibold transition-colors shadow-sm w-full mt-4 flex items-center justify-center gap-2 text-sm"
-              >
-                <Plus className="h-4 w-4" />
-                Tạo lịch học
-              </button>
-            </form>
+                  <Plus className="h-4 w-4" />
+                  Tạo lịch học
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </div>
   );

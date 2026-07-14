@@ -66,7 +66,8 @@ model StudentProfile {
   attendances     Attendance[]
   grades          Grade[]
   enrollments     Enrollment[]
-  quizSubmissions QuizSubmission[]
+  quizSubmissions     QuizSubmission[]
+  homeworkSubmissions HomeworkSubmission[]
 }
 
 model ParentProfile {
@@ -99,18 +100,39 @@ model Subject {
 }
 
 model Schedule {
-  id        String         @id @default(uuid())
-  classId   String
-  class     Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
-  subjectId String
-  subject   Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacherId String
-  teacher   TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  id                String               @id @default(uuid())
+  classId           String
+  class             Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId         String
+  subject           Subject              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId         String
+  teacher           TeacherProfile       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   
-  dayOfWeek Int            // 1 = Monday, ..., 7 = Sunday
-  startTime String         // "08:00"
-  endTime   String         // "09:30"
-  room      String?        // e.g., "Room 302"
+  dayOfWeek         Int                  // 1 = Monday, ..., 7 = Sunday
+  startTime         String               // "08:00"
+  endTime           String               // "09:30"
+  room              String?              // e.g., "Room 302"
+  
+  date              DateTime?            // Specific calendar date
+  recurrenceGroupId String?              // ID to group weekly occurrences together
+  materials         String?              // URL or JSON of preview documents
+  homework          String?              // URL or JSON of homework files
+  submissions       HomeworkSubmission[]
+}
+
+model HomeworkSubmission {
+  id          String         @id @default(uuid())
+  scheduleId  String
+  schedule    Schedule       @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fileUrl     String         // The submitted homework document link
+  fileName    String?        // Human readable filename
+  submittedAt DateTime       @default(now())
+  grade       Float?         // Optional grade given by teacher
+  feedback    String?        // Teacher feedback
+  
+  @@unique([scheduleId, studentId])
 }
 
 model Attendance {
