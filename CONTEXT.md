@@ -9,7 +9,7 @@ Tài liệu này tổng hợp toàn diện bối cảnh, các quyết định k�
 Dự án **edu-web** là một cổng thông tin quản lý học tập đa phân hệ (Multi-role LMS) được thiết kế đặc thù cho các lớp học tương tác cao, kết hợp quản lý lịch biểu chuyên sâu.
 
 ### Công nghệ cốt lõi (Tech Stack):
-* **Framework**: Next.js 16.2.10 (App Router) với React 19.2.4 và trình biên dịch Turbopack tốc độ cao.
+* **Framework**: Next.js v16.2.10 (phiên bản build nội bộ thực tế trong dự án, được kiểm chứng qua lệnh `npx next -v`) đi kèm React v19.2.4 và Turbopack tốc độ cao.
 * **Database**: PostgreSQL (Neon Serverless Database) cho môi trường Staging/Production và hỗ trợ tương thích SQLite cho môi trường phát triển cục bộ (Local Offline Development).
 * **ORM**: Prisma ORM hỗ trợ định nghĩa schema, format và đồng bộ dữ liệu.
 * **CSS & Design**: Sử dụng Vanilla CSS & Tailwind CSS kết hợp thư viện biểu tượng **Lucide React**.
@@ -49,7 +49,7 @@ Hỗ trợ hai phương án xóa an toàn khi click xóa lịch lặp:
 
 ### A. Đăng tải Bài học & Tài liệu học tập
 * Giáo viên/Admin dán trực tiếp link tài liệu xem trước và đề bài tập về nhà vào từng ca học.
-* Quyết định kiến trúc: Đường dẫn được lưu dạng `String` (phân tách bằng dấu phẩy hoặc dạng JSON list) thay vì sử dụng mảng nguyên bản của PostgreSQL (`String[]`). Điều này giúp duy trì khả năng tương thích chéo (cross-db portability), cho phép sử dụng SQLite ở môi trường phát triển cục bộ và PostgreSQL ở môi trường Live.
+* Quyết định kiến trúc: Đường dẫn được lưu dạng `String` (phân tách bằng dấu phẩy hoặc dạng JSON list) thay vì sử dụng mảng nguyên bản của PostgreSQL (`String[]`). Điều này giúp duy trì khả năng tương thích chéo (cross-db portability), cho phép sử dụng SQLite ở môi trường phát triển cục bộ và PostgreSQL ở môi trường Live. **Dự án có kế hoạch migrate sang sử dụng kiểu dữ liệu `String[]` nguyên bản của Postgres ngay sau khi loại bỏ hoàn toàn việc hỗ trợ SQLite cục bộ.**
 * Cho phép cấu hình **Hạn nộp bài (Due date)** cụ thể dạng ngày và giờ (`datetime-local`).
 
 ### B. Trạng thái nộp bài của Học sinh
@@ -121,4 +121,5 @@ erDiagram
 ## 🛡️ 5. Quy tắc An toàn dữ liệu
 1. **Xác nhận trước khi xóa**: Tất cả các thao tác xóa trong hệ thống (Ca học, Bài tập, Lớp học, Môn học, Phòng học, Người dùng) đều yêu cầu xác nhận xác thực `confirm()` từ người dùng trước khi gọi Server Action.
 2. **Quy tắc 10 phút điểm danh**: Giảng viên chỉ được phép điểm danh cho ca học bắt đầu từ **10 phút trước giờ vào lớp** cho đến **10 phút sau khi tan lớp**. Quá khoảng thời gian này, chỉ có Admin mới có quyền sửa đổi thông tin điểm danh.
-3. **TypeScript & Linter**: Mọi thay đổi mã nguồn luôn phải vượt qua kiểm tra kiểu nghiêm ngặt (`tsc --noEmit`) và các quy tắc linter không có cảnh báo (`eslint src --max-warnings 0`) trước khi được deploy tự động lên production.
+3. **Môi trường Cơ sở dữ liệu và Migration**: Tuyệt đối tránh chạy lệnh `prisma db push --accept-data-loss` trên môi trường Staging/Production để tránh nguy cơ mất mát dữ liệu live. Toàn bộ thay đổi Schema trên môi trường live bắt buộc phải được triển khai thông qua các tệp tin Migration được đánh số phiên bản (`prisma migrate dev/deploy`) để có thể rollback khi có sự cố.
+4. **TypeScript & Linter**: Mọi thay đổi mã nguồn luôn phải vượt qua kiểm tra kiểu nghiêm ngặt (`tsc --noEmit`) và các quy tắc linter không có cảnh báo (`eslint src --max-warnings 0`) trước khi được deploy tự động lên production.
