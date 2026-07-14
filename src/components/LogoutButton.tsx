@@ -20,14 +20,14 @@ export default function LogoutButton() {
     <button
       onClick={handleLogout}
       disabled={isPending}
-      className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-red-600 hover:bg-red-50 font-caption text-sm transition-colors w-full text-left cursor-pointer disabled:opacity-50"
+      className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-red-600 hover:bg-red-50 font-caption text-sm transition-colors w-full text-left cursor-pointer disabled:opacity-50"
     >
       {isPending ? (
-        <RefreshCw className="h-4 w-4 animate-spin" />
+        <RefreshCw className="h-4 w-4 animate-spin flex-shrink-0" />
       ) : (
-        <LogOut className="h-4 w-4" />
+        <LogOut className="h-4 w-4 flex-shrink-0" />
       )}
-      Đăng xuất
+      <span className="hidden md:inline">Đăng xuất</span>
     </button>
   );
 }

@@ -159,13 +159,13 @@ export default function TeacherGradesPage() {
       </div>
 
       {/* Controls */}
-      <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm flex flex-wrap gap-4 items-end">
-        <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
+      <div className="bg-canvas border border-hairline rounded-lg p-4 md:p-6 shadow-sm grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+        <div className="flex flex-col gap-1.5 w-full">
           <label className="text-xs font-caption-strong text-ink-muted-80">Lớp luyện thi</label>
           <select
             value={selectedClassId}
             onChange={(e) => setSelectedClassId(e.target.value)}
-            className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus"
+            className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
           >
             {classes.length === 0 && <option value="">— Chọn lớp —</option>}
             {classes.map((c) => (
@@ -173,12 +173,12 @@ export default function TeacherGradesPage() {
             ))}
           </select>
         </div>
-        <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
+        <div className="flex flex-col gap-1.5 w-full">
           <label className="text-xs font-caption-strong text-ink-muted-80">Chuyên đề học tập</label>
           <select
             value={selectedSubjectId}
             onChange={(e) => setSelectedSubjectId(e.target.value)}
-            className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus"
+            className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
           >
             {subjects.length === 0 && <option value="">— Chọn chuyên đề —</option>}
             {subjects.map((s) => (
@@ -186,19 +186,19 @@ export default function TeacherGradesPage() {
             ))}
           </select>
         </div>
-        <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
+        <div className="flex flex-col gap-1.5 w-full">
           <label className="text-xs font-caption-strong text-ink-muted-80">Cột điểm thi thử</label>
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus"
+            className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
           >
             <option value="QUIZ">Kiểm tra 15' (Hệ số 1)</option>
             <option value="MIDTERM">Thi thử Giữa kỳ (Hệ số 3)</option>
             <option value="FINAL">Thi thử Cuối kỳ / Tốt nghiệp (Hệ số 6)</option>
           </select>
         </div>
-        <div className="flex flex-col gap-1.5 w-24">
+        <div className="flex flex-col gap-1.5 w-full">
           <label className="text-xs font-caption-strong text-ink-muted-80">Trọng số</label>
           <input
             type="number"
@@ -207,7 +207,7 @@ export default function TeacherGradesPage() {
             max="1"
             value={weight}
             onChange={(e) => setWeight(parseFloat(e.target.value) || 0.1)}
-            className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus"
+            className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
           />
         </div>
       </div>
@@ -235,8 +235,8 @@ export default function TeacherGradesPage() {
       )}
 
       {/* Student List */}
-      <div className="bg-canvas border border-hairline rounded-lg shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
+      <div className="bg-canvas border border-hairline rounded-lg shadow-sm overflow-x-auto">
+        <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between min-w-[500px]">
           <h2 className="font-body-strong text-sm text-ink flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" />
             Nhập điểm học viên ({students.length} học viên)
@@ -264,12 +264,12 @@ export default function TeacherGradesPage() {
             <p className="font-body text-ink-muted-80">Chọn lớp và chuyên đề học để bắt đầu nhập điểm thi.</p>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full min-w-[500px]">
             <thead>
               <tr className="border-b border-hairline bg-surface-pearl">
-                <th className="text-left px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Học viên</th>
-                <th className="text-left px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider w-36">Điểm số (0 - 10)</th>
-                <th className="text-left px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Nhận xét của giảng viên</th>
+                <th className="text-left px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider min-w-[150px]">Học viên</th>
+                <th className="text-left px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider w-36 min-w-[110px]">Điểm số (0 - 10)</th>
+                <th className="text-left px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider min-w-[200px]">Nhận xét của giảng viên</th>
               </tr>
             </thead>
             <tbody>
