@@ -14,11 +14,15 @@ export default async function PublicQuizzesPage() {
     orderBy: { id: "desc" },
   });
 
+  const visibleQuizzes = quizzes.filter(
+    (q) => !(q.description || "").startsWith("[UNLISTED]")
+  );
+
   // Map to the simple format that Client Component can consume
-  const formattedQuizzes = quizzes.map((q) => ({
+  const formattedQuizzes = visibleQuizzes.map((q) => ({
     id: q.id,
     title: q.title,
-    description: q.description || "",
+    description: (q.description || "").replace("[UNLISTED]", "").trim(),
     duration: q.duration,
     passingScore: q.passingScore,
     category: q.subject.name,

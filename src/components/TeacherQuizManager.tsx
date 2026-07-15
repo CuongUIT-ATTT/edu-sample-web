@@ -84,6 +84,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [subjectId, setSubjectId] = useState("");
   const [classId, setClassId] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [showOnList, setShowOnList] = useState(true);
   const [answerVisibility, setAnswerVisibility] = useState("IMMEDIATELY");
   const [modalMode, setModalMode] = useState<"CREATE" | "EDIT">("CREATE");
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
@@ -467,11 +468,15 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setSuccessMsg(null);
     setErrorMsg(null);
 
+    const finalDescription = isPublic && !showOnList
+      ? `[UNLISTED] ${description || ""}`.trim()
+      : description;
+
     if (modalMode === "EDIT" && editingQuizId) {
       const res = await updateQuiz({
         id: editingQuizId,
         title,
-        description: description || undefined,
+        description: finalDescription || undefined,
         duration: Number(duration),
         passingScore: Number(passingScore),
         subjectId,
@@ -492,7 +497,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     } else {
       const res = await createQuiz({
         title,
-        description: description || undefined,
+        description: finalDescription || undefined,
         duration: Number(duration),
         passingScore: Number(passingScore),
         subjectId,
@@ -521,6 +526,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setSubjectId("");
     setClassId("");
     setIsPublic(false);
+    setShowOnList(true);
     setAnswerVisibility("IMMEDIATELY");
     setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "" }]);
     setModalMode("CREATE");
@@ -531,7 +537,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setModalMode("EDIT");
     setEditingQuizId(q.id);
     setTitle(q.title);
-    setDescription(q.description || "");
+    const rawDesc = q.description || "";
+    const isUnlisted = rawDesc.includes("[UNLISTED]");
+    setDescription(rawDesc.replace("[UNLISTED]", "").trim());
+    setShowOnList(!isUnlisted);
     setDuration(q.duration);
     setPassingScore(q.passingScore);
     setSubjectId(q.subject.id);
@@ -748,18 +757,39 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2 md:col-span-2 mt-2 bg-surface-pearl border border-divider-soft p-3 rounded-md">
-                  <input
-                    type="checkbox"
-                    id="isPublic"
-                    checked={isPublic}
-                    onChange={(e) => setIsPublic(e.target.checked)}
-                    className="h-4 w-4 rounded text-primary focus:ring-primary cursor-pointer"
-                  />
-                  <div className="flex flex-col">
-                    <label htmlFor="isPublic" className="text-xs font-bold text-ink cursor-pointer">Công khai đề thi (Public)</label>
-                    <span className="text-[10px] text-ink-muted-48">Cho phép khách làm đề thi này tại trang chủ mà không cần đăng nhập tài khoản.</span>
+                <div className="flex flex-col gap-3 md:col-span-2 mt-2 bg-surface-pearl border border-divider-soft p-3 rounded-md">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isPublic"
+                      checked={isPublic}
+                      onChange={(e) => {
+                        setIsPublic(e.target.checked);
+                        if (!e.target.checked) setShowOnList(true);
+                      }}
+                      className="h-4 w-4 rounded text-primary focus:ring-primary cursor-pointer"
+                    />
+                    <div className="flex flex-col">
+                      <label htmlFor="isPublic" className="text-xs font-bold text-ink cursor-pointer">Công khai đề thi (Public)</label>
+                      <span className="text-[10px] text-ink-muted-48">Cho phép khách làm đề thi này tại trang chủ mà không cần đăng nhập tài khoản.</span>
+                    </div>
                   </div>
+
+                  {isPublic && (
+                    <div className="flex items-center gap-2 border-t border-divider-soft pt-2.5 mt-0.5">
+                      <input
+                        type="checkbox"
+                        id="showOnList"
+                        checked={showOnList}
+                        onChange={(e) => setShowOnList(e.target.checked)}
+                        className="h-4 w-4 rounded text-primary focus:ring-primary cursor-pointer"
+                      />
+                      <div className="flex flex-col">
+                        <label htmlFor="showOnList" className="text-xs font-bold text-ink cursor-pointer">Hiển thị trên danh sách làm đề thi thử</label>
+                        <span className="text-[10px] text-ink-muted-48">Đề thi sẽ xuất hiện trên trang danh sách công khai. Nếu tắt, chỉ truy cập được bằng liên kết chia sẻ trực tiếp.</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5 md:col-span-2">

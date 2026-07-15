@@ -73,7 +73,7 @@ export default async function SharedQuizPage({
   const formattedQuiz = {
     id: quiz.id,
     title: quiz.title,
-    description: quiz.description,
+    description: (quiz.description || "").replace("[UNLISTED]", "").trim(),
     duration: quiz.duration,
     passingScore: quiz.passingScore,
     subjectName: quiz.subject.name,

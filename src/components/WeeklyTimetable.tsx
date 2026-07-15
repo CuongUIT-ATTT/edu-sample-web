@@ -1017,19 +1017,18 @@ export default function WeeklyTimetable({
 
   // Group schedules for the detailed list view
   const { groups, singles } = useMemo(() => {
-    const visible = schedules.filter((s) => {
+    const groupsMap = new Map<string, ScheduleItem[]>();
+    const singlesList: ScheduleItem[] = [];
+
+    for (const s of schedules) {
       const isOwn =
         userRole === "ADMIN" ||
         !isTeacherRole ||
         s.teacher.id === currentTeacherProfileId;
-      return isOwn;
-    });
 
-    const groupsMap = new Map<string, ScheduleItem[]>();
-    const singlesList: ScheduleItem[] = [];
-
-    for (const s of visible) {
-      if (!s.recurrenceGroupId) {
+      if (!isOwn) {
+        singlesList.push(s);
+      } else if (!s.recurrenceGroupId) {
         singlesList.push(s);
       } else {
         const group = groupsMap.get(s.recurrenceGroupId) ?? [];
@@ -2527,26 +2526,30 @@ export default function WeeklyTimetable({
 
                 {/* Single rows */}
                 {singles.map((s) => {
+                  const isOwn =
+                    userRole === "ADMIN" ||
+                    !isTeacherRole ||
+                    s.teacher.id === currentTeacherProfileId;
                   return (
                     <tr key={s.id} className="hover:bg-surface-pearl/50">
                       <td className="p-3 font-semibold">
-                        {s.class.name}
+                        {isOwn ? s.class.name : "Đã bận"}
                       </td>
                       <td className="p-3 font-semibold text-primary">
-                        {s.subject.name}
+                        {isOwn ? s.subject.name : "—"}
                       </td>
                       <td className="p-3">
                         {s.date
-                          ? new Date(s.date).toLocaleDateString("vi-VN")
+                          ? new Date(s.date as any).toLocaleDateString("vi-VN")
                           : `Thứ ${s.dayOfWeek + 1}`}{" "}
                         ({s.startTime} - {s.endTime})
                       </td>
                       <td className="p-3">
-                        {s.teacher.user.name}
+                        {isOwn ? s.teacher.user.name : "Giảng viên khác"}
                       </td>
-                      <td className="p-3">{s.room || "—"}</td>
+                      <td className="p-3">{isOwn ? s.room || "—" : "—"}</td>
                       <td className="p-3 text-center">
-                        {userRole !== "STUDENT" && (
+                        {isOwn && userRole !== "STUDENT" && (
                           <button
                             onClick={() => handleDeleteTrigger(s)}
                             className="text-red-500 hover:bg-red-55 p-1.5 rounded-full"
