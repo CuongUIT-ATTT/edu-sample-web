@@ -7,23 +7,13 @@ import { revalidatePath } from "next/cache";
 interface SubmitQuizInput {
   quizId: string;
   answers: Record<string, string>; // Map of question ID to answer index string
+  guestName?: string;
 }
 
 export async function submitQuiz(input: SubmitQuizInput) {
   try {
     const session = await getSession();
-    if (!session || session.role !== "STUDENT") {
-      return { success: false, error: "Chỉ học sinh mới có quyền làm bài kiểm tra trắc nghiệm." };
-    }
-
-    const studentProfile = await db.studentProfile.findUnique({
-      where: { userId: session.userId },
-    });
-
-    if (!studentProfile) {
-      return { success: false, error: "Không tìm thấy hồ sơ học sinh tương ứng." };
-    }
-
+    
     const quiz = await db.quiz.findUnique({
       where: { id: input.quizId },
       include: { questions: true },
@@ -31,6 +21,23 @@ export async function submitQuiz(input: SubmitQuizInput) {
 
     if (!quiz) {
       return { success: false, error: "Đề kiểm tra trắc nghiệm không tồn tại." };
+    }
+
+    let studentProfile = null;
+    if (session && session.role === "STUDENT") {
+      studentProfile = await db.studentProfile.findUnique({
+        where: { userId: session.userId },
+      });
+    }
+
+    // Access control: if not student and not public, reject
+    if (!studentProfile && !quiz.isPublic) {
+      return { success: false, error: "Đề thi này không công khai. Chỉ học sinh đã đăng nhập mới có quyền làm bài." };
+    }
+
+    // Guest name validation for public quizzes
+    if (!studentProfile && quiz.isPublic && !input.guestName?.trim()) {
+      return { success: false, error: "Vui lòng nhập Họ tên để bắt đầu làm bài thi thử công khai." };
     }
 
     let totalScore = 0;
@@ -47,24 +54,35 @@ export async function submitQuiz(input: SubmitQuizInput) {
 
     const submission = await db.quizSubmission.create({
       data: {
-        studentId: studentProfile.id,
+        studentId: studentProfile ? studentProfile.id : null,
         quizId: quiz.id,
         score: totalScore,
         answers: JSON.parse(JSON.stringify(input.answers)),
+        guestName: studentProfile ? null : input.guestName?.trim(),
       },
     });
 
-    await db.grade.create({
-      data: {
-        studentId: studentProfile.id,
-        subjectId: quiz.subjectId,
-        teacherId: quiz.teacherId,
-        type: "QUIZ",
-        score: totalScore,
-        weight: 0.1,
-        remarks: `Điểm thi trắc nghiệm trực tuyến: ${quiz.title}`,
-      },
-    });
+    // Only record grades for logged-in students
+    if (studentProfile) {
+      // Find fallback teacher if quiz has no teacherId (created by Admin)
+      let finalTeacherId = quiz.teacherId;
+      if (!finalTeacherId) {
+        const fallbackTeacher = await db.teacherProfile.findFirst();
+        finalTeacherId = fallbackTeacher ? fallbackTeacher.id : null;
+      }
+
+      await db.grade.create({
+        data: {
+          studentId: studentProfile.id,
+          subjectId: quiz.subjectId,
+          teacherId: finalTeacherId || "",
+          type: "QUIZ",
+          score: totalScore,
+          weight: 0.1,
+          remarks: `Điểm thi trắc nghiệm trực tuyến: ${quiz.title}`,
+        },
+      });
+    }
 
     revalidatePath("/student/grades");
     revalidatePath("/student");
@@ -94,6 +112,7 @@ interface CreateQuizInput {
   passingScore: number;
   subjectId: string;
   classId?: string;
+  isPublic?: boolean;
   questions: {
     questionText: string;
     type?: string;
@@ -106,19 +125,22 @@ interface CreateQuizInput {
 export async function createQuiz(input: CreateQuizInput) {
   try {
     const session = await getSession();
-    if (!session || session.role !== "TEACHER") {
-      return { success: false, error: "Chỉ giảng viên mới được tạo đề kiểm tra." };
+    if (!session || (session.role !== "TEACHER" && session.role !== "ADMIN")) {
+      return { success: false, error: "Chỉ quản trị viên hoặc giảng viên mới được tạo đề kiểm tra." };
     }
 
-    const teacher = await db.teacherProfile.findUnique({
-      where: { userId: session.userId },
-    });
-
-    if (!teacher) {
-      return { success: false, error: "Hồ sơ giảng viên của bạn không tồn tại." };
+    let teacherId: string | null = null;
+    if (session.role === "TEACHER") {
+      const teacher = await db.teacherProfile.findUnique({
+        where: { userId: session.userId },
+      });
+      if (!teacher) {
+        return { success: false, error: "Hồ sơ giảng viên của bạn không tồn tại." };
+      }
+      teacherId = teacher.id;
     }
 
-    const { title, description, duration, passingScore, subjectId, classId, questions } = input;
+    const { title, description, duration, passingScore, subjectId, classId, isPublic, questions } = input;
 
     if (!title || isNaN(duration) || isNaN(passingScore) || !subjectId || questions.length === 0) {
       return { success: false, error: "Vui lòng nhập đầy đủ thông tin đề thi và ít nhất 1 câu hỏi." };
@@ -133,7 +155,8 @@ export async function createQuiz(input: CreateQuizInput) {
           passingScore,
           subjectId,
           classId: classId || null,
-          teacherId: teacher.id,
+          isPublic: isPublic || false,
+          teacherId,
         },
       });
 
@@ -154,7 +177,9 @@ export async function createQuiz(input: CreateQuizInput) {
     });
 
     revalidatePath("/teacher/quizzes");
+    revalidatePath("/admin/quizzes");
     revalidatePath("/student/quizzes");
+    revalidatePath("/quizzes");
     return { success: true, data: quiz };
   } catch (error) {
     console.error("Error creating quiz:", error);
@@ -165,8 +190,8 @@ export async function createQuiz(input: CreateQuizInput) {
 export async function deleteQuiz(quizId: string) {
   try {
     const session = await getSession();
-    if (!session || session.role !== "TEACHER") {
-      return { success: false, error: "Chỉ giảng viên mới được xoá đề kiểm tra." };
+    if (!session || (session.role !== "TEACHER" && session.role !== "ADMIN")) {
+      return { success: false, error: "Chỉ quản trị viên hoặc giảng viên mới được xoá đề kiểm tra." };
     }
 
     await db.quiz.delete({
@@ -174,7 +199,9 @@ export async function deleteQuiz(quizId: string) {
     });
 
     revalidatePath("/teacher/quizzes");
+    revalidatePath("/admin/quizzes");
     revalidatePath("/student/quizzes");
+    revalidatePath("/quizzes");
     return { success: true, message: "Xoá đề kiểm tra thành công." };
   } catch (error) {
     console.error("Error deleting quiz:", error);

@@ -12,6 +12,7 @@ interface QuizItem {
   description?: string | null;
   duration: number;
   passingScore: number;
+  isPublic?: boolean;
   subject: {
     id: string;
     name: string;
@@ -43,6 +44,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
   const [passingScore, setPassingScore] = useState(5);
   const [subjectId, setSubjectId] = useState("");
   const [classId, setClassId] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   
   // Custom type toggle inside form
   const [importMethod, setImportMethod] = useState<"MANUAL" | "PASTE_TEXT" | "CSV" | "JSON">("MANUAL");
@@ -380,6 +382,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
       passingScore: Number(passingScore),
       subjectId,
       classId: classId || undefined,
+      isPublic,
       questions,
     });
 
@@ -392,6 +395,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
       setPassingScore(5);
       setSubjectId("");
       setClassId("");
+      setIsPublic(false);
       setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1 }]);
       window.location.reload();
     } else {
@@ -453,6 +457,15 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
                   {q.class && (
                     <span className="text-[10px] font-bold uppercase tracking-wider bg-orange-50 text-orange-600 px-2.5 py-0.5 rounded-full">
                       Lớp {q.class.name}
+                    </span>
+                  )}
+                  {q.isPublic ? (
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-green-50 text-green-700 px-2.5 py-0.5 rounded-full">
+                      Công khai
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-ink-muted-80 px-2.5 py-0.5 rounded-full">
+                      Nội bộ
                     </span>
                   )}
                   <span className="text-xs text-ink-muted-48 font-semibold">{q._count.questions} câu hỏi</span>
@@ -545,6 +558,20 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
+                </div>
+
+                <div className="flex items-center gap-2 md:col-span-2 mt-2 bg-surface-pearl border border-divider-soft p-3 rounded-md">
+                  <input
+                    type="checkbox"
+                    id="isPublic"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    className="h-4 w-4 rounded text-primary focus:ring-primary cursor-pointer"
+                  />
+                  <div className="flex flex-col">
+                    <label htmlFor="isPublic" className="text-xs font-bold text-ink cursor-pointer">Công khai đề thi (Public)</label>
+                    <span className="text-[10px] text-ink-muted-48">Cho phép khách làm đề thi này tại trang chủ mà không cần đăng nhập tài khoản.</span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 md:col-span-2">

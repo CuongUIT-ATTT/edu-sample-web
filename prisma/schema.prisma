@@ -220,11 +220,12 @@ model Quiz {
   description  String?
   duration     Int              // in minutes
   passingScore Float
+  isPublic     Boolean          @default(false)
   
   subjectId    String
   subject      Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacherId    String
-  teacher      TeacherProfile   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId    String?
+  teacher      TeacherProfile?  @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   
   classId      String?
   class        Class?           @relation(fields: [classId], references: [id], onDelete: SetNull)
@@ -246,15 +247,16 @@ model Question {
 }
 
 model QuizSubmission {
-  id          String         @id @default(uuid())
-  studentId   String
-  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id          String          @id @default(uuid())
+  studentId   String?
+  student     StudentProfile? @relation(fields: [studentId], references: [id], onDelete: Cascade)
   quizId      String
-  quiz        Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quiz        Quiz            @relation(fields: [quizId], references: [id], onDelete: Cascade)
   
   score       Float
-  answers     Json           // Map of question ID to student's answer
-  submittedAt DateTime       @default(now())
+  answers     Json            // Map of question ID to student's answer
+  guestName   String?
+  submittedAt DateTime        @default(now())
 }
 
 model Room {
