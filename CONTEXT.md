@@ -26,17 +26,26 @@ Hệ thống lịch học được tích hợp trong component chính [WeeklyTim
 * Hỗ trợ hai chế độ xem: **Lịch biểu theo Tuần (WEEK)** chia theo ca giờ chuẩn và **Lịch biểu theo Tháng (MONTH)** dạng lưới ô vuông.
 * Có thanh điều hướng dịch chuyển thời gian giữa các tuần, các tháng một cách mượt mà.
 
-### B. Cơ chế Lặp lại hàng tuần & Quản lý Nhóm
+### B. Cơ chế Lặp lại hàng tuần & Quản lý Nhóm (Fix 1 & Fix 4)
 * Khi tạo lịch học, hệ thống hỗ trợ cơ chế lặp lại hàng tuần từ ngày bắt đầu đến ngày kết thúc (`startDate` -> `endDate`), tự động gán chung mã nhóm `recurrenceGroupId`.
-* Đối với lịch đơn lẻ (`NONE`), trường ngày kết thúc tự động khóa bằng ngày bắt đầu để đồng nhất dữ liệu.
+* **Ràng buộc Ngày bắt đầu (Fix 1)**: Đảm bảo ngày bắt đầu phải khớp với Thứ đã chọn. Nếu người dùng nhập sai, form hiển thị cảnh báo đỏ nổi bật kèm nút **"Tự động sửa"** (tự nhảy đến ngày tương ứng gần nhất) và khóa nút submit. Phía máy chủ (Server Action) cũng có lớp validate thứ 2 để chặn đứng dữ liệu lệch ngày.
+* **Nhóm chuỗi lịch lặp (Fix 4)**: Trên giao diện bảng, toàn bộ các ca học có cùng `recurrenceGroupId` được gộp gọn lại thành một dòng tổng hợp hiển thị khoảng thời gian (Ngày sớm nhất -> ngày muộn nhất) và số lượng ca. Người dùng có thể nhấn biểu tượng mũi tên để thu gọn/mở rộng xem chi tiết từng ngày học. Có nút xóa toàn bộ chuỗi ca học lặp lại (Group delete) thực hiện gọi action `ALL_FUTURE` từ ngày bắt đầu đầu tiên của chuỗi.
 
-### C. Xóa Ca học thông minh
+### C. Khung giờ cố định & Validation tối ưu (Fix 2 & Fix 3)
+* **Dropdown giờ cố định (Fix 2)**: Thay thế ô nhập text tự do bằng thẻ `<select>` chọn các khung giờ cách nhau 30 phút. Khi đổi giờ bắt đầu, hệ thống tự động cộng thêm 90 phút vào giờ kết thúc nếu chưa chọn hoặc nếu giờ kết thúc trước giờ bắt đầu. Danh sách giờ kết thúc tự động lọc bỏ các giờ trước giờ bắt đầu.
+* **Inline validation (Fix 3)**: Gỡ bỏ thuộc tính `required` của HTML5 trên toàn bộ các ô nhập để tránh lỗi tooltip đè mất layout phòng học. Thay vào đó, viết hàm validate tùy biến hiển thị inline các thông báo lỗi ngay dưới từng trường nhập liệu. Lỗi sẽ tự động ẩn đi ngay khi người dùng chọn/nhập giá trị hợp lệ.
+
+### D. Phân quyền hiển thị & Cảnh báo xung đột (Fix 5)
+* **Teacher View**: Giáo viên vẫn nhìn thấy các khung giờ bị bận bởi giáo viên khác trên lịch tuần/tháng nhưng thông tin chi tiết bị ẩn đi (tên lớp hiển thị là `"Đã bận"`, giáo viên là `"Giảng viên khác"`, phòng học và môn học hiển thị `"—"` và không thể chỉnh sửa/xóa).
+* **Admin View**: Hiển thị đầy đủ chi tiết mọi lịch biểu. Nếu phát hiện trùng phòng học hoặc trùng giáo viên trong cùng khung giờ, hệ thống hiển thị **Banner cảnh báo xung đột (Overlap Warning)** ở đầu bảng danh sách để Admin kịp thời xử lý.
+
+### E. Xóa Ca học thông minh
 Hỗ trợ hai phương án xóa an toàn khi click xóa lịch lặp:
 * **Chỉ xóa ca này (`ONLY_THIS`)**: Chỉ xóa bản ghi duy nhất của ngày được chọn.
 * **Xóa tất cả trong tương lai (`ALL_FUTURE`)**: Xóa toàn bộ chuỗi ca học lặp lại kể từ ngày được chọn trở đi.
 * **Rào chắn bảo vệ (Guard)**: Nếu đã có học sinh nộp bài tập về nhà cho ca học muốn xóa, hệ thống sẽ tự động chặn thao tác để tránh mất dữ liệu chấm điểm của lớp.
 
-### D. Chỉnh sửa & Dịch chuyển chuỗi lặp (Update Schedule)
+### F. Chỉnh sửa & Dịch chuyển chuỗi lặp (Update Schedule)
 * Cho phép Giáo viên/Admin chuyển giao diện xem chi tiết thành form sửa trực tiếp trong modal.
 * Khi chỉnh sửa chuỗi lịch lặp, hệ thống tự động tính toán số ngày lệch (`dateDiff`) để tự động tịnh tiến dịch chuyển ngày học của tất cả các ca tiếp theo trong chuỗi.
 * Tích hợp kiểm tra trùng lịch (Overlap Check) an toàn cho cả phòng học, lịch giáo viên, lớp học và đưa ra cảnh báo trùng lịch học sinh nếu phát hiện xung đột thời gian.
@@ -123,3 +132,32 @@ erDiagram
 2. **Quy tắc 10 phút điểm danh**: Giảng viên chỉ được phép điểm danh cho ca học bắt đầu từ **10 phút trước giờ vào lớp** cho đến **10 phút sau khi tan lớp**. Quá khoảng thời gian này, chỉ có Admin mới có quyền sửa đổi thông tin điểm danh.
 3. **Môi trường Cơ sở dữ liệu và Migration**: Tuyệt đối tránh chạy lệnh `prisma db push --accept-data-loss` trên môi trường Staging/Production để tránh nguy cơ mất mát dữ liệu live. Toàn bộ thay đổi Schema trên môi trường live bắt buộc phải được triển khai thông qua các tệp tin Migration được đánh số phiên bản (`prisma migrate dev/deploy`) để có thể rollback khi có sự cố.
 4. **TypeScript & Linter**: Mọi thay đổi mã nguồn luôn phải vượt qua kiểm tra kiểu nghiêm ngặt (`tsc --noEmit`) và các quy tắc linter không có cảnh báo (`eslint src --max-warnings 0`) trước khi được deploy tự động lên production.
+
+---
+
+## 🔒 6. Hệ thống Đề thi Trắc nghiệm & Cơ chế Chống gian lận
+
+Hệ thống cho phép tạo đề thi trắc nghiệm trực tuyến (tích hợp giao bài tập về nhà theo ca học) kèm các tính năng bảo mật:
+
+### A. Công khai và Ẩn đề thi khỏi danh sách làm thử
+* Đề thi được đánh dấu công khai (`isPublic: true`) cho phép thí sinh tự do vào luyện tập làm bài không cần đăng nhập.
+* Admin/Giáo viên có thể tắt tùy chọn **"Hiển thị trên danh sách đề thi thử"** khi tạo đề thi. Lúc này, hệ thống sẽ đánh dấu thẻ ẩn danh `[UNLISTED]` trong phần mô tả đề thi. Đề thi sẽ tự động ẩn khỏi trang danh sách chính nhưng vẫn hoàn toàn truy cập và làm bài thi được nếu có đường dẫn (Link chia sẻ trực tiếp).
+
+### B. Logic Tính điểm dạng câu hỏi Đúng/Sai (Dạng thức II)
+Phục vụ kỳ thi THPT Quốc gia theo chương trình mới:
+* Một câu hỏi Đúng/Sai có 4 ý nhỏ. Cách thức tính điểm của câu đó dựa trên số ý trả lời đúng:
+  * Trả lời đúng **1 ý**: Nhận được `0.1` điểm.
+  * Trả lời đúng **2 ý**: Nhận được `0.25` điểm.
+  * Trả lời đúng **3 ý**: Nhận được `0.5` điểm.
+  * Trả lời đúng **4 ý**: Nhận được `1.0` điểm.
+* Giao diện xem lại lời giải hiển thị cụ thể số ý đúng (ví dụ: `Đúng một phần (3/4 ý) (0.50đ)`) cùng đáp án đúng và lời giải chi tiết cho từng ý.
+
+### C. Cơ chế Chống gian lận (Anti-Cheating Room)
+Nhằm duy trì tính công bằng của kỳ thi trực tuyến:
+* **Phát hiện chuyển Tab hoặc rời cửa sổ (Focus Loss/Blur)**: Hệ thống giám sát qua `visibilitychange` và `window.blur`. Khi học sinh chuyển tab hoặc nhấp chuột sang ứng dụng khác ngoài trình duyệt, cảnh báo sẽ hiển thị.
+  * Vi phạm quá **3 lần**: Hệ thống lập tức khóa màn hình làm bài bằng lớp phủ mờ bảo mật (ngăn mọi click chọn đáp án) và tự động gửi kết quả đã làm lên server nộp bài.
+* **Chặn Sao chép & Chụp màn hình**:
+  * Vô hiệu hóa thao tác sao chép, cắt, dán và nhấp chuột phải (`onCopy`, `onCut`, `onPaste`, `onContextMenu`).
+  * Sử dụng CSS `select-none` chặn học sinh bôi đen văn bản để tra cứu thông tin.
+  * Tích hợp lớp hình mờ bảo mật (Security Watermark) chứa thông tin của thí sinh chạy lặp lại toàn màn hình làm bài để phá hỏng hình ảnh/video quay lén từ thiết bị bên ngoài.
+  * Chặn in đề thi (`Ctrl + P`) qua thuộc tính ẩn trang print.
