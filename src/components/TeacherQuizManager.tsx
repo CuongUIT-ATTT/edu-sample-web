@@ -831,12 +831,14 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               </div>
 
               {/* Import Method Toggle Buttons */}
-              <div className="flex border border-divider rounded-pill overflow-hidden bg-surface-pearl p-0.5 self-start">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => setImportMethod("MANUAL")}
-                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold ${
-                    importMethod === "MANUAL" ? "bg-canvas text-primary shadow-sm" : "text-ink-muted-80"
+                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold border transition-all ${
+                    importMethod === "MANUAL" 
+                      ? "bg-primary border-primary text-white shadow-sm" 
+                      : "bg-surface-pearl border-divider text-ink-muted-80 hover:bg-canvas"
                   }`}
                 >
                   Nhập tay
@@ -844,8 +846,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 <button
                   type="button"
                   onClick={() => setImportMethod("PASTE_TEXT")}
-                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold ${
-                    importMethod === "PASTE_TEXT" ? "bg-canvas text-primary shadow-sm" : "text-ink-muted-80"
+                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold border transition-all ${
+                    importMethod === "PASTE_TEXT" 
+                      ? "bg-primary border-primary text-white shadow-sm" 
+                      : "bg-surface-pearl border-divider text-ink-muted-80 hover:bg-canvas"
                   }`}
                 >
                   Dán đề từ PDF/Word (AI Free)
@@ -853,8 +857,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 <button
                   type="button"
                   onClick={() => setImportMethod("CSV")}
-                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold ${
-                    importMethod === "CSV" ? "bg-canvas text-primary shadow-sm" : "text-ink-muted-80"
+                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold border transition-all ${
+                    importMethod === "CSV" 
+                      ? "bg-primary border-primary text-white shadow-sm" 
+                      : "bg-surface-pearl border-divider text-ink-muted-80 hover:bg-canvas"
                   }`}
                 >
                   Import file CSV
@@ -862,8 +868,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 <button
                   type="button"
                   onClick={() => setImportMethod("JSON")}
-                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold ${
-                    importMethod === "JSON" ? "bg-canvas text-primary shadow-sm" : "text-ink-muted-80"
+                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold border transition-all ${
+                    importMethod === "JSON" 
+                      ? "bg-primary border-primary text-white shadow-sm" 
+                      : "bg-surface-pearl border-divider text-ink-muted-80 hover:bg-canvas"
                   }`}
                 >
                   Dán JSON
