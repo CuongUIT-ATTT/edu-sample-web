@@ -19,6 +19,11 @@ export default async function AdminQuizzesPage() {
       subject: true,
       class: true,
       questions: true,
+      teacher: {
+        include: {
+          user: { select: { name: true } }
+        }
+      },
       _count: {
         select: { questions: true },
       },
@@ -34,6 +39,11 @@ export default async function AdminQuizzesPage() {
     orderBy: { name: "asc" },
   });
 
+  const formattedQuizzes = quizzes.map((q) => ({
+    ...q,
+    creatorName: q.teacher ? q.teacher.user.name : "Quản trị viên"
+  }));
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -43,7 +53,7 @@ export default async function AdminQuizzesPage() {
         </p>
       </div>
 
-      <TeacherQuizManager quizzes={quizzes as any} subjects={subjects} classes={classes} />
+      <TeacherQuizManager quizzes={formattedQuizzes as any} subjects={subjects} classes={classes} isAdmin={true} />
     </div>
   );
 }

@@ -34,7 +34,9 @@ import {
   gradeHomework,
   getScheduleSubmissions,
   getStudentSubmission,
+  getClassSessionQuizSubmissions,
 } from "@/actions/homework";
+import { getAllQuizzesForHomework, getStudentQuizResult } from "@/actions/quizzes";
 
 interface ScheduleItem {
   id: string;
@@ -47,6 +49,11 @@ interface ScheduleItem {
   materials?: string | null;
   homework?: string | null;
   homeworkDueDate?: Date | string | null;
+  homeworkQuizId?: string | null;
+  homeworkQuiz?: {
+    id: string;
+    title: string;
+  } | null;
   class: {
     id: string;
     name: string;
@@ -159,6 +166,22 @@ export default function WeeklyTimetable({
   const [submissionUrl, setSubmissionUrl] = useState("");
   const [homeworkDueDate, setHomeworkDueDate] = useState("");
 
+  // Quiz homework states
+  const [homeworkQuizId, setHomeworkQuizId] = useState("");
+  const [quizzesList, setQuizzesList] = useState<any[]>([]);
+  const [studentQuizResultScore, setStudentQuizResultScore] = useState<number | null>(null);
+  const [quizSubmissionsList, setQuizSubmissionsList] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (userRole === "TEACHER" || userRole === "ADMIN") {
+      getAllQuizzesForHomework().then((res) => {
+        if (res.success && res.data) {
+          setQuizzesList(res.data);
+        }
+      });
+    }
+  }, [userRole]);
+
   // Grading states
   const [gradingSubmissionId, setGradingSubmissionId] = useState("");
   const [gradingScore, setGradingScore] = useState("");
@@ -218,6 +241,7 @@ export default function WeeklyTimetable({
 
     setMaterialsUrl(selectedSession.materials || "");
     setHomeworkUrl(selectedSession.homework || "");
+    setHomeworkQuizId(selectedSession.homeworkQuizId || "");
     setHomeworkDueDate(
       selectedSession.homeworkDueDate
         ? new Date(
@@ -229,6 +253,17 @@ export default function WeeklyTimetable({
         : "",
     );
     setIsEditing(false);
+
+    if (userRole === "STUDENT" && selectedSession.homeworkQuizId) {
+      setStudentQuizResultScore(null);
+      getStudentQuizResult(selectedSession.homeworkQuizId).then((res) => {
+        if (res.success && res.data) {
+          setStudentQuizResultScore(res.data.score);
+        }
+      });
+    } else {
+      setStudentQuizResultScore(null);
+    }
 
     // Pre-fill edit inputs
     setEditClassId(selectedSession.class.id);
@@ -253,13 +288,30 @@ export default function WeeklyTimetable({
             setSubmissionUrl(res.data?.fileUrl || "");
           }
         })
-        .finally(() => setLoadingDetails(false));
     } else {
-      getScheduleSubmissions(selectedSession.id)
-        .then((res) => {
+      setQuizSubmissionsList([]);
+      setActiveSubmissions([]);
+      setLoadingDetails(true);
+
+      const promises: Promise<any>[] = [];
+      
+      promises.push(
+        getScheduleSubmissions(selectedSession.id).then((res) => {
           if (res.success) setActiveSubmissions(res.data || []);
         })
-        .finally(() => setLoadingDetails(false));
+      );
+
+      if (selectedSession.homeworkQuizId) {
+        promises.push(
+          getClassSessionQuizSubmissions(selectedSession.id, selectedSession.homeworkQuizId).then((res) => {
+            if (res.success && res.data) {
+              setQuizSubmissionsList(res.data);
+            }
+          })
+        );
+      }
+
+      Promise.all(promises).finally(() => setLoadingDetails(false));
     }
   }, [selectedSession, userRole]);
 
@@ -718,6 +770,34 @@ export default function WeeklyTimetable({
       alert("Đã giao bài tập về nhà thành công!");
     } else {
       alert(res.error || "Lỗi giao bài tập.");
+    }
+  };
+
+  const handleSaveQuizHomework = async () => {
+    if (!selectedSession) return;
+    const res = await updateScheduleFiles({
+      scheduleId: selectedSession.id,
+      homeworkQuizId: homeworkQuizId || null,
+    });
+    if (res.success) {
+      const selectedQuiz = quizzesList.find((q) => q.id === homeworkQuizId);
+      const updatedQuizInfo = selectedQuiz ? { id: selectedQuiz.id, title: selectedQuiz.title } : null;
+
+      setSelectedSession({
+        ...selectedSession,
+        homeworkQuizId: homeworkQuizId || null,
+        homeworkQuiz: updatedQuizInfo,
+      });
+      setSchedules((prev) =>
+        prev.map((s) =>
+          s.id === selectedSession.id
+            ? { ...s, homeworkQuizId: homeworkQuizId || null, homeworkQuiz: updatedQuizInfo }
+            : s,
+        ),
+      );
+      alert("Đã giao bài kiểm tra làm bài tập về nhà thành công!");
+    } else {
+      alert(res.error || "Lỗi giao bài tập trắc nghiệm.");
     }
   };
 
@@ -1470,7 +1550,7 @@ export default function WeeklyTimetable({
 
                         <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-hairline rounded-lg">
                           <span className="text-[10px] font-bold text-ink-muted-80">
-                            2. Link đề bài tập về nhà
+                            2. Link đề bài tập về nhà (tự luận)
                           </span>
                           <input
                             type="url"
@@ -1486,6 +1566,35 @@ export default function WeeklyTimetable({
                           >
                             Lưu Link bài tập
                           </button>
+                        </div>
+
+                        <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-hairline rounded-lg md:col-span-2">
+                          <span className="text-[10px] font-bold text-ink-muted-80">
+                            HOẶC Giao bài tập về nhà dạng Trắc nghiệm (Đề thi thử)
+                          </span>
+                          <div className="flex gap-2">
+                            <select
+                              value={homeworkQuizId}
+                              onChange={(e) => setHomeworkQuizId(e.target.value)}
+                              className="bg-canvas border border-divider-soft p-2 rounded text-xs outline-none focus:border-primary flex-1 h-9"
+                            >
+                              <option value="">-- Chọn bài kiểm tra / Đề thi mẫu --</option>
+                              {quizzesList
+                                .filter((q) => !q.classId || q.classId === selectedSession.class.id)
+                                .map((q) => (
+                                  <option key={q.id} value={q.id}>
+                                    {q.title}
+                                  </option>
+                                ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={handleSaveQuizHomework}
+                              className="bg-primary hover:bg-primary-focus text-white text-[10px] font-bold py-1.5 px-4 rounded-pill self-center h-9"
+                            >
+                              Lưu bài trắc nghiệm
+                            </button>
+                          </div>
                         </div>
                       </div>
 
@@ -1554,28 +1663,64 @@ export default function WeeklyTimetable({
                         </div>
 
                         <div className="border border-divider-soft rounded-lg p-4 bg-surface-pearl flex flex-col justify-between h-auto min-h-[112px] gap-3">
-                          <div>
-                            <span className="text-[10px] font-bold text-ink-muted-80 block">
-                              Bài tập về nhà
-                            </span>
-                            <p className="text-[10px] text-ink-muted-48 mt-1 leading-snug">
-                              Hoàn thành bài tập được giao và nộp lại đúng hạn
-                            </p>
-                          </div>
-                          {selectedSession.homework ? (
-                            <a
-                              href={selectedSession.homework}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-1.5 rounded-pill shadow-sm flex items-center justify-center gap-1.5"
-                            >
-                              <LinkIcon className="h-3.5 w-3.5" /> Xem đề bài
-                              tập
-                            </a>
+                          {selectedSession.homeworkQuizId ? (
+                            <>
+                              <div>
+                                <span className="text-[10px] font-bold text-ink-muted-80 block">
+                                  Bài tập Trắc nghiệm (Online)
+                                </span>
+                                <p className="text-xs font-bold text-ink mt-1">
+                                  {selectedSession.homeworkQuiz?.title || "Bài thi trắc nghiệm giao về nhà"}
+                                </p>
+                                {studentQuizResultScore !== null ? (
+                                  <p className="text-[10px] text-green-700 font-bold mt-1.5 flex items-center gap-1">
+                                    <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                                    Đã hoàn thành: {studentQuizResultScore.toFixed(1)} / 10.0đ
+                                  </p>
+                                ) : (
+                                  <p className="text-[10px] text-amber-700 font-semibold mt-1">
+                                    Chưa hoàn thành làm bài tập
+                                  </p>
+                                )}
+                              </div>
+                              <a
+                                href={`/quizzes/${selectedSession.homeworkQuizId}`}
+                                className={`text-white text-xs font-semibold px-3 py-1.5 rounded-pill shadow-sm flex items-center justify-center gap-1.5 ${
+                                  studentQuizResultScore !== null
+                                    ? "bg-emerald-600 hover:bg-emerald-700"
+                                    : "bg-primary hover:bg-primary-focus animate-pulse"
+                                }`}
+                              >
+                                <LinkIcon className="h-3.5 w-3.5" />
+                                {studentQuizResultScore !== null ? "Xem kết quả & lời giải" : "Làm bài trắc nghiệm"}
+                              </a>
+                            </>
                           ) : (
-                            <span className="text-xs text-ink-muted-48 font-semibold italic text-center block pt-2">
-                              Chưa giao bài tập
-                            </span>
+                            <>
+                              <div>
+                                <span className="text-[10px] font-bold text-ink-muted-80 block">
+                                  Bài tập về nhà
+                                </span>
+                                <p className="text-[10px] text-ink-muted-48 mt-1 leading-snug">
+                                  Hoàn thành bài tập được giao và nộp lại đúng hạn
+                                </p>
+                              </div>
+                              {selectedSession.homework ? (
+                                <a
+                                  href={selectedSession.homework}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-1.5 rounded-pill shadow-sm flex items-center justify-center gap-1.5"
+                                >
+                                  <LinkIcon className="h-3.5 w-3.5" /> Xem đề bài
+                                  tập
+                                </a>
+                              ) : (
+                                <span className="text-xs text-ink-muted-48 font-semibold italic text-center block pt-2">
+                                  Chưa giao bài tập
+                                </span>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -1716,24 +1861,91 @@ export default function WeeklyTimetable({
                     </div>
                   )}
 
-                  {/* TEACHER SUBMISSIONS MANAGEMENT & GRADING (Hướng A) */}
+                  {/* TEACHER SUBMISSIONS MANAGEMENT & GRADING (Hướng A & Quiz BTVN) */}
                   {userRole !== "STUDENT" && (
                     <div className="border-t border-divider-soft pt-4 flex flex-col gap-4">
-                      <h4 className="text-xs font-bold text-ink uppercase tracking-wider">
-                        Danh sách bài tập học viên nộp (
-                        {activeSubmissions.length})
-                      </h4>
-
-                      {loadingDetails ? (
-                        <p className="text-xs text-ink-muted-48 italic">
-                          Đang tải danh sách bài tập...
-                        </p>
-                      ) : activeSubmissions.length === 0 ? (
-                        <div className="bg-slate-50 border border-divider-soft rounded-lg p-8 text-center text-ink-muted-80 text-xs italic">
-                          Chưa có học sinh nào nộp bài tập cho ca học này.
-                        </div>
+                      {selectedSession.homeworkQuizId ? (
+                        <>
+                          <h4 className="text-xs font-bold text-ink uppercase tracking-wider font-tagline">
+                            Bảng điểm Bài tập trắc nghiệm trực tuyến (
+                            {quizSubmissionsList.length} học viên)
+                          </h4>
+                          {loadingDetails ? (
+                            <p className="text-xs text-ink-muted-48 italic">Đang tải điểm số trắc nghiệm...</p>
+                          ) : quizSubmissionsList.length === 0 ? (
+                            <div className="bg-slate-50 border border-divider-soft rounded-lg p-8 text-center text-ink-muted-80 text-xs italic">
+                              Lớp học này chưa có học viên nào.
+                            </div>
+                          ) : (
+                            <div className="border border-hairline rounded-lg overflow-hidden bg-canvas">
+                              <table className="w-full text-left text-xs font-body border-collapse">
+                                <thead>
+                                  <tr className="bg-surface-pearl text-ink-muted-80 border-b border-divider font-semibold text-[10px] uppercase tracking-wider">
+                                    <th className="p-3">Học sinh</th>
+                                    <th className="p-3 text-center">Trạng thái</th>
+                                    <th className="p-3 text-center">Điểm số</th>
+                                    <th className="p-3 text-right">Ngày làm bài</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-divider-soft">
+                                  {quizSubmissionsList.map((st) => (
+                                    <tr key={st.studentId} className="hover:bg-slate-50 transition-colors">
+                                      <td className="p-3 font-semibold text-ink">{st.studentName}</td>
+                                      <td className="p-3 text-center">
+                                        {st.submitted ? (
+                                          <span className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded font-bold border border-green-200">
+                                            Đã hoàn thành
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold border border-red-200">
+                                            Chưa làm bài
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="p-3 text-center">
+                                        {st.submitted && st.score !== null ? (
+                                          <span className="font-bold text-primary px-2.5 py-0.5 bg-blue-50 border border-blue-100 rounded text-xs">
+                                            {Number(st.score).toFixed(1)} / 10.0đ
+                                          </span>
+                                        ) : (
+                                          <span className="text-ink-muted-48">—</span>
+                                        )}
+                                      </td>
+                                      <td className="p-3 text-right text-ink-muted-48 text-[11px]">
+                                        {st.submittedAt ? (
+                                          new Date(st.submittedAt).toLocaleString("vi-VN", {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                            day: "2-digit",
+                                            month: "2-digit",
+                                          })
+                                        ) : (
+                                          "Chưa có"
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </>
                       ) : (
-                        <div className="flex flex-col gap-4">
+                        <>
+                          <h4 className="text-xs font-bold text-ink uppercase tracking-wider">
+                            Danh sách bài tập học viên nộp ({activeSubmissions.length})
+                          </h4>
+
+                          {loadingDetails ? (
+                            <p className="text-xs text-ink-muted-48 italic">
+                              Đang tải danh sách bài tập...
+                            </p>
+                          ) : activeSubmissions.length === 0 ? (
+                            <div className="bg-slate-50 border border-divider-soft rounded-lg p-8 text-center text-ink-muted-80 text-xs italic">
+                              Chưa có học sinh nào nộp bài tập cho ca học này.
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-4">
                           {activeSubmissions.map((sub) => (
                             <div
                               key={sub.id}
@@ -1880,10 +2092,11 @@ export default function WeeklyTimetable({
                           ))}
                         </div>
                       )}
-                    </div>
-                  )}
-                </>
-              )}
+                    </>)}
+                  </div>
+                )}
+              </>
+            )}
             </div>
           </div>
         </div>

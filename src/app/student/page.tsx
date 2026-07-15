@@ -91,14 +91,53 @@ export default async function StudentDashboardPage() {
             orderBy: { startTime: "asc" },
           });
 
-          schedulesList = schedules.map((s) => ({
-            id: s.id,
-            time: `${s.startTime} - ${s.endTime}`,
-            subjectName: s.subject.name,
-            teacherName: s.teacher.user.name,
-            room: s.room || "Room 302",
-            status: "Có mặt", // Mock status mapping for display
-          }));
+          const today = new Date();
+          const tomorrow = new Date();
+          tomorrow.setDate(today.getDate() + 1);
+
+          const getPrismaDayOfWeek = (d: Date) => {
+            const jsDay = d.getDay();
+            return jsDay === 0 ? 7 : jsDay;
+          };
+
+          const todayDayOfWeek = getPrismaDayOfWeek(today);
+          const tomorrowDayOfWeek = getPrismaDayOfWeek(tomorrow);
+
+          const filteredSchedules = schedules.filter((s) => {
+            if (s.date) {
+              const sDate = new Date(s.date);
+              const isTodayDate =
+                sDate.getFullYear() === today.getFullYear() &&
+                sDate.getMonth() === today.getMonth() &&
+                sDate.getDate() === today.getDate();
+              const isTomorrowDate =
+                sDate.getFullYear() === tomorrow.getFullYear() &&
+                sDate.getMonth() === tomorrow.getMonth() &&
+                sDate.getDate() === tomorrow.getDate();
+              return isTodayDate || isTomorrowDate;
+            }
+            return s.dayOfWeek === todayDayOfWeek || s.dayOfWeek === tomorrowDayOfWeek;
+          });
+
+          schedulesList = filteredSchedules.map((s) => {
+            let dayLabel = "";
+            if (s.date) {
+              const sDate = new Date(s.date);
+              if (sDate.getDate() === today.getDate()) dayLabel = "Hôm nay";
+              else dayLabel = "Ngày mai";
+            } else {
+              if (s.dayOfWeek === todayDayOfWeek) dayLabel = "Hôm nay";
+              else dayLabel = "Ngày mai";
+            }
+            return {
+              id: s.id,
+              time: `${dayLabel}, ${s.startTime} - ${s.endTime}`,
+              subjectName: s.subject.name,
+              teacherName: s.teacher.user.name,
+              room: s.room || "Room 302",
+              status: "Sắp diễn ra",
+            };
+          });
         }
       }
     }
@@ -244,7 +283,7 @@ export default async function StudentDashboardPage() {
         className="bg-canvas border border-hairline rounded-lg p-6 hover:border-primary transition-all duration-200 cursor-pointer block"
       >
         <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4 flex justify-between items-center">
-          <span>Lịch học hôm nay</span>
+          <span>Lịch học Hôm nay &amp; Ngày mai</span>
           <span className="text-xs text-primary font-semibold hover:underline">
             Chi tiết thời khóa biểu &rarr;
           </span>

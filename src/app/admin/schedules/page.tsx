@@ -10,6 +10,9 @@ export default async function AdminSchedulesPage() {
     include: {
       class: true,
       subject: true,
+      homeworkQuiz: {
+        select: { id: true, title: true }
+      },
       teacher: {
         include: { user: true },
       },

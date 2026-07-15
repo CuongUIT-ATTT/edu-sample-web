@@ -118,6 +118,8 @@ model Schedule {
   materials         String?              // URL or JSON of preview documents
   homework          String?              // URL or JSON of homework files
   homeworkDueDate   DateTime?            // Deadline for homework submission
+  homeworkQuizId    String?
+  homeworkQuiz      Quiz?                @relation(fields: [homeworkQuizId], references: [id], onDelete: SetNull)
   submissions       HomeworkSubmission[]
 }
 
@@ -232,6 +234,7 @@ model Quiz {
   
   questions    Question[]
   submissions  QuizSubmission[]
+  schedules    Schedule[]
 }
 
 model Question {

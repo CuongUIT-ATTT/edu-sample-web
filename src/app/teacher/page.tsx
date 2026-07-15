@@ -49,14 +49,53 @@ export default async function TeacherDashboardPage() {
           orderBy: { startTime: "asc" },
         });
 
-        schedulesList = schedules.map((s) => ({
-          id: s.id,
-          time: `${s.startTime} - ${s.endTime}`,
-          subjectName: s.subject.name,
-          className: `Lớp ${s.class.name}`,
-          room: s.room || "Room 302",
-          status: "Sắp diễn ra",
-        }));
+        const today = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(today.getDate() + 1);
+
+        const getPrismaDayOfWeek = (d: Date) => {
+          const jsDay = d.getDay();
+          return jsDay === 0 ? 7 : jsDay;
+        };
+
+        const todayDayOfWeek = getPrismaDayOfWeek(today);
+        const tomorrowDayOfWeek = getPrismaDayOfWeek(tomorrow);
+
+        const filteredSchedules = schedules.filter((s) => {
+          if (s.date) {
+            const sDate = new Date(s.date);
+            const isTodayDate =
+              sDate.getFullYear() === today.getFullYear() &&
+              sDate.getMonth() === today.getMonth() &&
+              sDate.getDate() === today.getDate();
+            const isTomorrowDate =
+              sDate.getFullYear() === tomorrow.getFullYear() &&
+              sDate.getMonth() === tomorrow.getMonth() &&
+              sDate.getDate() === tomorrow.getDate();
+            return isTodayDate || isTomorrowDate;
+          }
+          return s.dayOfWeek === todayDayOfWeek || s.dayOfWeek === tomorrowDayOfWeek;
+        });
+
+        schedulesList = filteredSchedules.map((s) => {
+          let dayLabel = "";
+          if (s.date) {
+            const sDate = new Date(s.date);
+            if (sDate.getDate() === today.getDate()) dayLabel = "Hôm nay";
+            else dayLabel = "Ngày mai";
+          } else {
+            if (s.dayOfWeek === todayDayOfWeek) dayLabel = "Hôm nay";
+            else dayLabel = "Ngày mai";
+          }
+          return {
+            id: s.id,
+            time: `${dayLabel}, ${s.startTime} - ${s.endTime}`,
+            subjectName: s.subject.name,
+            className: `Lớp ${s.class.name}`,
+            room: s.room || "Room 302",
+            status: "Sắp diễn ra",
+          };
+        });
 
         // Fetch students under this teacher
         const classIds = schedules.map((s) => s.classId);

@@ -285,3 +285,91 @@ export async function updateQuiz(input: UpdateQuizInput) {
     return { success: false, error: "Đã xảy ra lỗi hệ thống khi cập nhật đề kiểm tra." };
   }
 }
+
+export async function getQuizSubmissions(quizId: string) {
+  try {
+    const session = await getSession();
+    if (!session || (session.role !== "TEACHER" && session.role !== "ADMIN")) {
+      return { success: false, error: "Bạn không có quyền xem kết quả bài kiểm tra này." };
+    }
+
+    const submissions = await db.quizSubmission.findMany({
+      where: { quizId },
+      include: {
+        student: {
+          include: {
+            user: { select: { name: true } },
+            classes: { select: { name: true } }
+          }
+        }
+      },
+      orderBy: { submittedAt: "desc" }
+    });
+
+    const formatted = submissions.map(s => ({
+      id: s.id,
+      candidateName: s.student ? s.student.user.name : (s.guestName || "Thí sinh tự do"),
+      classes: s.student ? s.student.classes.map(c => c.name).join(", ") : "Tự do (Thi thử)",
+      score: s.score,
+      submittedAt: s.submittedAt.toISOString()
+    }));
+
+    return { success: true, data: formatted };
+  } catch (error) {
+    console.error("Error loading quiz submissions:", error);
+    return { success: false, error: "Lỗi hệ thống khi tải kết quả làm bài." };
+  }
+}
+
+export async function getAllQuizzesForHomework() {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return { success: false, error: "Bạn chưa đăng nhập." };
+    }
+
+    const quizzes = await db.quiz.findMany({
+      select: {
+        id: true,
+        title: true,
+        subjectId: true,
+        classId: true
+      },
+      orderBy: { title: "asc" }
+    });
+
+    return { success: true, data: quizzes };
+  } catch (error) {
+    console.error("Error fetching quizzes for homework:", error);
+    return { success: false, error: "Lỗi tải đề thi." };
+  }
+}
+
+export async function getStudentQuizResult(quizId: string) {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "STUDENT") {
+      return { success: false, error: "Chưa đăng nhập học sinh." };
+    }
+    const studentProfile = await db.studentProfile.findUnique({
+      where: { userId: session.userId }
+    });
+    if (!studentProfile) {
+      return { success: false, error: "Hồ sơ học sinh không tồn tại." };
+    }
+    const submission = await db.quizSubmission.findFirst({
+      where: {
+        quizId,
+        studentId: studentProfile.id
+      },
+      orderBy: { submittedAt: "desc" }
+    });
+    if (submission) {
+      return { success: true, data: { score: submission.score } };
+    }
+    return { success: true, data: null };
+  } catch (error) {
+    console.error(error);
+    return { success: false, error: "Lỗi hệ thống khi tải kết quả BTVN." };
+  }
+}

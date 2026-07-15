@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3 } from "lucide-react";
-import { createQuiz, deleteQuiz, updateQuiz } from "@/actions/quizzes";
+import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2 } from "lucide-react";
+import { createQuiz, deleteQuiz, updateQuiz, getQuizSubmissions } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
 
 interface QuizItem {
@@ -14,6 +14,7 @@ interface QuizItem {
   passingScore: number;
   isPublic?: boolean;
   answerVisibility?: string;
+  creatorName?: string;
   subject: {
     id: string;
     name: string;
@@ -40,12 +41,40 @@ interface TeacherQuizManagerProps {
   quizzes: QuizItem[];
   subjects: { id: string; name: string }[];
   classes: { id: string; name: string }[];
+  isAdmin?: boolean;
 }
 
-export default function TeacherQuizManager({ quizzes, subjects, classes }: TeacherQuizManagerProps) {
+export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin = false }: TeacherQuizManagerProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Submissions modal state
+  const [isSubmissionsOpen, setIsSubmissionsOpen] = useState(false);
+  const [selectedQuizTitle, setSelectedQuizTitle] = useState("");
+  const [submissionsList, setSubmissionsList] = useState<any[]>([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+
+  const handleViewSubmissions = async (quizId: string, quizTitle: string) => {
+    setSelectedQuizTitle(quizTitle);
+    setIsSubmissionsOpen(true);
+    setLoadingSubmissions(true);
+    setSubmissionsList([]);
+
+    try {
+      const res = await getQuizSubmissions(quizId);
+      if (res.success && res.data) {
+        setSubmissionsList(res.data);
+      } else {
+        alert(res.error || "Không thể tải danh sách kết quả.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Lỗi hệ thống khi tải kết quả.");
+    } finally {
+      setLoadingSubmissions(false);
+    }
+  };
 
   // Form states
   const [title, setTitle] = useState("");
@@ -584,25 +613,32 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
           quizzes.map((q) => (
             <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm flex flex-col justify-between gap-4">
               <div className="flex flex-col gap-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-primary px-2.5 py-0.5 rounded-full">
-                    {q.subject.name}
-                  </span>
-                  {q.class && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-orange-50 text-orange-600 px-2.5 py-0.5 rounded-full">
-                      Lớp {q.class.name}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-primary px-2.5 py-0.5 rounded-full">
+                      {q.subject.name}
+                    </span>
+                    {q.class && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-orange-50 text-orange-600 px-2.5 py-0.5 rounded-full">
+                        Lớp {q.class.name}
+                      </span>
+                    )}
+                    {q.isPublic ? (
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-green-50 text-green-700 px-2.5 py-0.5 rounded-full">
+                        Công khai
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-ink-muted-80 px-2.5 py-0.5 rounded-full">
+                        Nội bộ
+                      </span>
+                    )}
+                    <span className="text-xs text-ink-muted-48 font-semibold">{q._count.questions} câu hỏi</span>
+                  </div>
+                  {isAdmin && q.creatorName && (
+                    <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-100 self-start">
+                      Người tạo: {q.creatorName}
                     </span>
                   )}
-                  {q.isPublic ? (
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-green-50 text-green-700 px-2.5 py-0.5 rounded-full">
-                      Công khai
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-ink-muted-80 px-2.5 py-0.5 rounded-full">
-                      Nội bộ
-                    </span>
-                  )}
-                  <span className="text-xs text-ink-muted-48 font-semibold">{q._count.questions} câu hỏi</span>
                 </div>
                 <h3 className="font-body-strong text-base font-bold text-ink leading-snug">
                   {q.title}
@@ -623,7 +659,13 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
                 </div>
               </div>
 
-              <div className="border-t border-divider-soft pt-4 flex justify-end gap-2">
+              <div className="border-t border-divider-soft pt-4 flex justify-end gap-2 flex-wrap">
+                <button
+                  onClick={() => handleViewSubmissions(q.id, q.title)}
+                  className="bg-purple-50 text-purple-700 hover:bg-purple-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
+                >
+                  <Award className="h-3.5 w-3.5" /> Kết quả
+                </button>
                 <button
                   onClick={() => handleShareClick(q.id)}
                   className="bg-green-50 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
@@ -1068,6 +1110,83 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
                 Xác nhận tạo đề thi
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Submissions Results View Modal */}
+      {isSubmissionsOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-canvas border border-hairline rounded-lg w-[650px] max-w-full shadow-product flex flex-col overflow-hidden animate-fade-in max-h-[85vh]">
+            <div className="border-b border-divider p-5 flex items-center justify-between">
+              <div>
+                <h3 className="font-tagline text-base font-bold text-ink">Kết quả làm bài thi</h3>
+                <p className="text-[10px] text-ink-muted-48">{selectedQuizTitle}</p>
+              </div>
+              <button
+                onClick={() => setIsSubmissionsOpen(false)}
+                className="hover:bg-surface-pearl p-1 rounded-full text-ink-muted-80 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-4">
+              {loadingSubmissions ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-2">
+                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                  <span className="text-xs text-ink-muted-80 font-body">Đang tải kết quả thi...</span>
+                </div>
+              ) : submissionsList.length === 0 ? (
+                <div className="text-center py-12 border border-dashed border-divider rounded-lg">
+                  <Award className="h-10 w-10 text-ink-muted-48 mx-auto mb-2" />
+                  <span className="text-xs text-ink-muted-80 font-body">Chưa có lượt nộp bài nào cho đề thi này.</span>
+                </div>
+              ) : (
+                <div className="border border-hairline rounded-lg overflow-hidden">
+                  <table className="w-full text-left text-xs font-body border-collapse">
+                    <thead>
+                      <tr className="bg-surface-pearl text-ink-muted-80 border-b border-divider font-semibold text-[10px] uppercase tracking-wider">
+                        <th className="p-3">Họ và Tên</th>
+                        <th className="p-3">Lớp học</th>
+                        <th className="p-3 text-center">Điểm số</th>
+                        <th className="p-3 text-right">Thời gian nộp</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-divider-soft">
+                      {submissionsList.map((s) => (
+                        <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 font-semibold text-ink">{s.candidateName}</td>
+                          <td className="p-3 text-ink-muted-80">{s.classes}</td>
+                          <td className="p-3 text-center">
+                            <span className="font-bold text-primary px-2 py-0.5 bg-blue-50 border border-blue-100 rounded text-xs">
+                              {Number(s.score).toFixed(1)} / 10.0
+                            </span>
+                          </td>
+                          <td className="p-3 text-right text-ink-muted-48 text-[11px]">
+                            {new Date(s.submittedAt).toLocaleString("vi-VN", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              day: "2-digit",
+                              month: "2-digit",
+                            })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-divider p-4 flex justify-end">
+              <button
+                onClick={() => setIsSubmissionsOpen(false)}
+                className="bg-primary hover:bg-primary-focus text-white px-5 py-2 rounded-pill text-xs font-semibold shadow-sm"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}

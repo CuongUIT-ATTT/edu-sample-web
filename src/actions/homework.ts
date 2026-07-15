@@ -9,6 +9,7 @@ interface UpdateScheduleFilesInput {
   materials?: string | null;
   homework?: string | null;
   homeworkDueDate?: string | null;
+  homeworkQuizId?: string | null;
 }
 
 export async function updateScheduleFiles(input: UpdateScheduleFilesInput) {
@@ -18,11 +19,12 @@ export async function updateScheduleFiles(input: UpdateScheduleFilesInput) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
     }
 
-    const { scheduleId, materials, homework, homeworkDueDate } = input;
+    const { scheduleId, materials, homework, homeworkDueDate, homeworkQuizId } = input;
 
-    const data: { materials?: string | null; homework?: string | null; homeworkDueDate?: Date | null } = {};
+    const data: { materials?: string | null; homework?: string | null; homeworkDueDate?: Date | null; homeworkQuizId?: string | null } = {};
     if (materials !== undefined) data.materials = materials;
     if (homework !== undefined) data.homework = homework;
+    if (homeworkQuizId !== undefined) data.homeworkQuizId = homeworkQuizId;
     if (homeworkDueDate !== undefined) {
       data.homeworkDueDate = homeworkDueDate ? new Date(homeworkDueDate) : null;
     }
@@ -227,5 +229,62 @@ export async function getStudentSubmission(scheduleId: string) {
   } catch (error) {
     console.error("Error getting student submission:", error);
     return { success: false, error: "Lỗi hệ thống khi tải bài nộp học sinh." };
+  }
+}
+
+export async function getClassSessionQuizSubmissions(scheduleId: string, quizId: string) {
+  try {
+    const session = await getSession();
+    if (!session || (session.role !== "TEACHER" && session.role !== "ADMIN")) {
+      return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
+    }
+
+    const schedule = await db.schedule.findUnique({
+      where: { id: scheduleId },
+      include: {
+        class: {
+          include: {
+            students: {
+              include: {
+                user: { select: { name: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!schedule) {
+      return { success: false, error: "Không tìm thấy thông tin ca học." };
+    }
+
+    const students = schedule.class.students;
+    const studentIds = students.map(s => s.id);
+
+    // Fetch quiz submissions for this quiz by students in this class
+    const submissions = await db.quizSubmission.findMany({
+      where: {
+        quizId,
+        studentId: { in: studentIds }
+      },
+      orderBy: { submittedAt: "desc" }
+    });
+
+    // Match students with their submissions
+    const results = students.map(st => {
+      const sub = submissions.find(s => s.studentId === st.id);
+      return {
+        studentId: st.id,
+        studentName: st.user.name,
+        submitted: !!sub,
+        score: sub ? sub.score : null,
+        submittedAt: sub ? sub.submittedAt.toISOString() : null
+      };
+    });
+
+    return { success: true, data: results };
+  } catch (error) {
+    console.error("Error fetching class session quiz submissions:", error);
+    return { success: false, error: "Lỗi hệ thống khi tải điểm trắc nghiệm." };
   }
 }
