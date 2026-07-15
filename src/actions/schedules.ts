@@ -40,6 +40,12 @@ export async function createSchedule(input: CreateScheduleInput) {
       return { success: false, error: "Vui lòng nhập đầy đủ thông tin lịch học, bao gồm cả phòng học và ngày bắt đầu." };
     }
 
+    const actualDow = new Date(startDate).getDay();
+    const normalizedActual = actualDow === 0 ? 7 : actualDow;
+    if (normalizedActual !== dayOfWeek) {
+      return { success: false, error: "Ngày bắt đầu không khớp với thứ đã chọn" };
+    }
+
     // 1. Validate room exists in the admin-defined Room table
     const targetRoom = await db.room.findFirst({
       where: { name: { equals: room.trim(), mode: "insensitive" } }

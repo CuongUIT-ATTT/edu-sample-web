@@ -37,6 +37,8 @@ import {
   getClassSessionQuizSubmissions,
 } from "@/actions/homework";
 import { getAllQuizzesForHomework, getStudentQuizResult } from "@/actions/quizzes";
+import { getDayOfWeek, nearestDateForDow } from "@/lib/dateUtils";
+import { TIME_SLOTS, addMinutes } from "@/lib/timeSlots";
 
 interface ScheduleItem {
   id: string;
@@ -118,6 +120,64 @@ function parseTimeToMinutes(timeStr: string): number {
   return parts[0] * 60 + parts[1];
 }
 
+const DOW_LABELS: Record<number, string> = {
+  1: "Thứ Hai",
+  2: "Thứ Ba",
+  3: "Thứ Tư",
+  4: "Thứ Năm",
+  5: "Thứ Sáu",
+  6: "Thứ Bảy",
+  7: "Chủ Nhật",
+};
+
+function findConflicts(schedules: ScheduleItem[]): string[] {
+  const conflicts: string[] = [];
+  for (let i = 0; i < schedules.length; i++) {
+    for (let j = i + 1; j < schedules.length; j++) {
+      const s1 = schedules[i];
+      const s2 = schedules[j];
+
+      // Check if same day / date
+      const sameDay = s1.dayOfWeek === s2.dayOfWeek;
+      const sameDate =
+        s1.date &&
+        s2.date &&
+        new Date(s1.date).toISOString().split("T")[0] ===
+          new Date(s2.date).toISOString().split("T")[0];
+
+      if (sameDay || sameDate) {
+        const start1 = parseTimeToMinutes(s1.startTime);
+        const end1 = parseTimeToMinutes(s1.endTime);
+        const start2 = parseTimeToMinutes(s2.startTime);
+        const end2 = parseTimeToMinutes(s2.endTime);
+        const timeOverlaps = start1 < end2 && start2 < end1;
+
+        if (timeOverlaps) {
+          // Check room conflict
+          if (s1.room && s2.room && s1.room.trim() === s2.room.trim()) {
+            const dateStr = s1.date
+              ? new Date(s1.date).toLocaleDateString("vi-VN")
+              : `Thứ ${s1.dayOfWeek + 1}`;
+            conflicts.push(
+              `Phòng học "${s1.room}" bị trùng lịch vào ${dateStr} (${s1.startTime} - ${s1.endTime}) bởi lớp "${s1.class.name}" và lớp "${s2.class.name}".`
+            );
+          }
+          // Check teacher conflict
+          if (s1.teacher.id === s2.teacher.id) {
+            const dateStr = s1.date
+              ? new Date(s1.date).toLocaleDateString("vi-VN")
+              : `Thứ ${s1.dayOfWeek + 1}`;
+            conflicts.push(
+              `Giảng viên "${s1.teacher.user.name}" bị trùng lịch dạy vào ${dateStr} (${s1.startTime} - ${s1.endTime}) cho lớp "${s1.class.name}" và lớp "${s2.class.name}".`
+            );
+          }
+        }
+      }
+    }
+  }
+  return Array.from(new Set(conflicts));
+}
+
 export default function WeeklyTimetable({
   initialSchedules,
   classes,
@@ -182,6 +242,20 @@ export default function WeeklyTimetable({
     }
   }, [userRole]);
 
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  function toggleGroup(groupId: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  }
+
   // Grading states
   const [gradingSubmissionId, setGradingSubmissionId] = useState("");
   const [gradingScore, setGradingScore] = useState("");
@@ -231,6 +305,8 @@ export default function WeeklyTimetable({
   );
   const [endDate, setEndDate] = useState("");
   const [recurrence, setRecurrence] = useState<"NONE" | "WEEKLY">("NONE");
+  const [dowMismatch, setDowMismatch] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Fetch homework submissions when modal opens
   useEffect(() => {
@@ -345,6 +421,47 @@ export default function WeeklyTimetable({
     }
   };
 
+  const handleDeleteGroup = (groupId: string, firstId: string) => {
+    if (
+      confirm(
+        "Bạn có chắc chắn muốn xóa toàn bộ chuỗi ca học lặp lại này? Hành động này không thể hoàn tác."
+      )
+    ) {
+      handleDeleteExecute(firstId, "ALL_FUTURE");
+    }
+  };
+
+  // On dayOfWeek change: auto-jump startDate to nearest
+  // matching date AND clear mismatch warning
+  function handleDayOfWeekChange(newDow: number) {
+    setDayOfWeek(newDow);
+    setStartDate(nearestDateForDow(newDow));
+    setDowMismatch(false);
+    setFormErrors((prev) => ({ ...prev, startDate: "" }));
+  }
+
+  // On startDate change: warn if mismatch, do NOT auto-correct
+  // (user may be intentionally picking a specific date)
+  function handleStartDateChange(newDate: string) {
+    setStartDate(newDate);
+    const actualDow = getDayOfWeek(newDate);
+    setDowMismatch(actualDow !== dayOfWeek);
+    setFormErrors((prev) => ({ ...prev, startDate: "" }));
+  }
+
+  function validate(): Record<string, string> {
+    const errors: Record<string, string> = {};
+    if (!classId) errors.classId = "Vui lòng chọn lớp học";
+    if (!subjectId) errors.subjectId = "Vui lòng chọn môn học";
+    if (!startDate) errors.startDate = "Vui lòng chọn ngày bắt đầu";
+    if (!startTime) errors.startTime = "Vui lòng chọn giờ bắt đầu";
+    if (!endTime) errors.endTime = "Vui lòng chọn giờ kết thúc";
+    if (!selectedRoom) errors.room = "Vui lòng chọn phòng học";
+    if (recurrence === "WEEKLY" && !endDate)
+      errors.endDate = "Vui lòng chọn ngày kết thúc lặp";
+    return errors;
+  }
+
   const handleFormSubmit = async (
     e: React.FormEvent<HTMLFormElement> | null,
     ignoreWarning = false,
@@ -352,6 +469,13 @@ export default function WeeklyTimetable({
     if (e) e.preventDefault();
     setSuccessMsg(null);
     setErrorMsg(null);
+
+    const errors = validate();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    setFormErrors({});
 
     const payload = {
       classId,
@@ -888,6 +1012,34 @@ export default function WeeklyTimetable({
     }
   };
 
+  // Find room & teacher conflicts in the full schedules list
+  const activeConflicts = useMemo(() => findConflicts(schedules), [schedules]);
+
+  // Group schedules for the detailed list view
+  const { groups, singles } = useMemo(() => {
+    const visible = schedules.filter((s) => {
+      const isOwn =
+        userRole === "ADMIN" ||
+        !isTeacherRole ||
+        s.teacher.id === currentTeacherProfileId;
+      return isOwn;
+    });
+
+    const groupsMap = new Map<string, ScheduleItem[]>();
+    const singlesList: ScheduleItem[] = [];
+
+    for (const s of visible) {
+      if (!s.recurrenceGroupId) {
+        singlesList.push(s);
+      } else {
+        const group = groupsMap.get(s.recurrenceGroupId) ?? [];
+        group.push(s);
+        groupsMap.set(s.recurrenceGroupId, group);
+      }
+    }
+    return { groups: groupsMap, singles: singlesList };
+  }, [schedules, userRole, isTeacherRole, currentTeacherProfileId]);
+
   return (
     <div className="flex flex-col gap-8">
       {/* Alert Notices */}
@@ -901,6 +1053,26 @@ export default function WeeklyTimetable({
         <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 flex items-center gap-3 text-sm animate-fade-in">
           <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
           <span>{errorMsg}</span>
+        </div>
+      )}
+      {userRole === "ADMIN" && activeConflicts.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {activeConflicts.map((msg, index) => (
+            <div
+              key={index}
+              className="bg-yellow-50 border border-yellow-200 rounded-lg p-3.5 flex items-start gap-2.5 text-xs animate-fade-in shadow-sm"
+            >
+              <AlertTriangle className="h-4.5 w-4.5 text-yellow-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-yellow-800">
+                  Phát hiện xung đột trùng lịch học
+                </p>
+                <p className="text-yellow-700 mt-0.5 leading-relaxed">
+                  {msg}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -2263,18 +2435,105 @@ export default function WeeklyTimetable({
                 </tr>
               </thead>
               <tbody className="divide-y divide-hairline">
-                {schedules.map((s) => {
-                  const isOwn =
-                    userRole === "ADMIN" ||
-                    !isTeacherRole ||
-                    s.teacher.id === currentTeacherProfileId;
+                {Array.from(groups.entries()).map(([groupId, rows]) => {
+                  const first = rows[0];
+                  const sorted = [...rows].sort(
+                    (a, b) =>
+                      (a.date ? new Date(a.date as any).getTime() : 0) -
+                      (b.date ? new Date(b.date as any).getTime() : 0)
+                  );
+                  const earliest = sorted[0].date
+                    ? new Date(sorted[0].date as any).toLocaleDateString("vi-VN")
+                    : "—";
+                  const latest = sorted[sorted.length - 1].date
+                    ? new Date(sorted[sorted.length - 1].date as any).toLocaleDateString("vi-VN")
+                    : "—";
+                  const isExpanded = expandedGroups.has(groupId);
+
+                  return (
+                    <React.Fragment key={groupId}>
+                      {/* Summary row */}
+                      <tr
+                        className="hover:bg-slate-50 cursor-pointer transition-colors"
+                        onClick={() => toggleGroup(groupId)}
+                      >
+                        <td className="p-3 font-semibold flex items-center gap-1.5">
+                          <span className="text-slate-400 text-[10px] select-none">
+                            {isExpanded ? "▲" : "▼"}
+                          </span>
+                          <span>{first.class.name}</span>
+                        </td>
+                        <td className="p-3 font-semibold text-primary">
+                          {first.subject.name}
+                        </td>
+                        <td className="p-3">
+                          <span className="font-semibold text-slate-700">
+                            {DOW_LABELS[first.dayOfWeek] || `Thứ ${first.dayOfWeek + 1}`}
+                          </span>{" "}
+                          ({first.startTime} - {first.endTime})
+                          <span className="ml-2 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full font-medium">
+                            {earliest} &rarr; {latest} · {rows.length} ca
+                          </span>
+                        </td>
+                        <td className="p-3">{first.teacher.user.name}</td>
+                        <td className="p-3">{first.room || "—"}</td>
+                        <td className="p-3 text-center">
+                          {userRole !== "STUDENT" && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteGroup(groupId, first.id);
+                              }}
+                              className="text-red-500 hover:bg-red-50 p-1.5 rounded-full"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+
+                      {/* Detail sub-rows */}
+                      {isExpanded &&
+                        sorted.map((s) => (
+                          <tr key={s.id} className="bg-slate-50/50 text-slate-600 border-l-2 border-primary/20">
+                            <td className="p-2.5 pl-8 text-slate-400 font-medium">↳ Ca học</td>
+                            <td className="p-2.5">—</td>
+                            <td className="p-2.5 font-medium">
+                              {s.date
+                                ? new Date(s.date).toLocaleDateString("vi-VN")
+                                : "—"}{" "}
+                              ({s.startTime} - {s.endTime})
+                            </td>
+                            <td className="p-2.5">—</td>
+                            <td className="p-2.5">{s.room || "—"}</td>
+                            <td className="p-2.5 text-center">
+                              {userRole !== "STUDENT" && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteTrigger(s);
+                                  }}
+                                  className="text-red-400 hover:text-red-600 hover:bg-red-55 p-1 rounded-full"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                    </React.Fragment>
+                  );
+                })}
+
+                {/* Single rows */}
+                {singles.map((s) => {
                   return (
                     <tr key={s.id} className="hover:bg-surface-pearl/50">
                       <td className="p-3 font-semibold">
-                        {isOwn ? s.class.name : "Đã bận"}
+                        {s.class.name}
                       </td>
                       <td className="p-3 font-semibold text-primary">
-                        {isOwn ? s.subject.name : "—"}
+                        {s.subject.name}
                       </td>
                       <td className="p-3">
                         {s.date
@@ -2283,11 +2542,11 @@ export default function WeeklyTimetable({
                         ({s.startTime} - {s.endTime})
                       </td>
                       <td className="p-3">
-                        {isOwn ? s.teacher.user.name : "Giảng viên khác"}
+                        {s.teacher.user.name}
                       </td>
                       <td className="p-3">{s.room || "—"}</td>
                       <td className="p-3 text-center">
-                        {isOwn && userRole !== "STUDENT" && (
+                        {userRole !== "STUDENT" && (
                           <button
                             onClick={() => handleDeleteTrigger(s)}
                             className="text-red-500 hover:bg-red-55 p-1.5 rounded-full"
@@ -2327,9 +2586,13 @@ export default function WeeklyTimetable({
                   </label>
                   <select
                     value={classId}
-                    onChange={(e) => setClassId(e.target.value)}
-                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                    required
+                    onChange={(e) => {
+                      setClassId(e.target.value);
+                      setFormErrors((prev) => ({ ...prev, classId: "" }));
+                    }}
+                    className={`bg-canvas border rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full ${
+                      formErrors.classId ? "border-red-500" : "border-hairline"
+                    }`}
                   >
                     <option value="">— Chọn lớp —</option>
                     {classes.map((c) => (
@@ -2338,6 +2601,9 @@ export default function WeeklyTimetable({
                       </option>
                     ))}
                   </select>
+                  {formErrors.classId && (
+                    <p className="text-xs text-red-500 mt-1">{formErrors.classId}</p>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -2346,9 +2612,13 @@ export default function WeeklyTimetable({
                   </label>
                   <select
                     value={subjectId}
-                    onChange={(e) => setSubjectId(e.target.value)}
-                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                    required
+                    onChange={(e) => {
+                      setSubjectId(e.target.value);
+                      setFormErrors((prev) => ({ ...prev, subjectId: "" }));
+                    }}
+                    className={`bg-canvas border rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full ${
+                      formErrors.subjectId ? "border-red-500" : "border-hairline"
+                    }`}
                   >
                     <option value="">— Chọn môn —</option>
                     {subjects.map((s) => (
@@ -2357,6 +2627,9 @@ export default function WeeklyTimetable({
                       </option>
                     ))}
                   </select>
+                  {formErrors.subjectId && (
+                    <p className="text-xs text-red-500 mt-1">{formErrors.subjectId}</p>
+                  )}
                 </div>
 
                 {!isTeacherRole && (
@@ -2366,9 +2639,13 @@ export default function WeeklyTimetable({
                     </label>
                     <select
                       value={teacherId}
-                      onChange={(e) => setTeacherId(e.target.value)}
-                      className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                      required
+                      onChange={(e) => {
+                        setTeacherId(e.target.value);
+                        setFormErrors((prev) => ({ ...prev, teacherId: "" }));
+                      }}
+                      className={`bg-canvas border rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full ${
+                        formErrors.teacherId ? "border-red-500" : "border-hairline"
+                      }`}
                     >
                       <option value="">— Chọn giáo viên —</option>
                       {teachers.map((t) => (
@@ -2377,6 +2654,9 @@ export default function WeeklyTimetable({
                         </option>
                       ))}
                     </select>
+                    {formErrors.teacherId && (
+                      <p className="text-xs text-red-500 mt-1">{formErrors.teacherId}</p>
+                    )}
                   </div>
                 )}
 
@@ -2386,9 +2666,8 @@ export default function WeeklyTimetable({
                   </label>
                   <select
                     value={dayOfWeek}
-                    onChange={(e) => setDayOfWeek(parseInt(e.target.value))}
+                    onChange={(e) => handleDayOfWeekChange(parseInt(e.target.value))}
                     className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                    required
                   >
                     <option value={1}>Thứ Hai (Monday)</option>
                     <option value={2}>Thứ Ba (Tuesday)</option>
@@ -2408,10 +2687,30 @@ export default function WeeklyTimetable({
                   <input
                     type="date"
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="bg-canvas border border-hairline rounded-pill px-4 py-2 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                    required
+                    onChange={(e) => handleStartDateChange(e.target.value)}
+                    className={`bg-canvas border rounded-pill px-4 py-2 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full ${
+                      formErrors.startDate ? "border-red-500" : "border-hairline"
+                    }`}
                   />
+                  {formErrors.startDate && (
+                    <p className="text-xs text-red-500 mt-1">{formErrors.startDate}</p>
+                  )}
+                  {dowMismatch && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                      Ngày {startDate} không phải Thứ {dayOfWeek === 7 ? "Nhật" : dayOfWeek + 1}.
+                      <button
+                        type="button"
+                        className="underline text-blue-500 font-semibold"
+                        onClick={() => {
+                          setStartDate(nearestDateForDow(dayOfWeek));
+                          setDowMismatch(false);
+                        }}
+                      >
+                        Tự động sửa
+                      </button>
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -2420,9 +2719,11 @@ export default function WeeklyTimetable({
                   </label>
                   <select
                     value={recurrence}
-                    onChange={(e) => setRecurrence(e.target.value as any)}
+                    onChange={(e) => {
+                      setRecurrence(e.target.value as any);
+                      setFormErrors((prev) => ({ ...prev, endDate: "" }));
+                    }}
                     className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                    required
                   >
                     <option value="NONE">
                       Không lặp lại (Chỉ ngày đã chọn)
@@ -2438,15 +2739,22 @@ export default function WeeklyTimetable({
                   <input
                     type="date"
                     value={recurrence === "NONE" ? startDate : endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      setFormErrors((prev) => ({ ...prev, endDate: "" }));
+                    }}
                     disabled={recurrence === "NONE"}
-                    className={`bg-canvas border border-hairline rounded-pill px-4 py-2 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full ${
+                    className={`bg-canvas border rounded-pill px-4 py-2 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full ${
                       recurrence === "NONE"
-                        ? "opacity-60 bg-slate-50 cursor-not-allowed"
-                        : ""
+                        ? "opacity-60 bg-slate-50 cursor-not-allowed border-hairline"
+                        : formErrors.endDate
+                        ? "border-red-500"
+                        : "border-hairline"
                     }`}
-                    required
                   />
+                  {recurrence === "WEEKLY" && formErrors.endDate && (
+                    <p className="text-xs text-red-500 mt-1">{formErrors.endDate}</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -2454,27 +2762,56 @@ export default function WeeklyTimetable({
                     <label className="text-xs font-caption-strong text-ink-muted-80">
                       Giờ bắt đầu
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      placeholder="08:00"
-                      className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full text-center"
-                      required
-                    />
+                      onChange={(e) => {
+                        setStartTime(e.target.value);
+                        setFormErrors((prev) => ({ ...prev, startTime: "" }));
+                        const newEnd = addMinutes(e.target.value, 90);
+                        if (!endTime || endTime <= e.target.value) {
+                          setEndTime(newEnd);
+                          setFormErrors((prev) => ({ ...prev, endTime: "" }));
+                        }
+                      }}
+                      className={`bg-canvas border rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full text-center ${
+                        formErrors.startTime ? "border-red-500" : "border-hairline"
+                      }`}
+                    >
+                      <option value="">— Chọn giờ —</option>
+                      {TIME_SLOTS.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                    {formErrors.startTime && (
+                      <p className="text-xs text-red-500 mt-1">{formErrors.startTime}</p>
+                    )}
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-caption-strong text-ink-muted-80">
                       Giờ kết thúc
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                      placeholder="09:30"
-                      className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full text-center"
-                      required
-                    />
+                      onChange={(e) => {
+                        setEndTime(e.target.value);
+                        setFormErrors((prev) => ({ ...prev, endTime: "" }));
+                      }}
+                      className={`bg-canvas border rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full text-center ${
+                        formErrors.endTime ? "border-red-500" : "border-hairline"
+                      }`}
+                    >
+                      <option value="">— Chọn giờ —</option>
+                      {TIME_SLOTS.filter((t) => t > startTime).map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                    {formErrors.endTime && (
+                      <p className="text-xs text-red-500 mt-1">{formErrors.endTime}</p>
+                    )}
                   </div>
                 </div>
 
@@ -2484,9 +2821,13 @@ export default function WeeklyTimetable({
                   </label>
                   <select
                     value={selectedRoom}
-                    onChange={(e) => setSelectedRoom(e.target.value)}
-                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                    required
+                    onChange={(e) => {
+                      setSelectedRoom(e.target.value);
+                      setFormErrors((prev) => ({ ...prev, room: "" }));
+                    }}
+                    className={`bg-canvas border rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full ${
+                      formErrors.room ? "border-red-500" : "border-hairline"
+                    }`}
                   >
                     <option value="">— Chọn phòng học —</option>
                     {rooms.map((r) => (
@@ -2495,11 +2836,15 @@ export default function WeeklyTimetable({
                       </option>
                     ))}
                   </select>
+                  {formErrors.room && (
+                    <p className="text-xs text-red-500 mt-1">{formErrors.room}</p>
+                  )}
                 </div>
 
                 <button
                   type="submit"
-                  className="bg-primary hover:bg-primary-focus text-white px-6 py-2.5 rounded-pill font-body font-semibold transition-colors shadow-sm w-full mt-4 flex items-center justify-center gap-2 text-sm"
+                  disabled={dowMismatch}
+                  className="bg-primary hover:bg-primary-focus text-white px-6 py-2.5 rounded-pill font-body font-semibold transition-colors shadow-sm w-full mt-4 flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="h-4 w-4" />
                   Tạo lịch học
