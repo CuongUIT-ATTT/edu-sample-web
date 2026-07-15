@@ -216,13 +216,35 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
         return;
       }
       
-      const formattedQuestions = parsed.map((q: any) => ({
-        questionText: q.questionText || q.text || "",
-        type: ["MULTIPLE_CHOICE", "TRUE_FALSE", "SHORT_ANSWER"].includes(q.type) ? q.type : "MULTIPLE_CHOICE",
-        options: Array.isArray(q.options) ? q.options : [],
-        correctAnswer: q.correctAnswer || q.answer || "0",
-        score: parseFloat(q.score) || 1.0
-      }));
+      const formattedQuestions = parsed.map((q: any) => {
+        const type = ["MULTIPLE_CHOICE", "TRUE_FALSE", "SHORT_ANSWER"].includes(q.type) ? q.type : "MULTIPLE_CHOICE";
+        let options = Array.isArray(q.options) ? [...q.options] : [];
+        let correctAnswer = (q.correctAnswer !== undefined ? q.correctAnswer : q.answer !== undefined ? q.answer : "").toString().trim();
+        
+        if (type === "MULTIPLE_CHOICE") {
+          while (options.length < 4) options.push("");
+          options = options.slice(0, 4);
+          if (!correctAnswer || isNaN(Number(correctAnswer))) {
+            correctAnswer = "0";
+          }
+        } else if (type === "TRUE_FALSE") {
+          while (options.length < 4) options.push("");
+          options = options.slice(0, 4);
+          if (!correctAnswer || !correctAnswer.includes(",")) {
+            correctAnswer = "T,T,T,T";
+          }
+        } else if (type === "SHORT_ANSWER") {
+          options = [];
+        }
+
+        return {
+          questionText: q.questionText || q.text || "",
+          type,
+          options,
+          correctAnswer,
+          score: parseFloat(q.score) || 1.0
+        };
+      });
 
       setQuestions(formattedQuestions);
       alert(`Đã tải thành công ${formattedQuestions.length} câu hỏi từ JSON!`);

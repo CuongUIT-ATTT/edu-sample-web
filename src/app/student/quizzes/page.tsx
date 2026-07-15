@@ -27,7 +27,7 @@ export default async function StudentQuizzesPage() {
     description: string | null;
     duration: number;
     passingScore: number;
-    questions: { id: string; text: string; options: string[]; score: number }[];
+    questions: { id: string; text: string; type?: string; options: string[]; score: number }[];
   }[] = [];
 
   try {
@@ -52,6 +52,7 @@ export default async function StudentQuizzesPage() {
       questions: quiz.questions.map((q) => ({
         id: q.id,
         text: q.text,
+        type: q.type,
         options: q.options as string[],
         score: q.score,
       })),
