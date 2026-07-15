@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Clock, CheckSquare, Award, ArrowLeft, RefreshCw, CheckCircle2, XCircle, Search, Trophy, BarChart3 } from "lucide-react";
 import { submitQuiz } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
@@ -36,6 +36,60 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
   const [showReview, setShowReview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [cheatWarnings, setCheatWarnings] = useState(0);
+  const [isCheatedLocked, setIsCheatedLocked] = useState(false);
+  const forceSubmitRef = useRef<(() => void) | null>(null);
+
+  // Update forceSubmitRef with latest handleSubmit closure
+  useEffect(() => {
+    forceSubmitRef.current = handleSubmit;
+  }, [answers, timeLeft, selectedQuiz]);
+
+  // Anti-cheating logic (Tab switching / Blur detection)
+  useEffect(() => {
+    if (!quizStarted || quizResult || isCheatedLocked) return;
+
+    let lastWarningTime = 0;
+
+    const triggerWarning = () => {
+      const now = Date.now();
+      if (now - lastWarningTime < 2000) return; // Debounce alerts
+      lastWarningTime = now;
+
+      setCheatWarnings((prev) => {
+        const next = prev + 1;
+        if (next >= 3) {
+          setIsCheatedLocked(true);
+          alert("BÀI THI BỊ KHÓA: Bạn đã rời màn hình/chuyển tab quá 3 lần. Bài thi sẽ tự động được nộp.");
+          if (forceSubmitRef.current) {
+            forceSubmitRef.current();
+          }
+          return next;
+        } else {
+          alert(`CẢNH BÁO GIAN LẬN: Bạn không được rời màn hình làm bài! Lần vi phạm: ${next}/3. Quá 3 lần bài thi sẽ tự động khóa và nộp bài.`);
+          return next;
+        }
+      });
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        triggerWarning();
+      }
+    };
+
+    const handleBlur = () => {
+      triggerWarning();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [quizStarted, quizResult, isCheatedLocked]);
 
   // Handle timer
   useEffect(() => {
@@ -214,8 +268,22 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
 
       {/* 2. Interactive Quiz Player view */}
       {quizStarted && !quizResult && (
-        <div className="flex flex-col gap-6 max-w-[800px] mx-auto">
-          
+        <div 
+          className="flex flex-col gap-6 max-w-[800px] mx-auto select-none relative"
+          onCopy={(e) => e.preventDefault()}
+          onCut={(e) => e.preventDefault()}
+          onPaste={(e) => e.preventDefault()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {/* Floating Watermark for Anti-Screen Recording */}
+          <div className="pointer-events-none fixed inset-0 z-20 flex flex-wrap gap-12 justify-center items-center overflow-hidden opacity-[0.02] select-none">
+            {Array.from({ length: 48 }).map((_, i) => (
+              <div key={i} className="text-ink font-bold text-xs transform -rotate-12 whitespace-nowrap">
+                Học sinh - Đang làm bài - CẤM QUAY MÀN HÌNH / SAO CHÉP
+              </div>
+            ))}
+          </div>
+
           {/* Sticky Timer Info */}
           <div className="sticky top-[60px] z-30 frosted-glass border border-hairline rounded-md p-4 flex items-center justify-between shadow-sm">
             <h2 className="font-body-strong text-sm text-ink font-semibold">{selectedQuiz?.title}</h2>
@@ -226,7 +294,16 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
           </div>
 
           {/* Questions Stack */}
-          <div className="flex flex-col gap-6 mt-4">
+          <div className="flex flex-col gap-6 mt-4 relative">
+            {isCheatedLocked && (
+              <div className="absolute inset-0 bg-slate-900/85 backdrop-blur-sm z-40 flex flex-col items-center justify-center p-8 rounded-lg text-white text-center min-h-[300px]">
+                <span className="text-4xl mb-4">🔒</span>
+                <h3 className="font-tagline text-base font-bold">Bài thi đã bị khóa</h3>
+                <p className="text-xs text-slate-300 max-w-md mt-2">
+                  Hệ thống ghi nhận bạn đã chuyển tab hoặc rời màn hình làm bài quá 3 lần. Bài thi của bạn đã bị tự động nộp.
+                </p>
+              </div>
+            )}
             {selectedQuiz?.questions.map((q, qIndex) => (
               <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4">
                 <h3 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
