@@ -442,7 +442,31 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                 const reviewInfo = quizResult.correctAnswers?.find((ca) => ca.id === q.id);
                 const studentAnsVal = (answers[q.id] || "").trim().toUpperCase();
                 const correctAnsVal = (reviewInfo?.correctAnswer || "").trim().toUpperCase();
-                const isCorrect = studentAnsVal === correctAnsVal;
+                
+                let isCorrect = studentAnsVal === correctAnsVal;
+                let scoreEarned = 0;
+                let subCorrectText = "";
+
+                if (q.type === "TRUE_FALSE") {
+                  const studentParts = studentAnsVal.split(",");
+                  const correctParts = correctAnsVal.split(",");
+                  let subCorrect = 0;
+                  for (let i = 0; i < Math.min(studentParts.length, correctParts.length); i++) {
+                    if (studentParts[i] && correctParts[i] && studentParts[i].trim() === correctParts[i].trim()) {
+                      subCorrect++;
+                    }
+                  }
+                  subCorrectText = ` (${subCorrect}/4 ý)`;
+                  if (subCorrect === 1) scoreEarned = 0.1 * q.score;
+                  else if (subCorrect === 2) scoreEarned = 0.25 * q.score;
+                  else if (subCorrect === 3) scoreEarned = 0.5 * q.score;
+                  else if (subCorrect === 4) {
+                    scoreEarned = q.score;
+                    isCorrect = true;
+                  }
+                } else {
+                  if (isCorrect) scoreEarned = q.score;
+                }
 
                 return (
                   <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4">
@@ -451,9 +475,13 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                         Câu {qIndex + 1}: <MathRenderer text={q.text} />
                       </h3>
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                        isCorrect ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
+                        isCorrect 
+                          ? "bg-green-50 text-green-700 border border-green-200" 
+                          : scoreEarned > 0
+                          ? "bg-amber-50 text-amber-700 border border-amber-200"
+                          : "bg-red-50 text-red-700 border border-red-200"
                       }`}>
-                        {isCorrect ? "Đúng" : "Sai"}
+                        {isCorrect ? `Đúng (${scoreEarned.toFixed(2)}đ)` : scoreEarned > 0 ? `Đúng một phần${subCorrectText} (${scoreEarned.toFixed(2)}đ)` : `Sai (0đ)`}
                       </span>
                     </div>
 

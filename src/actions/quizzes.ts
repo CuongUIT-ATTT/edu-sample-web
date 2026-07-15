@@ -48,8 +48,27 @@ export async function submitQuiz(input: SubmitQuizInput) {
       maxScore += question.score;
       const studentAnswer = (input.answers[question.id] || "").trim().toUpperCase();
       const correctAnswer = (question.correctAnswer || "").trim().toUpperCase();
-      if (studentAnswer === correctAnswer) {
-        totalScore += question.score;
+
+      if (question.type === "TRUE_FALSE") {
+        const studentParts = studentAnswer.split(",");
+        const correctParts = correctAnswer.split(",");
+        let subCorrect = 0;
+        for (let i = 0; i < Math.min(studentParts.length, correctParts.length); i++) {
+          if (studentParts[i] && correctParts[i] && studentParts[i].trim() === correctParts[i].trim()) {
+            subCorrect++;
+          }
+        }
+        let scoreRatio = 0;
+        if (subCorrect === 1) scoreRatio = 0.1;
+        else if (subCorrect === 2) scoreRatio = 0.25;
+        else if (subCorrect === 3) scoreRatio = 0.5;
+        else if (subCorrect === 4) scoreRatio = 1.0;
+
+        totalScore += scoreRatio * question.score;
+      } else {
+        if (studentAnswer === correctAnswer) {
+          totalScore += question.score;
+        }
       }
     }
 
