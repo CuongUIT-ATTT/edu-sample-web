@@ -13,6 +13,7 @@ interface QuizItem {
   duration: number;
   passingScore: number;
   isPublic?: boolean;
+  answerVisibility?: string;
   subject: {
     id: string;
     name: string;
@@ -31,6 +32,7 @@ interface QuizItem {
     options: any;
     correctAnswer: string;
     score: number;
+    explanation?: string | null;
   }[];
 }
 
@@ -53,6 +55,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
   const [subjectId, setSubjectId] = useState("");
   const [classId, setClassId] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [answerVisibility, setAnswerVisibility] = useState("IMMEDIATELY");
   const [modalMode, setModalMode] = useState<"CREATE" | "EDIT">("CREATE");
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
   
@@ -68,17 +71,24 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
     options: string[];
     correctAnswer: string;
     score: number;
+    explanation?: string;
   }[]>([
-    { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1 }
+    { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "" }
   ]);
 
   const handleAddQuestion = () => {
-    setQuestions([...questions, { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1 }]);
+    setQuestions([...questions, { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "" }]);
   };
 
   const handleRemoveQuestion = (idx: number) => {
     if (questions.length === 1) return;
     setQuestions(questions.filter((_, i) => i !== idx));
+  };
+
+  const handleExplanationChange = (qIdx: number, val: string) => {
+    const next = [...questions];
+    next[qIdx].explanation = val;
+    setQuestions(next);
   };
 
   const handleQuestionTextChange = (idx: number, val: string) => {
@@ -150,6 +160,48 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
     const link = document.createElement("a");
     link.setAttribute("href", csvContent);
     link.setAttribute("download", "mau_cau_hoi_THPT_2026.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const downloadJsonTemplate = () => {
+    const template = [
+      {
+        questionText: "Nguyên hàm của hàm số $f(x)=x^2$ là?",
+        type: "MULTIPLE_CHOICE",
+        options: ["$\\frac{x^3}{3}+C$", "$2x+C$", "$x^3+C$", "$\\frac{x^2}{2}+C$"],
+        correctAnswer: "0",
+        score: 1.0,
+        explanation: "Áp dụng công thức nguyên hàm cơ bản: $\\int x^n dx = \\frac{x^{n+1}}{n+1} + C$ với $n=2$."
+      },
+      {
+        questionText: "Đồ thị hàm số bậc hai $y = ax^2 + bx + c$ ($a \\neq 0$) là một đường Parabol.",
+        type: "TRUE_FALSE",
+        options: [
+          "Đồ thị cắt trục tung tại điểm $(0; c)$",
+          "Trục đối xứng của Parabol là đường thẳng $x = -\\frac{b}{2a}$",
+          "Tọa độ đỉnh của Parabol là $I(-\\frac{b}{2a}; -\\frac{\\Delta}{4a})$",
+          "Parabol luôn quay bề lõm lên trên với mọi giá trị $a$"
+        ],
+        correctAnswer: "T,T,T,F",
+        score: 2.0,
+        explanation: "Phát biểu 4 sai vì bề lõm quay lên trên khi $a > 0$, quay xuống dưới khi $a < 0$."
+      },
+      {
+        questionText: "Phương trình $\\log_2(x) = 3$ có nghiệm là bao nhiêu?",
+        type: "SHORT_ANSWER",
+        options: [],
+        correctAnswer: "8",
+        score: 1.0,
+        explanation: "Ta có: $\\log_2(x) = 3 \\Leftrightarrow x = 2^3 = 8$."
+      }
+    ];
+
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(template, null, 2))}`;
+    const link = document.createElement("a");
+    link.setAttribute("href", jsonString);
+    link.setAttribute("download", "mau_de_thi_THPT_2026.json");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -254,7 +306,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
           type,
           options,
           correctAnswer,
-          score: parseFloat(q.score) || 1.0
+          score: parseFloat(q.score) || 1.0,
+          explanation: q.explanation || q.explain || ""
         };
       });
 
@@ -395,6 +448,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
         subjectId,
         classId: classId || undefined,
         isPublic,
+        answerVisibility,
         questions,
       });
 
@@ -415,6 +469,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
         subjectId,
         classId: classId || undefined,
         isPublic,
+        answerVisibility,
         questions,
       });
 
@@ -437,7 +492,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
     setSubjectId("");
     setClassId("");
     setIsPublic(false);
-    setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1 }]);
+    setAnswerVisibility("IMMEDIATELY");
+    setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "" }]);
     setModalMode("CREATE");
     setEditingQuizId(null);
   };
@@ -452,6 +508,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
     setSubjectId(q.subject.id);
     setClassId(q.class?.id || "");
     setIsPublic(q.isPublic || false);
+    setAnswerVisibility(q.answerVisibility || "IMMEDIATELY");
     if (q.questions && q.questions.length > 0) {
       setQuestions(q.questions.map((qn) => ({
         questionText: qn.text,
@@ -459,9 +516,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
         options: qn.options as string[],
         correctAnswer: qn.correctAnswer,
         score: qn.score,
+        explanation: qn.explanation || "",
       })));
     } else {
-      setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1 }]);
+      setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "" }]);
     }
     setIsCreateOpen(true);
   };
@@ -662,6 +720,20 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
                   </div>
                 </div>
 
+                <div className="flex flex-col gap-1.5 md:col-span-2">
+                  <label className="text-xs font-caption-strong text-ink-muted-80">Quyền xem đáp án & lời giải</label>
+                  <select
+                    value={answerVisibility}
+                    onChange={(e) => setAnswerVisibility(e.target.value)}
+                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                    required
+                  >
+                    <option value="IMMEDIATELY">Xem đáp án và giải thích ngay sau khi nộp bài</option>
+                    <option value="WHEN_ENDED">Xem đáp án và giải thích khi hết thời gian thi (timer = 0)</option>
+                    <option value="NEVER">Không cho học viên xem đáp án và giải thích</option>
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3 md:col-span-2">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-caption-strong text-ink-muted-80">Thời gian (phút)</label>
@@ -784,6 +856,13 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
                     <span className="text-xs font-bold text-ink flex items-center gap-1.5">
                       <FileText className="h-4 w-4 text-orange-600" /> Nhập danh sách câu hỏi bằng mã JSON
                     </span>
+                    <button
+                      type="button"
+                      onClick={downloadJsonTemplate}
+                      className="text-xs text-primary hover:underline font-semibold"
+                    >
+                      Tải file JSON mẫu (.json)
+                    </button>
                   </div>
                   <textarea
                     rows={8}
@@ -966,6 +1045,17 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
                           required
                         />
                       </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 mt-2">
+                      <label className="text-[10px] font-semibold text-ink-muted-80">Lời giải thích / Hướng dẫn giải (Hỗ trợ LaTeX $...$)</label>
+                      <textarea
+                        rows={2}
+                        value={q.explanation || ""}
+                        onChange={(e) => handleExplanationChange(qIdx, e.target.value)}
+                        placeholder="Nhập lời giải thích hoặc hướng dẫn cách giải câu hỏi này..."
+                        className="bg-canvas border border-hairline rounded-lg p-2.5 text-xs outline-none focus:border-primary-focus w-full"
+                      />
                     </div>
                   </div>
                 ))}

@@ -51,6 +51,7 @@ export default async function StudentQuizzesPage() {
       description: quiz.description,
       duration: quiz.duration,
       passingScore: quiz.passingScore,
+      answerVisibility: quiz.answerVisibility,
       questions: quiz.questions.map((q) => ({
         id: q.id,
         text: q.text,

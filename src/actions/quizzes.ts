@@ -8,6 +8,7 @@ interface SubmitQuizInput {
   quizId: string;
   answers: Record<string, string>; // Map of question ID to answer index string
   guestName?: string;
+  timeExpired?: boolean;
 }
 
 export async function submitQuiz(input: SubmitQuizInput) {
@@ -90,13 +91,25 @@ export async function submitQuiz(input: SubmitQuizInput) {
 
     const passed = totalScore >= quiz.passingScore;
 
+    let showAnswers = false;
+    if (quiz.answerVisibility === "IMMEDIATELY") {
+      showAnswers = true;
+    } else if (quiz.answerVisibility === "WHEN_ENDED" && input.timeExpired) {
+      showAnswers = true;
+    }
+
     return { 
       success: true, 
       data: {
         score: totalScore,
         maxScore,
         passed,
-        submissionId: submission.id
+        submissionId: submission.id,
+        correctAnswers: showAnswers ? quiz.questions.map(q => ({
+          id: q.id,
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation
+        })) : null
       } 
     };
   } catch (error) {
@@ -113,12 +126,14 @@ interface CreateQuizInput {
   subjectId: string;
   classId?: string;
   isPublic?: boolean;
+  answerVisibility?: string; // IMMEDIATELY, WHEN_ENDED, NEVER
   questions: {
     questionText: string;
     type?: string;
     options: string[];
     correctAnswer: string;
     score?: number;
+    explanation?: string;
   }[];
 }
 
@@ -140,7 +155,7 @@ export async function createQuiz(input: CreateQuizInput) {
       teacherId = teacher.id;
     }
 
-    const { title, description, duration, passingScore, subjectId, classId, isPublic, questions } = input;
+    const { title, description, duration, passingScore, subjectId, classId, isPublic, answerVisibility, questions } = input;
 
     if (!title || isNaN(duration) || isNaN(passingScore) || !subjectId || questions.length === 0) {
       return { success: false, error: "Vui lòng nhập đầy đủ thông tin đề thi và ít nhất 1 câu hỏi." };
@@ -156,6 +171,7 @@ export async function createQuiz(input: CreateQuizInput) {
           subjectId,
           classId: classId || null,
           isPublic: isPublic || false,
+          answerVisibility: answerVisibility || "IMMEDIATELY",
           teacherId,
         },
       });
@@ -169,6 +185,7 @@ export async function createQuiz(input: CreateQuizInput) {
             options: q.options,
             correctAnswer: q.correctAnswer,
             score: q.score || 1.0,
+            explanation: q.explanation || null,
           },
         });
       }
@@ -220,7 +237,7 @@ export async function updateQuiz(input: UpdateQuizInput) {
       return { success: false, error: "Chỉ quản trị viên hoặc giảng viên mới được sửa đề kiểm tra." };
     }
 
-    const { id, title, description, duration, passingScore, subjectId, classId, isPublic, questions } = input;
+    const { id, title, description, duration, passingScore, subjectId, classId, isPublic, answerVisibility, questions } = input;
 
     await db.$transaction(async (tx) => {
       // 1. Update quiz basic info
@@ -234,6 +251,7 @@ export async function updateQuiz(input: UpdateQuizInput) {
           subjectId,
           classId: classId || null,
           isPublic: isPublic || false,
+          answerVisibility: answerVisibility || "IMMEDIATELY",
         },
       });
 
@@ -251,6 +269,7 @@ export async function updateQuiz(input: UpdateQuizInput) {
             options: q.options,
             correctAnswer: q.correctAnswer,
             score: q.score || 1.0,
+            explanation: q.explanation || null,
           },
         });
       }

@@ -22,6 +22,7 @@ export default async function PublicQuizzesPage() {
     duration: q.duration,
     passingScore: q.passingScore,
     category: q.subject.name,
+    answerVisibility: q.answerVisibility,
     questions: q.questions.map((qn) => ({
       id: qn.id,
       text: qn.text,

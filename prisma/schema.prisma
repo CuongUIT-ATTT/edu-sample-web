@@ -214,12 +214,13 @@ model Enrollment {
 }
 
 model Quiz {
-  id           String           @id @default(uuid())
-  title        String
-  description  String?
-  duration     Int              // in minutes
-  passingScore Float
-  isPublic     Boolean          @default(false)
+  id               String           @id @default(uuid())
+  title            String
+  description      String?
+  duration         Int              // in minutes
+  passingScore     Float
+  isPublic         Boolean          @default(false)
+  answerVisibility String           @default("IMMEDIATELY") // IMMEDIATELY, WHEN_ENDED, NEVER
   
   subjectId    String
   subject      Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
@@ -240,6 +241,7 @@ model Question {
   options       Json     // Array of choices, e.g. ["A", "B", "C", "D"]
   correctAnswer String   // Index or text of correct answer
   score         Float    @default(1.0)
+  explanation   String?
   
   quizId        String
   quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)

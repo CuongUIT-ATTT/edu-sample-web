@@ -67,7 +67,6 @@ export default async function SharedQuizPage({
     questionText: q.text,
     type: q.type,
     options: typeof q.options === "string" ? JSON.parse(q.options) : q.options,
-    correctAnswer: q.correctAnswer,
     score: q.score,
   }));
 
@@ -79,6 +78,7 @@ export default async function SharedQuizPage({
     passingScore: quiz.passingScore,
     subjectName: quiz.subject.name,
     isPublic: quiz.isPublic,
+    answerVisibility: quiz.answerVisibility,
     questions: formattedQuestions,
   };
 
