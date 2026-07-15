@@ -23,7 +23,7 @@ export default async function LeaderboardPage() {
         user: {
           select: { name: true },
         },
-        class: {
+        classes: {
           select: { name: true, gradeLevel: true },
         },
         grades: {
@@ -49,8 +49,8 @@ export default async function LeaderboardPage() {
 
         return {
           name: student.user.name,
-          className: student.class?.name || "Tự do",
-          gradeLevel: student.class?.gradeLevel || 12,
+          className: student.classes.map((c) => c.name).join(", ") || "Tự do",
+          gradeLevel: student.classes[0]?.gradeLevel || 12,
           avgScore,
           badge,
         };

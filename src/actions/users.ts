@@ -61,8 +61,8 @@ export async function createUser(input: CreateUserInput) {
         await tx.studentProfile.create({
           data: {
             userId: newUser.id,
-            classId: classId || null,
             parentId: parentId || null,
+            classes: classId ? { connect: { id: classId } } : undefined,
           },
         });
       } else if (role === "PARENT") {
@@ -136,9 +136,13 @@ export async function updateUser(userId: string, input: Partial<CreateUserInput>
         // Create new profile
         if (role === "ADMIN") await tx.adminProfile.create({ data: { userId } });
         else if (role === "TEACHER") await tx.teacherProfile.create({ data: { userId } });
-        else if (role === "STUDENT") {
+        if (role === "STUDENT") {
           await tx.studentProfile.create({
-            data: { userId, classId: classId || null, parentId: parentId || null },
+            data: {
+              userId,
+              parentId: parentId || null,
+              classes: classId ? { connect: { id: classId } } : undefined,
+            },
           });
         }
         else if (role === "PARENT") await tx.parentProfile.create({ data: { userId } });
@@ -148,12 +152,12 @@ export async function updateUser(userId: string, input: Partial<CreateUserInput>
           where: { userId },
           create: {
             userId,
-            classId: classId || null,
             parentId: parentId || null,
+            classes: classId ? { connect: { id: classId } } : undefined,
           },
           update: {
-            classId: classId || null,
             parentId: parentId || null,
+            classes: classId ? { set: [{ id: classId }] } : { set: [] },
           },
         });
       }
@@ -258,8 +262,8 @@ export async function importUsers(users: CreateUserInput[]) {
             await tx.studentProfile.create({
               data: {
                 userId: newUser.id,
-                classId: targetClassId,
                 parentId: u.parentId || null,
+                classes: targetClassId ? { connect: { id: targetClassId } } : undefined,
               },
             });
           } else if (u.role === "PARENT") {

@@ -24,7 +24,9 @@ export async function GET(request: Request) {
         subjectId,
         type: type.toUpperCase(),
         student: {
-          classId,
+          classes: {
+            some: { id: classId }
+          }
         },
       },
       select: {

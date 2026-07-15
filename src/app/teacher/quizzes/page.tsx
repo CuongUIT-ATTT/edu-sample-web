@@ -27,6 +27,7 @@ export default async function TeacherQuizzesPage() {
     include: {
       subject: true,
       class: true,
+      questions: true,
       _count: {
         select: { questions: true },
       },

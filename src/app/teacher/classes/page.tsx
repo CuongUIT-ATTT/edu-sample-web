@@ -14,7 +14,30 @@ export default async function TeacherClassesPage() {
     redirect("/login");
   }
 
+  const teacherProfile = await db.teacherProfile.findUnique({
+    where: { userId: session.userId }
+  });
+
+  if (!teacherProfile) {
+    redirect("/login");
+  }
+
+  // Find class IDs for classes taught/managed by this teacher
+  const taughtClasses = await db.class.findMany({
+    where: {
+      OR: [
+        { formTeacherId: teacherProfile.id },
+        { schedules: { some: { teacherId: teacherProfile.id } } }
+      ]
+    },
+    select: { id: true }
+  });
+  const teacherClassIds = taughtClasses.map(c => c.id);
+
   const classesList = await db.class.findMany({
+    where: {
+      id: { in: teacherClassIds }
+    },
     include: {
       formTeacher: {
         include: { user: true },
@@ -22,6 +45,7 @@ export default async function TeacherClassesPage() {
       students: {
         include: {
           user: true,
+          classes: true,
         },
       },
       _count: {
@@ -36,9 +60,16 @@ export default async function TeacherClassesPage() {
     orderBy: { user: { name: "asc" } },
   });
 
+  // Teacher can only add students who are already in at least one class of this teacher
   const allStudents = await db.studentProfile.findMany({
+    where: {
+      classes: {
+        some: { id: { in: teacherClassIds } }
+      }
+    },
     include: {
       user: true,
+      classes: true,
     },
     orderBy: { user: { name: "asc" } },
   });

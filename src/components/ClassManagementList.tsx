@@ -34,7 +34,7 @@ interface ClassItem {
 interface ClassManagementListProps {
   initialClasses: ClassItem[];
   teachers: { id: string; user: { name: string } }[];
-  allStudents: { id: string; classId: string | null; user: { name: string; email: string } }[];
+  allStudents: { id: string; classes: { id: string; name: string }[]; user: { name: string; email: string } }[];
   createClassAction: (formData: FormData) => Promise<any>;
 }
 
@@ -110,12 +110,12 @@ export default function ClassManagementList({
     }
   };
 
-  const handleRemoveStudent = async (studentId: string, studentName: string) => {
+  const handleRemoveStudent = async (classId: string, studentId: string, studentName: string) => {
     if (!confirm(`Bạn có chắc muốn loại học viên ${studentName} khỏi lớp này không?`)) return;
     setSuccessMsg(null);
     setErrorMsg(null);
 
-    const res = await removeStudentFromClass(studentId);
+    const res = await removeStudentFromClass(classId, studentId);
     if (res.success) {
       setSuccessMsg(res.message || "Đã loại học viên khỏi lớp.");
       window.location.reload();
@@ -143,7 +143,7 @@ export default function ClassManagementList({
 
   // Get students who are not in the currently selected class
   const availableStudents = allStudents.filter(
-    (s) => s.classId !== selectedClass?.id
+    (s) => !s.classes?.some((c: any) => c.id === selectedClass?.id)
   );
 
   return (
@@ -252,7 +252,7 @@ export default function ClassManagementList({
                                 </div>
                               </div>
                               <button
-                                onClick={() => handleRemoveStudent(student.id, student.user.name)}
+                                onClick={() => handleRemoveStudent(c.id, student.id, student.user.name)}
                                 className="text-red-500 hover:bg-red-50 p-1 rounded"
                                 title="Loại khỏi lớp"
                               >
@@ -442,7 +442,7 @@ export default function ClassManagementList({
                       <option value="">— Chọn học viên —</option>
                       {availableStudents.map((s) => (
                         <option key={s.id} value={s.id}>
-                          {s.user.name} ({s.user.email}) {s.classId ? `[Hiện ở lớp khác]` : "[Chưa xếp lớp]"}
+                          {s.user.name} ({s.user.email}) {s.classes && s.classes.length > 0 ? `[Hiện ở: ${s.classes.map((c: any) => c.name).join(", ")}]` : "[Chưa xếp lớp]"}
                         </option>
                       ))}
                     </select>
@@ -485,7 +485,7 @@ export default function ClassManagementList({
                         </div>
                       </div>
                       <button
-                        onClick={() => handleRemoveStudent(s.id, s.user.name)}
+                        onClick={() => handleRemoveStudent(selectedClass.id, s.id, s.user.name)}
                         className="text-red-500 hover:bg-red-50 p-1.5 rounded-full"
                         title="Loại khỏi lớp"
                       >

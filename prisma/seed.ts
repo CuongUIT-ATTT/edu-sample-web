@@ -129,7 +129,11 @@ async function main() {
   // Assign Student to Class
   await prisma.studentProfile.update({
     where: { id: studentProfile.id },
-    data: { classId: class10A1.id },
+    data: {
+      classes: {
+        connect: { id: class10A1.id }
+      }
+    },
   });
 
   // 5. Create Schedules

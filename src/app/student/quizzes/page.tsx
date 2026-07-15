@@ -15,6 +15,7 @@ export default async function StudentQuizzesPage() {
 
   const studentProfile = await db.studentProfile.findUnique({
     where: { userId: session.userId },
+    include: { classes: true },
   });
 
   if (!studentProfile) {
@@ -31,11 +32,12 @@ export default async function StudentQuizzesPage() {
   }[] = [];
 
   try {
+    const classIds = studentProfile.classes.map((c) => c.id);
     const dbQuizzes = await db.quiz.findMany({
       where: {
         OR: [
           { classId: null },
-          { classId: studentProfile.classId }
+          { classId: { in: classIds } }
         ]
       },
       include: {

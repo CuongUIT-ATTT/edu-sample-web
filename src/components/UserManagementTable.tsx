@@ -16,7 +16,7 @@ interface DbUser {
   name: string;
   role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
   studentProfile?: {
-    class?: { id: string; name: string } | null;
+    classes?: { id: string; name: string }[] | null;
   } | null;
 }
 
@@ -102,7 +102,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
       
       const matchesClass = 
         selectedClassId === "ALL" || 
-        (u.role === "STUDENT" && u.studentProfile?.class?.id === selectedClassId);
+        (u.role === "STUDENT" && u.studentProfile?.classes?.some((c: any) => c.id === selectedClassId));
 
       return matchesSearch && matchesRole && matchesClass;
     });
@@ -159,7 +159,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
     setFormRole(u.role);
     setFormPassword(""); // Leave empty if no password change
     // Prefill student details if available
-    setFormClassId(u.studentProfile?.class?.id || "");
+    setFormClassId(u.studentProfile?.classes?.[0]?.id || "");
     // Parent profile is loaded separately or via state if matching
     setIsCreateOpen(false);
   };
@@ -415,10 +415,14 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
                   </td>
                   <td className="px-6 py-4 text-sm font-caption text-ink-muted-80">
                     {user.role === "STUDENT" ? (
-                      user.studentProfile?.class ? (
-                        <span className="text-xs font-body bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
-                          Lớp {user.studentProfile.class.name}
-                        </span>
+                      user.studentProfile?.classes && user.studentProfile.classes.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {user.studentProfile.classes.map((c) => (
+                            <span key={c.id} className="text-xs font-body bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+                              Lớp {c.name}
+                            </span>
+                          ))}
+                        </div>
                       ) : (
                         <span className="text-xs italic text-ink-muted-48">Chưa xếp lớp</span>
                       )

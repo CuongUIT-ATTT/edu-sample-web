@@ -38,14 +38,14 @@ export default async function StudentDashboardPage() {
       const studentProfile = await db.studentProfile.findUnique({
         where: { userId: session.userId },
         include: {
-          class: true,
+          classes: true,
           grades: true,
           attendances: true,
         },
       });
 
       if (studentProfile) {
-        className = studentProfile.class?.name || "Chưa xếp lớp";
+        className = studentProfile.classes.map((c) => c.name).join(", ") || "Chưa xếp lớp";
 
         // Calculate GPA
         const grades = studentProfile.grades;
@@ -71,10 +71,11 @@ export default async function StudentDashboardPage() {
           attendanceRate = `${((presentCount / attendances.length) * 100).toFixed(1)}%`;
         }
 
-        // Fetch subjects count in their class
-        if (studentProfile.classId) {
+        // Fetch subjects count in their classes
+        const classIds = studentProfile.classes.map((c) => c.id);
+        if (classIds.length > 0) {
           const distinctSubjects = await db.schedule.findMany({
-            where: { classId: studentProfile.classId },
+            where: { classId: { in: classIds } },
             select: { subjectId: true },
             distinct: ["subjectId"],
           });
@@ -82,7 +83,7 @@ export default async function StudentDashboardPage() {
 
           // Fetch schedules list
           const schedules = await db.schedule.findMany({
-            where: { classId: studentProfile.classId },
+            where: { classId: { in: classIds } },
             include: {
               subject: true,
               teacher: { include: { user: true } },

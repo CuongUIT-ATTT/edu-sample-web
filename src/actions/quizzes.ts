@@ -208,3 +208,61 @@ export async function deleteQuiz(quizId: string) {
     return { success: false, error: "Đã xảy ra lỗi hệ thống khi xoá đề kiểm tra." };
   }
 }
+
+interface UpdateQuizInput extends CreateQuizInput {
+  id: string;
+}
+
+export async function updateQuiz(input: UpdateQuizInput) {
+  try {
+    const session = await getSession();
+    if (!session || (session.role !== "TEACHER" && session.role !== "ADMIN")) {
+      return { success: false, error: "Chỉ quản trị viên hoặc giảng viên mới được sửa đề kiểm tra." };
+    }
+
+    const { id, title, description, duration, passingScore, subjectId, classId, isPublic, questions } = input;
+
+    await db.$transaction(async (tx) => {
+      // 1. Update quiz basic info
+      await tx.quiz.update({
+        where: { id },
+        data: {
+          title,
+          description: description || null,
+          duration,
+          passingScore,
+          subjectId,
+          classId: classId || null,
+          isPublic: isPublic || false,
+        },
+      });
+
+      // 2. Re-create questions
+      await tx.question.deleteMany({
+        where: { quizId: id }
+      });
+
+      for (const q of questions) {
+        await tx.question.create({
+          data: {
+            quizId: id,
+            text: q.questionText,
+            type: q.type || "MULTIPLE_CHOICE",
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            score: q.score || 1.0,
+          },
+        });
+      }
+    });
+
+    revalidatePath("/teacher/quizzes");
+    revalidatePath("/admin/quizzes");
+    revalidatePath("/student/quizzes");
+    revalidatePath("/quizzes");
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating quiz:", error);
+    return { success: false, error: "Đã xảy ra lỗi hệ thống khi cập nhật đề kiểm tra." };
+  }
+}

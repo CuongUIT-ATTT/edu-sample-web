@@ -12,7 +12,7 @@ export default async function AdminUsersPage() {
     include: {
       studentProfile: {
         include: {
-          class: true,
+          classes: true,
         },
       },
     },

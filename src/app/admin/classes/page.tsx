@@ -15,6 +15,7 @@ export default async function AdminClassesPage() {
       students: {
         include: {
           user: true,
+          classes: true,
         },
       },
       _count: {
@@ -33,6 +34,7 @@ export default async function AdminClassesPage() {
   const allStudents = await db.studentProfile.findMany({
     include: {
       user: true,
+      classes: true,
     },
     orderBy: { user: { name: "asc" } },
   });

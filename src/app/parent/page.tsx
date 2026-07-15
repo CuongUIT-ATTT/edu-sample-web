@@ -44,7 +44,7 @@ export default async function ParentDashboardPage() {
           students: {
             include: {
               user: true,
-              class: {
+              classes: {
                 include: {
                   formTeacher: {
                     include: { user: true },
@@ -66,10 +66,11 @@ export default async function ParentDashboardPage() {
       if (parentProfile && parentProfile.students.length > 0) {
         const student = parentProfile.students[0]; // Fetch the first child for summary dashboard
         childName = student.user.name;
-        className = student.class?.name || "Chưa xếp lớp";
+        className = student.classes.map((c) => c.name).join(", ") || "Chưa xếp lớp";
 
-        if (student.class?.formTeacher) {
-          formTeacherName = student.class.formTeacher.user.name;
+        const primaryClass = student.classes[0];
+        if (primaryClass?.formTeacher) {
+          formTeacherName = primaryClass.formTeacher.user.name;
           formTeacherPhone = "1900 1234";
         }
 

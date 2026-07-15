@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload } from "lucide-react";
-import { createQuiz, deleteQuiz } from "@/actions/quizzes";
+import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3 } from "lucide-react";
+import { createQuiz, deleteQuiz, updateQuiz } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
 
 interface QuizItem {
@@ -24,6 +24,14 @@ interface QuizItem {
   _count: {
     questions: number;
   };
+  questions?: {
+    id: string;
+    text: string;
+    type: string;
+    options: any;
+    correctAnswer: string;
+    score: number;
+  }[];
 }
 
 interface TeacherQuizManagerProps {
@@ -45,6 +53,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
   const [subjectId, setSubjectId] = useState("");
   const [classId, setClassId] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [modalMode, setModalMode] = useState<"CREATE" | "EDIT">("CREATE");
+  const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
   
   // Custom type toggle inside form
   const [importMethod, setImportMethod] = useState<"MANUAL" | "PASTE_TEXT" | "CSV" | "JSON">("MANUAL");
@@ -375,32 +385,94 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
     setSuccessMsg(null);
     setErrorMsg(null);
 
-    const res = await createQuiz({
-      title,
-      description: description || undefined,
-      duration: Number(duration),
-      passingScore: Number(passingScore),
-      subjectId,
-      classId: classId || undefined,
-      isPublic,
-      questions,
-    });
+    if (modalMode === "EDIT" && editingQuizId) {
+      const res = await updateQuiz({
+        id: editingQuizId,
+        title,
+        description: description || undefined,
+        duration: Number(duration),
+        passingScore: Number(passingScore),
+        subjectId,
+        classId: classId || undefined,
+        isPublic,
+        questions,
+      });
 
-    if (res.success) {
-      setSuccessMsg("Tạo đề kiểm tra trắc nghiệm thành công!");
-      setIsCreateOpen(false);
-      setTitle("");
-      setDescription("");
-      setDuration(15);
-      setPassingScore(5);
-      setSubjectId("");
-      setClassId("");
-      setIsPublic(false);
-      setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1 }]);
-      window.location.reload();
+      if (res.success) {
+        setSuccessMsg("Cập nhật đề kiểm tra thành công!");
+        setIsCreateOpen(false);
+        resetForm();
+        window.location.reload();
+      } else {
+        setErrorMsg(res.error || "Cập nhật đề thất bại.");
+      }
     } else {
-      setErrorMsg(res.error || "Tạo đề thất bại.");
+      const res = await createQuiz({
+        title,
+        description: description || undefined,
+        duration: Number(duration),
+        passingScore: Number(passingScore),
+        subjectId,
+        classId: classId || undefined,
+        isPublic,
+        questions,
+      });
+
+      if (res.success) {
+        setSuccessMsg("Tạo đề kiểm tra trắc nghiệm thành công!");
+        setIsCreateOpen(false);
+        resetForm();
+        window.location.reload();
+      } else {
+        setErrorMsg(res.error || "Tạo đề thất bại.");
+      }
     }
+  };
+
+  const resetForm = () => {
+    setTitle("");
+    setDescription("");
+    setDuration(15);
+    setPassingScore(5);
+    setSubjectId("");
+    setClassId("");
+    setIsPublic(false);
+    setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1 }]);
+    setModalMode("CREATE");
+    setEditingQuizId(null);
+  };
+
+  const handleEditClick = (q: QuizItem) => {
+    setModalMode("EDIT");
+    setEditingQuizId(q.id);
+    setTitle(q.title);
+    setDescription(q.description || "");
+    setDuration(q.duration);
+    setPassingScore(q.passingScore);
+    setSubjectId(q.subject.id);
+    setClassId(q.class?.id || "");
+    setIsPublic(q.isPublic || false);
+    if (q.questions && q.questions.length > 0) {
+      setQuestions(q.questions.map((qn) => ({
+        questionText: qn.text,
+        type: qn.type as any,
+        options: qn.options as string[],
+        correctAnswer: qn.correctAnswer,
+        score: qn.score,
+      })));
+    } else {
+      setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1 }]);
+    }
+    setIsCreateOpen(true);
+  };
+
+  const handleShareClick = (quizId: string) => {
+    const url = window.location.origin + "/quizzes/" + quizId;
+    navigator.clipboard.writeText(url).then(() => {
+      alert("Đã sao chép đường dẫn chia sẻ đề thi vào bộ nhớ tạm!");
+    }).catch(() => {
+      alert("Không thể sao chép link. Hãy copy thủ công đường dẫn: " + url);
+    });
   };
 
   return (
@@ -432,7 +504,11 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
           <span className="text-sm font-semibold text-ink">Danh sách các bài test bạn quản lý</span>
         </div>
         <button
-          onClick={() => setIsCreateOpen(true)}
+          onClick={() => {
+            resetForm();
+            setModalMode("CREATE");
+            setIsCreateOpen(true);
+          }}
           className="bg-primary hover:bg-primary-focus text-white px-4 py-2 rounded-pill text-xs font-semibold flex items-center gap-1.5 shadow-sm"
         >
           <Plus className="h-4 w-4" /> Tạo đề thi trắc nghiệm mới
@@ -489,12 +565,24 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
                 </div>
               </div>
 
-              <div className="border-t border-divider-soft pt-4 flex justify-end">
+              <div className="border-t border-divider-soft pt-4 flex justify-end gap-2">
+                <button
+                  onClick={() => handleShareClick(q.id)}
+                  className="bg-green-50 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
+                >
+                  <Share2 className="h-3.5 w-3.5" /> Chia sẻ
+                </button>
+                <button
+                  onClick={() => handleEditClick(q)}
+                  className="bg-blue-50 text-primary hover:bg-blue-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
+                >
+                  <Edit3 className="h-3.5 w-3.5" /> Sửa
+                </button>
                 <button
                   onClick={() => handleDelete(q.id, q.title)}
                   className="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
                 >
-                  <Trash2 className="h-3.5 w-3.5" /> Xoá đề thi
+                  <Trash2 className="h-3.5 w-3.5" /> Xoá
                 </button>
               </div>
             </div>
@@ -509,7 +597,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes }: Teach
             <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
               <h3 className="font-tagline text-base font-semibold text-ink flex items-center gap-2">
                 <PlusCircle className="h-5 w-5 text-primary" />
-                Tạo đề trắc nghiệm mới THPT 2026
+                {modalMode === "EDIT" ? "Chỉnh sửa đề trắc nghiệm" : "Tạo đề trắc nghiệm mới THPT 2026"}
               </h3>
               <button onClick={() => setIsCreateOpen(false)} className="text-ink-muted-48 hover:text-ink">
                 <X className="h-5 w-5" />

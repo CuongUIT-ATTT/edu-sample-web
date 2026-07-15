@@ -5,7 +5,6 @@ import { getSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-
 export default async function ParentChildrenPage() {
   const session = await getSession();
 
@@ -26,7 +25,7 @@ export default async function ParentChildrenPage() {
           students: {
             include: {
               user: true,
-              class: {
+              classes: {
                 include: {
                   formTeacher: {
                     include: { user: true },
@@ -40,9 +39,10 @@ export default async function ParentChildrenPage() {
 
       const child = parentProfile?.students[0];
       if (child) {
-        // Fetch child subjects
+        // Fetch child subjects from all classes
+        const classIds = child.classes.map((c) => c.id);
         const schedules = await db.schedule.findMany({
-          where: { classId: child.classId || "" },
+          where: { classId: { in: classIds } },
           include: { subject: true },
         });
 
@@ -55,8 +55,8 @@ export default async function ParentChildrenPage() {
         childInfo = {
           name: child.user.name,
           email: child.user.email,
-          className: child.class?.name || "Chưa phân lớp",
-          formTeacherName: child.class?.formTeacher?.user.name || "Chưa phân công",
+          className: child.classes.map((c) => c.name).join(", ") || "Chưa phân lớp",
+          formTeacherName: child.classes.map((c) => c.formTeacher?.user.name).filter(Boolean).join(", ") || "Chưa phân công",
           formTeacherPhone: "0912 345 678", // Mock phone for UI completeness
           subjects: Array.from(subjectMap.values()),
         };
@@ -128,18 +128,20 @@ export default async function ParentChildrenPage() {
           <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm col-span-1 md:col-span-2">
             <h3 className="text-xs font-caption-strong text-ink-muted-48 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Book className="h-4 w-4 text-purple-600" />
-              Các môn học kỳ này ({childInfo.subjects.length} môn)
+              Các môn học con đang theo học ({childInfo.subjects.length})
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {childInfo.subjects.map((sub) => (
-                <div key={sub.code} className="flex items-center gap-3 bg-surface-pearl border border-divider-soft p-3 rounded-lg">
-                  <span className="text-[10px] font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full uppercase">
-                    {sub.code}
-                  </span>
-                  <span className="text-sm font-body-strong text-ink">{sub.name}</span>
-                </div>
-              ))}
-            </div>
+            {childInfo.subjects.length === 0 ? (
+              <p className="text-sm font-body text-ink-muted-48 italic">Chưa xếp lớp môn học nào.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {childInfo.subjects.map((sub) => (
+                  <div key={sub.code} className="border border-hairline p-3 rounded bg-surface-pearl flex flex-col gap-1">
+                    <span className="text-xs font-bold text-ink">{sub.name}</span>
+                    <span className="text-[10px] text-ink-muted-48 font-caption">Mã môn: {sub.code}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

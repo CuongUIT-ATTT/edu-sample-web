@@ -15,7 +15,11 @@ export async function GET(
     const { id: classId } = await params;
 
     const students = await db.studentProfile.findMany({
-      where: { classId },
+      where: {
+        classes: {
+          some: { id: classId }
+        }
+      },
       include: {
         user: {
           select: {

@@ -159,7 +159,11 @@ export async function createSchedule(input: CreateScheduleInput) {
       // D. Shared students overlap
       if (!ignoreWarning) {
         const class1Students = await db.studentProfile.findMany({
-          where: { classId },
+          where: {
+            classes: {
+              some: { id: classId }
+            }
+          },
           include: { user: true }
         });
         const class2Students = existing.class.students;
@@ -442,7 +446,11 @@ export async function updateSchedule(input: UpdateScheduleInput) {
         // D. Shared students overlap
         if (!ignoreWarning) {
           const class1Students = await db.studentProfile.findMany({
-            where: { classId },
+            where: {
+              classes: {
+                some: { id: classId }
+              }
+            },
             include: { user: true }
           });
           const class2Students = existing.class.students;

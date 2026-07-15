@@ -71,16 +71,20 @@ export async function deleteClass(classId: string) {
   }
 }
 
-export async function removeStudentFromClass(studentId: string) {
+export async function removeStudentFromClass(classId: string, studentId: string) {
   try {
     const session = await getSession();
     if (!session || (session.role !== "ADMIN" && session.role !== "TEACHER")) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
     }
 
-    await db.studentProfile.update({
-      where: { id: studentId },
-      data: { classId: null },
+    await db.class.update({
+      where: { id: classId },
+      data: {
+        students: {
+          disconnect: { id: studentId }
+        }
+      }
     });
 
     revalidatePath("/admin/classes");
@@ -99,9 +103,13 @@ export async function addStudentToClass(classId: string, studentId: string) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
     }
 
-    await db.studentProfile.update({
-      where: { id: studentId },
-      data: { classId },
+    await db.class.update({
+      where: { id: classId },
+      data: {
+        students: {
+          connect: { id: studentId }
+        }
+      }
     });
 
     revalidatePath("/admin/classes");

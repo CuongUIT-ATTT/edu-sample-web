@@ -18,6 +18,7 @@ export default async function AdminQuizzesPage() {
     include: {
       subject: true,
       class: true,
+      questions: true,
       _count: {
         select: { questions: true },
       },

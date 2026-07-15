@@ -57,8 +57,7 @@ model StudentProfile {
   userId          String           @unique
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  classId         String?
-  class           Class?           @relation(fields: [classId], references: [id], onDelete: SetNull)
+  classes         Class[]
   
   parentId        String?
   parent          ParentProfile?   @relation(fields: [parentId], references: [id], onDelete: SetNull)
