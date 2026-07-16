@@ -28,6 +28,9 @@ export default async function TeacherQuizzesPage() {
       subject: true,
       class: true,
       questions: true,
+      submissions: {
+        select: { score: true },
+      },
       _count: {
         select: { questions: true },
       },

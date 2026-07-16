@@ -6,12 +6,13 @@ import { db } from "@/lib/db";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  // 1. Dynamic database counts using Prisma
+  // 1. Dynamic database counts and activities using Prisma
   let teachersCount = 0;
   let studentsCount = 0;
   let classesCount = 0;
   let schedulesCount = 0;
   let dbClassesList: { id: string; name: string; studentsCount: number }[] = [];
+  let displayActivities: { title: string; actor: string; timestamp: Date }[] = [];
 
   try {
     teachersCount = await db.teacherProfile.count();
@@ -33,6 +34,72 @@ export default async function AdminDashboardPage() {
       name: c.name,
       studentsCount: c._count.students,
     }));
+
+    // Fetch dynamic activities
+    const recentUsers = await db.user.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    });
+
+    const recentQuizSubmissions = await db.quizSubmission.findMany({
+      orderBy: { submittedAt: "desc" },
+      take: 5,
+      include: {
+        quiz: true,
+        student: {
+          include: { user: true }
+        }
+      }
+    });
+
+    const recentHomeworkSubmissions = await db.homeworkSubmission.findMany({
+      orderBy: { submittedAt: "desc" },
+      take: 5,
+      include: {
+        schedule: {
+          include: { class: true }
+        },
+        student: {
+          include: { user: true }
+        }
+      }
+    });
+
+    const activitiesList: { title: string; actor: string; timestamp: Date }[] = [];
+
+    recentUsers.forEach((u) => {
+      let roleText = "Người dùng";
+      if (u.role === "TEACHER") roleText = "Giảng viên";
+      else if (u.role === "STUDENT") roleText = "Học viên";
+      else if (u.role === "PARENT") roleText = "Phụ huynh";
+      else if (u.role === "ADMIN") roleText = "Quản trị viên";
+
+      activitiesList.push({
+        title: `Khởi tạo tài khoản ${roleText.toLowerCase()} ${u.name}`,
+        actor: "Thực hiện bởi Admin",
+        timestamp: u.createdAt,
+      });
+    });
+
+    recentQuizSubmissions.forEach((qs) => {
+      const name = qs.student ? qs.student.user.name : (qs.guestName || "Khách vãng lai");
+      activitiesList.push({
+        title: `Nộp bài thi tự luyện: ${qs.quiz.title} (${qs.score.toFixed(1)}đ)`,
+        actor: `Thực hiện bởi ${name}`,
+        timestamp: qs.submittedAt,
+      });
+    });
+
+    recentHomeworkSubmissions.forEach((hs) => {
+      activitiesList.push({
+        title: `Nộp bài tập về nhà lớp ${hs.schedule.class.name}`,
+        actor: `Thực hiện bởi ${hs.student.user.name}`,
+        timestamp: hs.submittedAt,
+      });
+    });
+
+    activitiesList.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    displayActivities = activitiesList.slice(0, 5);
   } catch (error) {
     console.error("Prisma error in Admin Dashboard:", error);
   }
@@ -51,6 +118,23 @@ export default async function AdminDashboardPage() {
           { id: "2", name: "Lớp 11B2", studentsCount: 30 },
           { id: "3", name: "Lớp 12C3", studentsCount: 28 },
         ];
+
+  const finalActivities = displayActivities.length > 0 ? displayActivities : [
+    { title: "Khởi tạo hệ thống Lớp học trực tuyến", actor: "Thực hiện bởi Admin", timestamp: new Date(Date.now() - 4 * 3600 * 1000) },
+    { title: "Khởi tạo tài khoản Giảng viên Nguyễn Văn Bình", actor: "Thực hiện bởi Admin", timestamp: new Date(Date.now() - 6 * 3600 * 1000) },
+    { title: "Khởi tạo tài khoản Học viên Nguyễn Văn A", actor: "Thực hiện bởi Admin", timestamp: new Date(Date.now() - 8 * 3600 * 1000) }
+  ];
+
+  function formatTimeAgo(date: Date) {
+    const diffMs = Date.now() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    if (diffMins < 1) return "Vừa xong";
+    if (diffMins < 60) return `${diffMins} phút trước`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} giờ trước`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} ngày trước`;
+  }
 
   return (
     <div className="flex flex-col gap-8 max-w-[1200px]">
@@ -152,33 +236,17 @@ export default async function AdminDashboardPage() {
             Hoạt động hệ thống gần đây
           </h3>
           <div className="flex flex-col gap-4">
-            <div className="flex justify-between items-start text-xs border-b border-divider-soft pb-3 last:border-0">
-              <div>
-                <p className="font-semibold text-ink">
-                  Thêm thời khóa biểu mới lớp 10A1
-                </p>
-                <p className="text-ink-muted-48 mt-0.5">Thực hiện bởi Admin</p>
+            {finalActivities.map((act, index) => (
+              <div key={index} className="flex justify-between items-start text-xs border-b border-divider-soft pb-3 last:border-0">
+                <div>
+                  <p className="font-semibold text-ink">
+                    {act.title}
+                  </p>
+                  <p className="text-ink-muted-48 mt-0.5">{act.actor}</p>
+                </div>
+                <span className="text-ink-muted-48 flex-shrink-0 ml-4">{formatTimeAgo(act.timestamp)}</span>
               </div>
-              <span className="text-ink-muted-48">10 phút trước</span>
-            </div>
-            <div className="flex justify-between items-start text-xs border-b border-divider-soft pb-3 last:border-0">
-              <div>
-                <p className="font-semibold text-ink">
-                  Cập nhật hồ sơ học viên Nguyễn Văn A
-                </p>
-                <p className="text-ink-muted-48 mt-0.5">Thực hiện bởi Admin</p>
-              </div>
-              <span className="text-ink-muted-48">1 giờ trước</span>
-            </div>
-            <div className="flex justify-between items-start text-xs border-b border-divider-soft pb-3 last:border-0">
-              <div>
-                <p className="font-semibold text-ink">
-                  Khởi tạo tài khoản giảng viên Lê Thị B
-                </p>
-                <p className="text-ink-muted-48 mt-0.5">Thực hiện bởi Admin</p>
-              </div>
-              <span className="text-ink-muted-48">4 giờ trước</span>
-            </div>
+            ))}
           </div>
         </div>
 

@@ -2,9 +2,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2 } from "lucide-react";
+import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2 } from "lucide-react";
 import { createQuiz, deleteQuiz, updateQuiz, getQuizSubmissions } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
+import { showToast } from "@/components/Toast";
 
 interface QuizItem {
   id: string;
@@ -13,6 +14,7 @@ interface QuizItem {
   duration: number;
   passingScore: number;
   isPublic?: boolean;
+  submissions?: { score: number }[];
   answerVisibility?: string;
   creatorName?: string;
   subject: {
@@ -290,9 +292,9 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
       if (parsedQuestions.length > 0) {
         setQuestions(parsedQuestions);
-        alert(`Đã tải thành công ${parsedQuestions.length} câu hỏi từ file CSV! Hãy xem lại chi tiết ở phía dưới.`);
+        showToast(`Đã tải thành công ${parsedQuestions.length} câu hỏi từ file CSV! Hãy xem lại chi tiết ở phía dưới.`, "success");
       } else {
-        alert("Không tìm thấy dòng câu hỏi hợp lệ trong file CSV.");
+        showToast("Không tìm thấy dòng câu hỏi hợp lệ trong file CSV.", "error");
       }
     };
     reader.readAsText(file, "UTF-8");
@@ -300,13 +302,13 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
   const handleImportJson = () => {
     if (!jsonText.trim()) {
-      alert("Vui lòng dán văn bản JSON vào ô.");
+      showToast("Vui lòng dán văn bản JSON vào ô.", "warning");
       return;
     }
     try {
       const parsed = JSON.parse(jsonText);
       if (!Array.isArray(parsed)) {
-        alert("JSON không hợp lệ. Vui lòng cung cấp một mảng các câu hỏi.");
+        showToast("JSON không hợp lệ. Vui lòng cung cấp một mảng các câu hỏi.", "error");
         return;
       }
       
@@ -342,17 +344,17 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
       });
 
       setQuestions(formattedQuestions);
-      alert(`Đã tải thành công ${formattedQuestions.length} câu hỏi từ JSON!`);
+      showToast(`Đã tải thành công ${formattedQuestions.length} câu hỏi từ JSON!`, "success");
       setJsonText("");
     } catch (e) {
-      alert("Lỗi parse JSON. Vui lòng kiểm tra lại cấu trúc JSON.");
+      showToast("Lỗi parse JSON. Vui lòng kiểm tra lại cấu trúc JSON.", "error");
     }
   };
 
   // AI Paste text parser - Free parsing!
   const parsePastedText = () => {
     if (!rawPastedText.trim()) {
-      alert("Vui lòng dán nội dung câu hỏi/đề thi vào ô văn bản.");
+      showToast("Vui lòng dán nội dung câu hỏi/đề thi vào ô văn bản.", "warning");
       return;
     }
 
@@ -441,10 +443,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
     if (parsed.length > 0) {
       setQuestions(parsed);
-      alert(`Phân tích thành công ${parsed.length} câu hỏi tự động từ văn bản! Bạn có thể xem lại danh sách câu hỏi chi tiết dưới đây.`);
+      showToast(`Phân tích thành công ${parsed.length} câu hỏi tự động từ văn bản! Bạn có thể xem lại danh sách câu hỏi chi tiết dưới đây.`, "success");
       setRawPastedText("");
     } else {
-      alert("Không bóc tách được câu hỏi nào. Vui lòng kiểm tra lại định dạng câu hỏi (Ví dụ: 'Câu 1: ... A. ... B. ...').");
+      showToast("Không bóc tách được câu hỏi nào. Vui lòng kiểm tra lại định dạng câu hỏi (Ví dụ: 'Câu 1: ... A. ... B. ...').", "error");
     }
   };
 
@@ -457,7 +459,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
       const text = event.target?.result as string;
       if (text) {
         setRawPastedText(text);
-        alert("Đã tải dữ liệu file văn bản thành công. Hãy bấm nút 'Phân tích tự động' để quét đề.");
+        showToast("Đã tải dữ liệu file văn bản thành công. Hãy bấm nút 'Phân tích tự động' để quét đề.", "success");
       }
     };
     reader.readAsText(file, "UTF-8");
@@ -487,12 +489,13 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
       });
 
       if (res.success) {
-        setSuccessMsg("Cập nhật đề kiểm tra thành công!");
+        showToast("Cập nhật đề kiểm tra thành công!", "success");
         setIsCreateOpen(false);
         resetForm();
         window.location.reload();
       } else {
         setErrorMsg(res.error || "Cập nhật đề thất bại.");
+        showToast(res.error || "Cập nhật đề thất bại.", "error");
       }
     } else {
       const res = await createQuiz({
@@ -508,12 +511,13 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
       });
 
       if (res.success) {
-        setSuccessMsg("Tạo đề kiểm tra trắc nghiệm thành công!");
+        showToast("Tạo đề kiểm tra trắc nghiệm thành công!", "success");
         setIsCreateOpen(false);
         resetForm();
         window.location.reload();
       } else {
         setErrorMsg(res.error || "Tạo đề thất bại.");
+        showToast(res.error || "Tạo đề thất bại.", "error");
       }
     }
   };
@@ -565,9 +569,9 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const handleShareClick = (quizId: string) => {
     const url = window.location.origin + "/quizzes/" + quizId;
     navigator.clipboard.writeText(url).then(() => {
-      alert("Đã sao chép đường dẫn chia sẻ đề thi vào bộ nhớ tạm!");
+      showToast("Đã sao chép đường dẫn chia sẻ đề thi vào bộ nhớ tạm!", "success");
     }).catch(() => {
-      alert("Không thể sao chép link. Hãy copy thủ công đường dẫn: " + url);
+      showToast("Không thể sao chép link. Hãy copy thủ công đường dẫn: " + url, "error");
     });
   };
 
@@ -656,16 +660,36 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   <p className="text-xs text-ink-muted-80 font-body line-clamp-2">{q.description}</p>
                 )}
                 
-                <div className="flex gap-4 items-center text-xs text-ink-muted-80 mt-2 font-body">
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5" />
-                    {q.duration} phút
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Award className="h-3.5 w-3.5" />
-                    Đạt: {q.passingScore} điểm
-                  </span>
-                </div>
+                {(() => {
+                  const subCount = q.submissions ? q.submissions.length : 0;
+                  const avgScore = subCount > 0
+                    ? (q.submissions.reduce((acc, s) => acc + s.score, 0) / subCount).toFixed(1)
+                    : "N/A";
+                  return (
+                    <>
+                      <div className="flex gap-4 items-center text-xs text-ink-muted-80 mt-2 font-body">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5" />
+                          {q.duration} phút
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Award className="h-3.5 w-3.5" />
+                          Đạt: {q.passingScore} điểm
+                        </span>
+                      </div>
+                      <div className="flex gap-4 items-center text-[10px] text-primary mt-1 font-body">
+                        <span className="flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                          <UserCheck className="h-3 w-3" />
+                          Lượt nộp: {subCount}
+                        </span>
+                        <span className="flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-100 font-semibold">
+                          <BarChart2 className="h-3 w-3" />
+                          Điểm TB: {avgScore}đ
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="border-t border-divider-soft pt-4 flex justify-end gap-2 flex-wrap">
@@ -714,6 +738,15 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-6 overflow-y-auto max-h-[75vh]">
+              {errorMsg && (
+                <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 flex items-center justify-between gap-3 text-sm animate-fade-in">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                    <span>{errorMsg}</span>
+                  </div>
+                  <button type="button" onClick={() => setErrorMsg(null)} className="text-red-600 hover:text-red-800"><X className="h-4 w-4" /></button>
+                </div>
+              )}
               {/* Basic Fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5 md:col-span-2">

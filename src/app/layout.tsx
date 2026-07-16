@@ -14,6 +14,8 @@ export const metadata: Metadata = {
   description: "Nền tảng quản lý khóa học, giảng dạy và luyện thi trực quan hàng đầu.",
 };
 
+import ToastContainer from "@/components/Toast";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,6 +28,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-canvas text-ink font-sans">
         {children}
+        <ToastContainer />
       </body>
     </html>
   );

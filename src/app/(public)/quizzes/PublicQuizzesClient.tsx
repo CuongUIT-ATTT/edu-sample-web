@@ -5,6 +5,7 @@ import { BookOpen, Clock, Award, CheckCircle2, AlertCircle, RefreshCw, Play, Loc
 import Link from "next/link";
 import MathRenderer from "@/components/MathRenderer";
 import { submitQuiz } from "@/actions/quizzes";
+import { showToast } from "@/components/Toast";
 
 interface Question {
   id: string;
@@ -67,13 +68,13 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
         const next = prev + 1;
         if (next >= 3) {
           setIsCheatedLocked(true);
-          alert("BÀI THI BỊ KHÓA: Bạn đã rời màn hình/chuyển tab quá 3 lần. Bài thi sẽ tự động được nộp.");
+          showToast("BÀI THI BỊ KHÓA: Bạn đã rời màn hình/chuyển tab quá 3 lần. Bài thi sẽ tự động được nộp.", "error");
           if (forceSubmitRef.current) {
             forceSubmitRef.current();
           }
           return next;
         } else {
-          alert(`CẢNH BÁO GIAN LẬN: Bạn không được rời màn hình làm bài! Lần vi phạm: ${next}/3. Quá 3 lần bài thi sẽ tự động khóa và nộp bài.`);
+          showToast(`CẢNH BÁO GIAN LẬN: Bạn không được rời màn hình làm bài! Lần vi phạm: ${next}/3. Quá 3 lần bài thi sẽ tự động khóa và nộp bài.`, "warning");
           return next;
         }
       });
@@ -123,7 +124,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
 
   const handleStartQuiz = () => {
     if (!guestName.trim()) {
-      alert("Vui lòng nhập Họ tên để bắt đầu làm bài thi thử.");
+      showToast("Vui lòng nhập Họ tên để bắt đầu làm bài thi thử.", "warning");
       return;
     }
     if (!tempSelectedQuiz) return;
@@ -181,7 +182,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
           correctAnswers: response.data.correctAnswers,
         });
       } else {
-        alert(response.error || "Có lỗi xảy ra khi nộp bài.");
+        showToast(response.error || "Có lỗi xảy ra khi nộp bài.", "error");
       }
     } catch (error) {
       console.error("Error submitting quiz:", error);
@@ -318,8 +319,8 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
               ))}
             </div>
 
-            {/* Sticky Timer Info */}
-            <div className="sticky top-[60px] z-30 frosted-glass border border-hairline rounded-md p-4 flex items-center justify-between shadow-sm">
+            {/* Static Timer Info */}
+            <div className="border border-hairline rounded-md p-4 flex items-center justify-between bg-surface-pearl mb-4">
               <div className="flex flex-col gap-0.5">
                 <h2 className="font-body-strong text-sm text-ink font-semibold">{selectedQuiz.title}</h2>
                 <span className="text-[10px] text-ink-muted-48">Thí sinh tự do: {guestName}</span>

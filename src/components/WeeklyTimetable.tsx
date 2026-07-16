@@ -39,6 +39,7 @@ import {
 import { getAllQuizzesForHomework, getStudentQuizResult } from "@/actions/quizzes";
 import { getDayOfWeek, nearestDateForDow } from "@/lib/dateUtils";
 import { TIME_SLOTS, addMinutes } from "@/lib/timeSlots";
+import { showToast } from "@/components/Toast";
 
 interface ScheduleItem {
   id: string;
@@ -858,9 +859,9 @@ export default function WeeklyTimetable({
             : s,
         ),
       );
-      alert("Đã cập nhật link tài liệu học tập thành công!");
+      showToast("Đã cập nhật link tài liệu học tập thành công!", "success");
     } else {
-      alert(res.error || "Lỗi cập nhật tài liệu.");
+      showToast(res.error || "Lỗi cập nhật tài liệu.", "error");
     }
   };
 
@@ -891,9 +892,9 @@ export default function WeeklyTimetable({
             : s,
         ),
       );
-      alert("Đã giao bài tập về nhà thành công!");
+      showToast("Đã giao bài tập về nhà thành công!", "success");
     } else {
-      alert(res.error || "Lỗi giao bài tập.");
+      showToast(res.error || "Lỗi giao bài tập.", "error");
     }
   };
 
@@ -919,9 +920,9 @@ export default function WeeklyTimetable({
             : s,
         ),
       );
-      alert("Đã giao bài kiểm tra làm bài tập về nhà thành công!");
+      showToast("Đã giao bài kiểm tra làm bài tập về nhà thành công!", "success");
     } else {
-      alert(res.error || "Lỗi giao bài tập trắc nghiệm.");
+      showToast(res.error || "Lỗi giao bài tập trắc nghiệm.", "error");
     }
   };
 
@@ -952,9 +953,9 @@ export default function WeeklyTimetable({
             : s,
         ),
       );
-      alert("Đã cập nhật hạn nộp bài tập!");
+      showToast("Đã cập nhật hạn nộp bài tập!", "success");
     } else {
-      alert(res.error || "Lỗi cập nhật hạn nộp.");
+      showToast(res.error || "Lỗi cập nhật hạn nộp.", "error");
     }
   };
 
@@ -962,7 +963,7 @@ export default function WeeklyTimetable({
     e.preventDefault();
     if (!selectedSession) return;
     if (!submissionUrl.trim()) {
-      alert("Vui lòng nhập link bài làm của bạn.");
+      showToast("Vui lòng nhập link bài làm của bạn.", "warning");
       return;
     }
 
@@ -974,9 +975,9 @@ export default function WeeklyTimetable({
 
     if (res.success) {
       setStudentSubmission(res.data);
-      alert("Đã nộp bài tập về nhà thành công!");
+      showToast("Đã nộp bài tập về nhà thành công!", "success");
     } else {
-      alert(res.error || "Gửi bài tập thất bại.");
+      showToast(res.error || "Gửi bài tập thất bại.", "error");
     }
   };
 
@@ -991,7 +992,7 @@ export default function WeeklyTimetable({
     });
 
     if (res.success) {
-      alert("Chấm điểm bài tập thành công!");
+      showToast("Chấm điểm bài tập thành công!", "success");
       // Update local state list
       setActiveSubmissions((prev) =>
         prev.map((sub) =>
@@ -1008,7 +1009,7 @@ export default function WeeklyTimetable({
       setGradingScore("");
       setGradingFeedback("");
     } else {
-      alert(res.error || "Lỗi chấm điểm.");
+      showToast(res.error || "Lỗi chấm điểm.", "error");
     }
   };
 

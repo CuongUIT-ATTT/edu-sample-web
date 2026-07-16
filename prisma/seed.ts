@@ -9,12 +9,13 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log("Starting database seeding...");
+  console.log("Starting database seeding with expanded real-world data...");
 
   // Reset database (delete in order of dependencies)
   await prisma.quizSubmission.deleteMany({});
   await prisma.question.deleteMany({});
   await prisma.quiz.deleteMany({});
+  await prisma.homeworkSubmission.deleteMany({});
   await prisma.lesson.deleteMany({});
   await prisma.module.deleteMany({});
   await prisma.enrollment.deleteMany({});
@@ -54,6 +55,15 @@ async function main() {
     },
   });
 
+  const teacherUser2 = await prisma.user.create({
+    data: {
+      email: "giangvien2@eduweb.vn",
+      name: "Thầy Hùng Cường",
+      passwordHash,
+      role: "TEACHER",
+    },
+  });
+
   const parentUser = await prisma.user.create({
     data: {
       email: "phuhuynh@eduweb.vn",
@@ -72,6 +82,24 @@ async function main() {
     },
   });
 
+  const studentUser2 = await prisma.user.create({
+    data: {
+      email: "hocvien2@eduweb.vn",
+      name: "Lê Mai Anh",
+      passwordHash,
+      role: "STUDENT",
+    },
+  });
+
+  const studentUser3 = await prisma.user.create({
+    data: {
+      email: "hocvien3@eduweb.vn",
+      name: "Trần Tuấn Kiệt",
+      passwordHash,
+      role: "STUDENT",
+    },
+  });
+
   // 2. Create Profiles
   const adminProfile = await prisma.adminProfile.create({
     data: { userId: adminUser.id },
@@ -79,6 +107,10 @@ async function main() {
 
   const teacherProfile = await prisma.teacherProfile.create({
     data: { userId: teacherUser.id },
+  });
+
+  const teacherProfile2 = await prisma.teacherProfile.create({
+    data: { userId: teacherUser2.id },
   });
 
   const parentProfile = await prisma.parentProfile.create({
@@ -92,12 +124,26 @@ async function main() {
     },
   });
 
+  const studentProfile2 = await prisma.studentProfile.create({
+    data: { 
+      userId: studentUser2.id,
+      parentId: parentProfile.id 
+    },
+  });
+
+  const studentProfile3 = await prisma.studentProfile.create({
+    data: { 
+      userId: studentUser3.id,
+      parentId: parentProfile.id 
+    },
+  });
+
   // 3. Create Subjects
   const mathSubject = await prisma.subject.create({
     data: {
       name: "Toán học nâng cao",
       code: "MATH101",
-      teachers: { connect: { id: teacherProfile.id } },
+      teachers: { connect: [{ id: teacherProfile.id }, { id: teacherProfile2.id }] },
     },
   });
 
@@ -117,7 +163,7 @@ async function main() {
     },
   });
 
-  // 4. Create Class
+  // 4. Create Classes
   const class10A1 = await prisma.class.create({
     data: {
       name: "10A1",
@@ -126,18 +172,32 @@ async function main() {
     },
   });
 
-  // Assign Student to Class
-  await prisma.studentProfile.update({
-    where: { id: studentProfile.id },
+  const class11B2 = await prisma.class.create({
     data: {
-      classes: {
-        connect: { id: class10A1.id }
-      }
+      name: "11B2",
+      gradeLevel: 11,
+      formTeacherId: teacherProfile2.id,
     },
   });
 
+  // Assign Students to Classes
+  await prisma.studentProfile.update({
+    where: { id: studentProfile.id },
+    data: { classes: { connect: { id: class10A1.id } } },
+  });
+
+  await prisma.studentProfile.update({
+    where: { id: studentProfile2.id },
+    data: { classes: { connect: { id: class10A1.id } } },
+  });
+
+  await prisma.studentProfile.update({
+    where: { id: studentProfile3.id },
+    data: { classes: { connect: { id: class11B2.id } } },
+  });
+
   // 5. Create Schedules
-  await prisma.schedule.create({
+  const schedule1 = await prisma.schedule.create({
     data: {
       classId: class10A1.id,
       subjectId: mathSubject.id,
@@ -146,10 +206,12 @@ async function main() {
       startTime: "08:00",
       endTime: "09:30",
       room: "Room 302",
+      homework: "https://drive.google.com/file/d/homework-math10",
+      homeworkDueDate: new Date("2026-07-20T00:00:00Z"),
     },
   });
 
-  await prisma.schedule.create({
+  const schedule2 = await prisma.schedule.create({
     data: {
       classId: class10A1.id,
       subjectId: physicsSubject.id,
@@ -161,7 +223,39 @@ async function main() {
     },
   });
 
-  // 6. Create Attendance
+  const schedule3 = await prisma.schedule.create({
+    data: {
+      classId: class11B2.id,
+      subjectId: mathSubject.id,
+      teacherId: teacherProfile2.id,
+      dayOfWeek: 3, // Thứ Tư
+      startTime: "14:00",
+      endTime: "15:30",
+      room: "Room 302",
+    },
+  });
+
+  // 6. Create Homework Submissions
+  await prisma.homeworkSubmission.create({
+    data: {
+      scheduleId: schedule1.id,
+      studentId: studentProfile.id,
+      fileUrl: "https://drive.google.com/file/d/submission-math-a",
+      fileName: "Bài làm Nguyễn Văn A.pdf",
+      grade: 9.0,
+    },
+  });
+
+  await prisma.homeworkSubmission.create({
+    data: {
+      scheduleId: schedule1.id,
+      studentId: studentProfile2.id,
+      fileUrl: "https://drive.google.com/file/d/submission-math-b",
+      fileName: "Bài làm Lê Mai Anh.pdf",
+    },
+  });
+
+  // 7. Create Attendances
   await prisma.attendance.create({
     data: {
       studentId: studentProfile.id,
@@ -178,7 +272,7 @@ async function main() {
     },
   });
 
-  // 7. Create Grades
+  // 8. Create Grades
   await prisma.grade.create({
     data: {
       studentId: studentProfile.id,
@@ -205,7 +299,7 @@ async function main() {
     },
   });
 
-  // 8. Create LMS Course, Module, Lesson
+  // 9. Create LMS Course, Module, Lesson
   const courseMath = await prisma.course.create({
     data: {
       title: "Toán học nâng cao Lớp 10",
@@ -234,7 +328,7 @@ async function main() {
   await prisma.lesson.create({
     data: {
       title: "Bài 1: Phương trình bậc hai nâng cao và hệ thức Vi-ét",
-      videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Rick Roll standard placeholder video
+      videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
       documentUrl: "/docs/viet-theorem.pdf",
       content: "Nội dung bài học lý thuyết về ứng dụng hệ thức Vi-ét trong phương trình bậc hai.",
       order: 1,
@@ -242,7 +336,7 @@ async function main() {
     },
   });
 
-  // 9. Create Quiz & Questions
+  // 10. Create Quiz & Questions
   const quizMath = await prisma.quiz.create({
     data: {
       title: "Khảo sát đầu năm môn Toán Lớp 10",
@@ -251,6 +345,7 @@ async function main() {
       passingScore: 5.0,
       subjectId: mathSubject.id,
       teacherId: teacherProfile.id,
+      isPublic: true,
     },
   });
 
@@ -259,7 +354,7 @@ async function main() {
       text: "Giải phương trình x^2 - 5x + 6 = 0. Tập nghiệm x là?",
       type: "MULTIPLE_CHOICE",
       options: ["x = {2, 3}", "x = {1, 6}", "x = {-2, -3}", "x = {0, 5}"],
-      correctAnswer: "0", // Index of option 0 (x = {2, 3})
+      correctAnswer: "0",
       score: 5.0,
       quizId: quizMath.id,
     },
@@ -270,9 +365,40 @@ async function main() {
       text: "Cho hệ thức Vi-ét của phương trình x^2 + px + q = 0. Tổng hai nghiệm x1 + x2 bằng?",
       type: "MULTIPLE_CHOICE",
       options: ["p", "-p", "q", "-q"],
-      correctAnswer: "1", // Index of option 1 (-p)
+      correctAnswer: "1",
       score: 5.0,
       quizId: quizMath.id,
+    },
+  });
+
+  // 11. Create Quiz Submissions (for score averaging and counts)
+  await prisma.quizSubmission.create({
+    data: {
+      quizId: quizMath.id,
+      studentId: studentProfile.id,
+      score: 10.0,
+      answers: JSON.stringify({}),
+      submittedAt: new Date(Date.now() - 15 * 60 * 1000), // 15 mins ago
+    },
+  });
+
+  await prisma.quizSubmission.create({
+    data: {
+      quizId: quizMath.id,
+      studentId: studentProfile2.id,
+      score: 5.0,
+      answers: JSON.stringify({}),
+      submittedAt: new Date(Date.now() - 45 * 60 * 1000), // 45 mins ago
+    },
+  });
+
+  await prisma.quizSubmission.create({
+    data: {
+      quizId: quizMath.id,
+      guestName: "Trần Minh Hoàng",
+      score: 7.5,
+      answers: JSON.stringify({}),
+      submittedAt: new Date(Date.now() - 2 * 3600 * 1000), // 2 hours ago
     },
   });
 

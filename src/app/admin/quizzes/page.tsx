@@ -19,6 +19,9 @@ export default async function AdminQuizzesPage() {
       subject: true,
       class: true,
       questions: true,
+      submissions: {
+        select: { score: true },
+      },
       teacher: {
         include: {
           user: { select: { name: true } }

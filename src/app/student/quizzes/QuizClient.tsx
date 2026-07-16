@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Clock, CheckSquare, Award, ArrowLeft, RefreshCw, CheckCircle2, XCircle, Search, Trophy, BarChart3 } from "lucide-react";
 import { submitQuiz } from "@/actions/quizzes";
+import { showToast } from "@/components/Toast";
 import MathRenderer from "@/components/MathRenderer";
 
 interface Question {
@@ -60,13 +61,13 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
         const next = prev + 1;
         if (next >= 3) {
           setIsCheatedLocked(true);
-          alert("BÀI THI BỊ KHÓA: Bạn đã rời màn hình/chuyển tab quá 3 lần. Bài thi sẽ tự động được nộp.");
+          showToast("BÀI THI BỊ KHÓA: Bạn đã rời màn hình/chuyển tab quá 3 lần. Bài thi sẽ tự động được nộp.", "error");
           if (forceSubmitRef.current) {
             forceSubmitRef.current();
           }
           return next;
         } else {
-          alert(`CẢNH BÁO GIAN LẬN: Bạn không được rời màn hình làm bài! Lần vi phạm: ${next}/3. Quá 3 lần bài thi sẽ tự động khóa và nộp bài.`);
+          showToast(`CẢNH BÁO GIAN LẬN: Bạn không được rời màn hình làm bài! Lần vi phạm: ${next}/3. Quá 3 lần bài thi sẽ tự động khóa và nộp bài.`, "warning");
           return next;
         }
       });
@@ -161,7 +162,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
           correctAnswers: response.data.correctAnswers,
         });
       } else {
-        alert(response.error || "Có lỗi xảy ra khi nộp bài.");
+        showToast(response.error || "Có lỗi xảy ra khi nộp bài.", "error");
       }
     } catch (error) {
       console.error("Error submitting quiz:", error);
@@ -284,8 +285,8 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
             ))}
           </div>
 
-          {/* Sticky Timer Info */}
-          <div className="sticky top-[60px] z-30 frosted-glass border border-hairline rounded-md p-4 flex items-center justify-between shadow-sm">
+          {/* Static Timer Info */}
+          <div className="border border-hairline rounded-md p-4 flex items-center justify-between bg-surface-pearl mb-4">
             <h2 className="font-body-strong text-sm text-ink font-semibold">{selectedQuiz?.title}</h2>
             <div className="flex items-center gap-2 text-red-600 font-mono font-bold text-sm bg-red-50 px-3 py-1 rounded-sm">
               <Clock className="h-4 w-4" />

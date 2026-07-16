@@ -41,3 +41,10 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# Playwright test artifacts & sessions
+e2e/.auth/*.json
+!e2e/.auth/.gitkeep
+playwright-report/
+test-results/
+/scratch/
