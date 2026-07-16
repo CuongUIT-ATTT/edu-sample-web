@@ -1181,8 +1181,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   <span className="text-xs text-ink-muted-80 font-body">Chưa có lượt nộp bài nào cho đề thi này.</span>
                 </div>
               ) : (
-                <div className="border border-hairline rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-xs font-body border-collapse">
+                <div className="border border-hairline rounded-lg overflow-x-auto bg-canvas">
+                  <table className="w-full min-w-[550px] text-left text-xs font-body border-collapse">
                     <thead>
                       <tr className="bg-surface-pearl text-ink-muted-80 border-b border-divider font-semibold text-[10px] uppercase tracking-wider">
                         <th className="p-3">Họ và Tên</th>

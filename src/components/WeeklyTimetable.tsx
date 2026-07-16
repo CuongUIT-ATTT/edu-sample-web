@@ -2048,8 +2048,8 @@ export default function WeeklyTimetable({
                               Lớp học này chưa có học viên nào.
                             </div>
                           ) : (
-                            <div className="border border-hairline rounded-lg overflow-hidden bg-canvas">
-                              <table className="w-full text-left text-xs font-body border-collapse">
+                            <div className="border border-hairline rounded-lg overflow-x-auto bg-canvas">
+                              <table className="w-full min-w-[500px] text-left text-xs font-body border-collapse">
                                 <thead>
                                   <tr className="bg-surface-pearl text-ink-muted-80 border-b border-divider font-semibold text-[10px] uppercase tracking-wider">
                                     <th className="p-3">Học sinh</th>
@@ -2421,8 +2421,8 @@ export default function WeeklyTimetable({
             thống
           </p>
 
-          <div className="bg-canvas border border-hairline rounded-lg overflow-hidden shadow-sm">
-            <table className="w-full text-xs text-left">
+          <div className="bg-canvas border border-hairline rounded-lg overflow-x-auto shadow-sm">
+            <table className="w-full min-w-[750px] text-xs text-left">
               <thead>
                 <tr className="bg-surface-pearl border-b border-hairline font-caption-strong text-ink-muted-48 uppercase">
                   <th className="p-3">Lớp học</th>
