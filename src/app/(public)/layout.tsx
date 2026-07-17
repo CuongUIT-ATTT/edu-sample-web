@@ -40,12 +40,12 @@ export default function PublicLayout({
       </nav>
 
       {/* Apple Sub Nav Frosted Glass */}
-      <div className="sticky top-11 z-40 h-[52px] frosted-glass border-b border-hairline flex items-center px-6">
-        <div className="max-w-[1440px] w-full mx-auto flex items-center justify-between">
+      <div className="sticky top-11 z-40 h-[52px] frosted-glass border-b border-hairline flex items-center px-4 sm:px-6">
+        <div className="max-w-[1440px] w-full mx-auto flex items-center justify-between gap-4 min-w-0">
           <Link href="/" className="font-tagline text-ink font-bold text-sm tracking-tight">
             EduWeb Portal
           </Link>
-          <div className="flex items-center gap-6 font-caption">
+          <div className="hidden md:flex items-center gap-6 font-caption">
             <Link href="/courses" className="text-ink-muted-80 hover:text-primary transition-colors font-semibold">Tất cả khóa học</Link>
             <Link href="/admission" className="text-ink-muted-80 hover:text-primary transition-colors font-semibold">Đăng ký tư vấn lộ trình</Link>
             <Link 

@@ -37,16 +37,6 @@
   --radius-pill: 9999px;
   --radius-full: 9999px;
 
-  /* Spacing mapping */
-  --spacing-xxs: 4px;
-  --spacing-xs: 8px;
-  --spacing-sm: 12px;
-  --spacing-md: 17px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-xxl: 48px;
-  --spacing-section: 80px;
-
   /* Single shadow reserved for product photography */
   --shadow-product: 3px 5px 30px 0px rgba(0, 0, 0, 0.22);
 }
