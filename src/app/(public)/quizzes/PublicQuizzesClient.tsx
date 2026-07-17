@@ -350,8 +350,8 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                   </h3>
                   
                   {q.imageUrl && q.imageUrl.trim() && (
-                    <div className="my-1 border border-hairline rounded overflow-hidden max-w-full md:max-w-md bg-canvas">
-                      <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="max-h-64 w-auto object-contain rounded" />
+                    <div className="my-2 border border-hairline rounded overflow-hidden max-w-full bg-canvas shadow-sm">
+                      <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="w-full h-auto object-contain rounded" />
                     </div>
                   )}
                   
@@ -572,8 +572,8 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                     </div>
                     
                     {q.imageUrl && q.imageUrl.trim() && (
-                      <div className="my-1 border border-hairline rounded overflow-hidden max-w-full md:max-w-md bg-canvas">
-                        <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="max-h-64 w-auto object-contain rounded" />
+                      <div className="my-2 border border-hairline rounded overflow-hidden max-w-full bg-canvas shadow-sm">
+                        <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="w-full h-auto object-contain rounded" />
                       </div>
                     )}
 

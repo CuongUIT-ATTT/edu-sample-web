@@ -113,11 +113,22 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
 
   const handleStartQuiz = (quiz: Quiz) => {
     setSelectedQuiz(quiz);
-    setTimeLeft(quiz.duration * 60);
+    setShowRules(true);
+    setAgreed(false);
+  };
+
+  const confirmStartQuiz = () => {
+    if (!selectedQuiz) return;
+    if (!agreed) {
+      showToast("Vui lòng đồng ý với Nội quy phòng thi để tiếp tục.", "warning");
+      return;
+    }
+    setTimeLeft(selectedQuiz.duration * 60);
     setAnswers({});
     setQuizResult(null);
     setShowReview(false);
     setQuizStarted(true);
+    setShowRules(false);
   };
 
   const handleSelectOption = (questionId: string, optionIndex: number) => {
@@ -152,6 +163,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
       const response = await submitQuiz({
         quizId: selectedQuiz.id,
         answers,
+        guestName: "",
         timeExpired: timeLeft === 0,
       });
 
@@ -196,8 +208,84 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
         </button>
       )}
 
+      {/* 1.1 Rules & Confirmation screen (Student) */}
+      {!quizStarted && showRules && selectedQuiz && (
+        <div className="bg-canvas border border-hairline rounded-lg p-8 shadow-sm max-w-xl mx-auto w-full animate-fade-in flex flex-col gap-6">
+          <div className="flex flex-col gap-1 border-b border-divider-soft pb-4">
+            <span className="text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-700 px-2.5 py-0.5 rounded-full self-start mb-2">
+              Kỳ thi nghiêm túc
+            </span>
+            <h2 className="font-tagline text-lg font-bold text-ink">
+              📝 Quy Chế Phòng Luyện Đề & Thi Thử
+            </h2>
+            <p className="text-[11px] text-ink-muted-80 font-body">
+              Bài thi: <strong>{selectedQuiz.title}</strong>
+            </p>
+          </div>
+
+          {/* Rules Details */}
+          <div className="flex flex-col gap-3.5 text-xs text-ink-muted-80 font-body">
+            <div className="flex gap-3 items-start bg-slate-50 border border-divider-soft p-3.5 rounded-lg">
+              <span className="text-blue-600 font-bold flex-shrink-0 text-sm">⏱️</span>
+              <div className="flex flex-col gap-0.5">
+                <strong className="text-ink">Thời gian làm bài: {selectedQuiz.duration} phút</strong>
+                <span>Hệ thống bắt đầu tính giờ ngay khi bạn bấm nút làm bài. Không thể tạm dừng hoặc reset thời gian.</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 items-start bg-amber-50 border border-amber-200 p-3.5 rounded-lg">
+              <span className="text-amber-600 font-bold flex-shrink-0 text-sm">🚫</span>
+              <div className="flex flex-col gap-0.5">
+                <strong className="text-amber-800">Quy tắc chống chuyển tab (Rất quan trọng):</strong>
+                <span className="text-amber-900">EduWeb tự động ghi nhận khi bạn mở tab mới, mở tab khác hoặc rời màn hình làm bài. Nếu số lần vi phạm vượt quá <strong>3 lần</strong>, bài thi sẽ bị tự động khóa và thu bài.</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 items-start bg-red-50 border border-red-200 p-3.5 rounded-lg">
+              <span className="text-red-600 font-bold flex-shrink-0 text-sm">🔒</span>
+              <div className="flex flex-col gap-0.5">
+                <strong className="text-red-800">Bảo mật thông tin:</strong>
+                <span className="text-red-900">Mã định danh của bạn được in chìm trên màn hình. Mọi hành vi chụp ảnh, quay màn hình đều có thể bị truy vết.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Checklist */}
+          <label className="flex items-start gap-3 mt-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-1 accent-primary h-4.5 w-4.5"
+            />
+            <span className="text-xs text-ink font-semibold leading-relaxed">
+              Tôi cam kết tuân thủ đúng quy chế phòng thi, làm bài trung thực và tự lực.
+            </span>
+          </label>
+
+          {/* Controls */}
+          <div className="flex gap-3 justify-end border-t border-divider-soft pt-4">
+            <button
+              onClick={() => {
+                setShowRules(false);
+                setSelectedQuiz(null);
+              }}
+              className="border border-divider-soft hover:bg-surface-pearl text-ink-muted-80 text-xs px-4.5 py-2.5 rounded-pill font-semibold"
+            >
+              Hủy bỏ
+            </button>
+            <button
+              onClick={confirmStartQuiz}
+              className="bg-primary hover:bg-primary-focus text-white text-xs px-6 py-2.5 rounded-pill font-semibold flex items-center gap-1.5 shadow-sm"
+            >
+              Vào làm bài thi <Clock className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. Quiz Listing view */}
-      {!quizStarted && (
+      {!quizStarted && !showRules && (
         <div className="flex flex-col gap-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -313,8 +401,8 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
                 </h3>
                 
                 {q.imageUrl && q.imageUrl.trim() && (
-                  <div className="my-1 border border-hairline rounded overflow-hidden max-w-full md:max-w-md bg-canvas">
-                    <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="max-h-64 w-auto object-contain rounded" />
+                  <div className="my-2 border border-hairline rounded overflow-hidden max-w-full bg-canvas shadow-sm">
+                    <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="w-full h-auto object-contain rounded" />
                   </div>
                 )}
                 
@@ -602,8 +690,8 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
                   </div>
                   
                   {q.imageUrl && q.imageUrl.trim() && (
-                    <div className="my-1 border border-hairline rounded overflow-hidden max-w-full md:max-w-md bg-canvas">
-                      <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="max-h-64 w-auto object-contain rounded" />
+                    <div className="my-2 border border-hairline rounded overflow-hidden max-w-full bg-canvas shadow-sm">
+                      <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="w-full h-auto object-contain rounded" />
                     </div>
                   )}
 
