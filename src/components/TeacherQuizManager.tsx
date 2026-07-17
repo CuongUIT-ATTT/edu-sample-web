@@ -213,7 +213,16 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         correctAnswer: "0",
         score: 1.0,
         explanation: "Áp dụng công thức nguyên hàm cơ bản: $\\int x^n dx = \\frac{x^{n+1}}{n+1} + C$ với $n=2$.",
-        imageUrl: "https://images.unsplash.com/photo-1543508282-6319a3e2621d?auto=format&fit=crop&w=400&q=80"
+        imageUrl: ""
+      },
+      {
+        questionText: "Trong phòng thí nghiệm, etyl axetat được điều chế theo các bước:\n- Bước 1: Cho 1 ml ancol etylic, 1 ml axit axetic nguyên chất và 1 giọt axit sunfuric đặc vào ống nghiệm.\n- Bước 2: Lắc đều, đồng thời đun cách thủy 5-6 phút trong nồi nước nóng 65–70°C.\n- Bước 3: Làm lạnh rồi rót thêm vào ống nghiệm 2 ml dung dịch NaCl bão hòa.\nCho các phát biểu sau:\n(a) Có thể thay dung dịch axit sunfuric đặc bằng dung dịch axit sunfuric loãng.\n(b) Có thể tiến hành thí nghiệm bằng cách đun sôi hỗn hợp.\n(c) Để kiểm soát nhiệt độ trong quá trình đun nóng có thể dùng nhiệt kế.\n(d) Dung dịch NaCl bão hòa được thêm vào ống nghiệm để phản ứng đạt hiệu suất cao hơn.\nSố phát biểu sai là",
+        type: "MULTIPLE_CHOICE",
+        options: ["1", "2", "3", "4"],
+        correctAnswer: "1",
+        score: 0.25,
+        explanation: "Phát biểu (a) sai: H₂SO₄ đặc mới có tác dụng hút nước. Phát biểu (b) sai: đun sôi làm thất thoát chất. Phát biểu (d) sai: NaCl bão hòa để tách ester khỏi nước, không tăng hiệu suất.",
+        imageUrl: ""
       },
       {
         questionText: "Đồ thị hàm số bậc hai $y = ax^2 + bx + c$ ($a \\neq 0$) là một đường Parabol.",
@@ -1006,10 +1015,15 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 </div>
               )}
 
-              {/* Formula instructions */}
-              <div className="bg-blue-50 border border-blue-200 rounded p-4 text-[11px] text-ink-muted-80 font-body leading-relaxed flex flex-col gap-1">
-                <span className="font-semibold text-ink block">💡 Hướng dẫn nhập công thức Toán học / Vật lý:</span>
-                Nhập công thức trong cặp dấu $...$ để hiển thị công thức đẹp mắt.
+              {/* Formula & formatting instructions */}
+              <div className="bg-blue-50 border border-blue-200 rounded p-4 text-[11px] text-ink-muted-80 font-body leading-relaxed flex flex-col gap-2">
+                <span className="font-semibold text-ink block">💡 Hướng dẫn định dạng câu hỏi:</span>
+                <span>• <strong>Công thức Toán học:</strong> nhập trong cặp dấu <code className="bg-blue-100 px-1 rounded">$...$</code> — ví dụ: <code className="bg-blue-100 px-1 rounded">$x^2 + 1$</code></span>
+                <span>• <strong>Câu hỏi nhiều bước / dài:</strong> dùng <code className="bg-blue-100 px-1 rounded">\n</code> trong chuỗi JSON để xuống dòng. Hệ thống sẽ tự nhận diện và định dạng đẹp:<br />
+                  — <code className="bg-blue-100 px-1 rounded">- Bước 1: ...</code> → hiển thị như bước có mũi tên<br />
+                  — <code className="bg-blue-100 px-1 rounded">(a) ...</code>, <code className="bg-blue-100 px-1 rounded">(b) ...</code> → indent thụt vào như phát biểu con
+                </span>
+                <span>• <strong>Tip:</strong> Tải file JSON mẫu ở trên để xem ví dụ câu nhiều bước đã được định dạng sẵn.</span>
               </div>
 
               {/* Questions List & Fields Editor */}
