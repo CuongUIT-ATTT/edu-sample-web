@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState } from "react";
-import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2 } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus } from "lucide-react";
 import { createQuiz, deleteQuiz, updateQuiz, getQuizSubmissions } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
 import { showToast } from "@/components/Toast";
@@ -49,6 +49,9 @@ interface TeacherQuizManagerProps {
 
 export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin = false }: TeacherQuizManagerProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
+  const imageFileRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -1188,14 +1191,54 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     </div>
 
                     <div className="flex flex-col gap-1.5 mt-2">
-                      <label className="text-[10px] font-semibold text-ink-muted-80">Đường dẫn ảnh câu hỏi (Tùy chọn)</label>
-                      <input
-                        type="text"
-                        value={q.imageUrl || ""}
-                        onChange={(e) => handleImageUrlChange(qIdx, e.target.value)}
-                        placeholder="Ví dụ: https://example.com/hinh1.png"
-                        className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full"
-                      />
+                      <label className="text-[10px] font-semibold text-ink-muted-80">Ảnh minh họa câu hỏi (Tùy chọn)</label>
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          value={q.imageUrl || ""}
+                          onChange={(e) => handleImageUrlChange(qIdx, e.target.value)}
+                          placeholder="Dán link ảnh hoặc bấm nút upload →"
+                          className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-xs text-ink outline-none focus:border-primary-focus flex-1 min-w-0"
+                        />
+                        {/* Hidden file input */}
+                        <input
+                          ref={(el) => { imageFileRefs.current[qIdx] = el; }}
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setUploadingIdx(qIdx);
+                            try {
+                              const fd = new FormData();
+                              fd.append("image", file);
+                              const res = await fetch("/api/upload-image", { method: "POST", body: fd });
+                              const data = await res.json();
+                              if (!res.ok) throw new Error(data.error ?? "Upload thất bại");
+                              handleImageUrlChange(qIdx, data.url);
+                              showToast("✅ Upload ảnh thành công!", "success");
+                            } catch (err) {
+                              showToast(`❌ ${err instanceof Error ? err.message : "Upload thất bại"}`, "error");
+                            } finally {
+                              setUploadingIdx(null);
+                              e.target.value = "";
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          title="Upload ảnh lên ImgBB"
+                          disabled={uploadingIdx === qIdx}
+                          onClick={() => imageFileRefs.current[qIdx]?.click()}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-pill text-[10px] font-semibold border border-hairline bg-canvas hover:bg-surface text-ink-muted-80 hover:text-ink transition-colors disabled:opacity-50 flex-shrink-0"
+                        >
+                          {uploadingIdx === qIdx
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <ImagePlus className="h-3.5 w-3.5" />}
+                          {uploadingIdx === qIdx ? "Đang tải..." : "Upload"}
+                        </button>
+                      </div>
                       {q.imageUrl && q.imageUrl.trim() && (
                         <div className="mt-1 border border-hairline rounded p-1 max-w-[150px] bg-canvas self-start">
                           <img src={q.imageUrl} alt="Xem trước" className="max-h-24 w-auto rounded object-contain mx-auto" />
