@@ -52,7 +52,8 @@ export default function ClassManagementList({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassItem | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
-  const [studentToAddId, setStudentToAddId] = useState("");
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [studentSearchTerm, setStudentSearchTerm] = useState("");
 
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -126,15 +127,16 @@ export default function ClassManagementList({
 
   const handleAddStudent = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedClass || !studentToAddId) return;
+    if (!selectedClass || selectedStudentIds.length === 0) return;
     setSuccessMsg(null);
     setErrorMsg(null);
 
-    const res = await addStudentToClass(selectedClass.id, studentToAddId);
+    const res = await addStudentToClass(selectedClass.id, selectedStudentIds);
     if (res.success) {
       setSuccessMsg(res.message || "Đã thêm học viên vào lớp.");
       setIsAddStudentOpen(false);
-      setStudentToAddId("");
+      setSelectedStudentIds([]);
+      setStudentSearchTerm("");
       window.location.reload();
     } else {
       setErrorMsg(res.error || "Thao tác thất bại.");
@@ -431,35 +433,119 @@ export default function ClassManagementList({
                 </button>
               ) : (
                 <form onSubmit={handleAddStudent} className="bg-surface-pearl border border-divider-soft p-4 rounded flex flex-col gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-caption-strong text-ink-muted-80">Chọn học viên chưa tham gia lớp</label>
-                    <select
-                      value={studentToAddId}
-                      onChange={(e) => setStudentToAddId(e.target.value)}
-                      className="bg-canvas border border-hairline rounded px-3 py-1.5 text-xs outline-none"
-                      required
-                    >
-                      <option value="">— Chọn học viên —</option>
-                      {availableStudents.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.user.name} ({s.user.email}) {s.classes && s.classes.length > 0 ? `[Hiện ở: ${s.classes.map((c: any) => c.name).join(", ")}]` : "[Chưa xếp lớp]"}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] font-caption-strong text-ink-muted-80">Chọn các học viên chưa tham gia lớp</label>
+                    
+                    {/* Search Input */}
+                    <input
+                      type="text"
+                      placeholder="Tìm học viên theo tên/email..."
+                      value={studentSearchTerm}
+                      onChange={(e) => setStudentSearchTerm(e.target.value)}
+                      className="bg-canvas border border-hairline rounded px-3 py-1.5 text-xs outline-none w-full"
+                    />
+
+                    {/* Select All Checkbox */}
+                    {availableStudents.filter(
+                      (s) =>
+                        s.user.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+                        s.user.email.toLowerCase().includes(studentSearchTerm.toLowerCase())
+                    ).length > 0 && (
+                      <label className="flex items-center gap-2 text-xs font-semibold text-ink border-b border-divider pb-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={
+                            selectedStudentIds.length ===
+                            availableStudents.filter(
+                              (s) =>
+                                s.user.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+                                s.user.email.toLowerCase().includes(studentSearchTerm.toLowerCase())
+                            ).length
+                          }
+                          onChange={(e) => {
+                            const filtered = availableStudents.filter(
+                              (s) =>
+                                s.user.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+                                s.user.email.toLowerCase().includes(studentSearchTerm.toLowerCase())
+                            );
+                            if (e.target.checked) {
+                              setSelectedStudentIds(filtered.map((s) => s.id));
+                            } else {
+                              setSelectedStudentIds([]);
+                            }
+                          }}
+                          className="accent-primary h-3.5 w-3.5"
+                        />
+                        <span>Chọn tất cả ({
+                          availableStudents.filter(
+                            (s) =>
+                              s.user.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+                              s.user.email.toLowerCase().includes(studentSearchTerm.toLowerCase())
+                          ).length
+                        })</span>
+                      </label>
+                    )}
+
+                    {/* List of Checkboxes with Scrollbar */}
+                    <div className="max-h-[160px] overflow-y-auto flex flex-col gap-1.5 pr-1 border border-divider-soft p-2 rounded bg-canvas">
+                      {availableStudents.filter(
+                        (s) =>
+                          s.user.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+                          s.user.email.toLowerCase().includes(studentSearchTerm.toLowerCase())
+                      ).length === 0 ? (
+                        <p className="text-xs text-ink-muted-48 italic py-2 text-center">Không tìm thấy học viên khả dụng</p>
+                      ) : (
+                        availableStudents
+                          .filter(
+                            (s) =>
+                              s.user.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+                              s.user.email.toLowerCase().includes(studentSearchTerm.toLowerCase())
+                          )
+                          .map((s) => {
+                            const isChecked = selectedStudentIds.includes(s.id);
+                            return (
+                              <label key={s.id} className="flex items-start gap-2.5 text-xs text-ink hover:bg-surface-pearl p-1 rounded cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedStudentIds((prev) => [...prev, s.id]);
+                                    } else {
+                                      setSelectedStudentIds((prev) => prev.filter((id) => id !== s.id));
+                                    }
+                                  }}
+                                  className="accent-primary h-3.5 w-3.5 mt-0.5"
+                                />
+                                <div className="flex flex-col">
+                                  <span className="font-semibold">{s.user.name}</span>
+                                  <span className="text-[10px] text-ink-muted-48">{s.user.email} {s.classes && s.classes.length > 0 ? `[Hiện ở: ${s.classes.map((c: any) => c.name).join(", ")}]` : "[Chưa xếp lớp]"}</span>
+                                </div>
+                              </label>
+                            );
+                          })
+                      )}
+                    </div>
                   </div>
+
                   <div className="flex gap-2 justify-end">
                     <button
                       type="button"
-                      onClick={() => setIsAddStudentOpen(false)}
+                      onClick={() => {
+                        setIsAddStudentOpen(false);
+                        setSelectedStudentIds([]);
+                        setStudentSearchTerm("");
+                      }}
                       className="border border-divider-soft hover:bg-canvas text-xs px-3 py-1.5 rounded-pill"
                     >
                       Hủy
                     </button>
                     <button
                       type="submit"
-                      className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded-pill font-semibold"
+                      disabled={selectedStudentIds.length === 0}
+                      className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs px-3 py-1.5 rounded-pill font-semibold"
                     >
-                      Xác nhận thêm
+                      Xác nhận thêm ({selectedStudentIds.length})
                     </button>
                   </div>
                 </form>

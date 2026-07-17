@@ -96,20 +96,22 @@ export async function removeStudentFromClass(classId: string, studentId: string)
   }
 }
 
-export async function addStudentToClass(classId: string, studentId: string) {
+export async function addStudentToClass(classId: string, studentId: string | string[]) {
   try {
     const session = await getSession();
     if (!session || (session.role !== "ADMIN" && session.role !== "TEACHER")) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
     }
 
+    const studentIds = Array.isArray(studentId) ? studentId : [studentId];
+
     await db.class.update({
       where: { id: classId },
       data: {
         students: {
-          connect: { id: studentId }
-        }
-      }
+          connect: studentIds.map((id) => ({ id })),
+        },
+      },
     });
 
     revalidatePath("/admin/classes");

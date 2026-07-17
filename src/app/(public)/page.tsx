@@ -47,39 +47,23 @@ export default function HomePage() {
       if (res.success && res.data) {
         setRealStats(res.data);
       }
+      setLoadingStats(false);
     };
     fetchStats();
 
     return () => clearInterval(interval);
   }, []);
 
+  const [loadingStats, setLoadingStats] = useState(true);
+
   const stats = [
-    { value: realStats.totalQuizzes ? `${realStats.totalQuizzes}` : "...", label: "Đề thi thử trực tuyến" },
-    { value: realStats.totalStudents ? `${realStats.totalStudents}` : "...", label: "Học viên đã đăng ký" },
-    { value: realStats.totalCourses ? `${realStats.totalCourses}` : "...", label: "Khóa học chính thức" },
-    { value: realStats.totalSubmissions ? `${realStats.totalSubmissions}` : "...", label: "Lượt làm bài nộp tích lũy" },
+    { value: loadingStats ? "..." : `${realStats.totalQuizzes}`, label: "Đề thi thử trực tuyến" },
+    { value: loadingStats ? "..." : `${realStats.totalStudents}`, label: "Học viên đã đăng ký" },
+    { value: loadingStats ? "..." : `${realStats.totalCourses}`, label: "Khóa học chính thức" },
+    { value: loadingStats ? "..." : `${realStats.totalSubmissions}`, label: "Lượt làm bài nộp tích lũy" },
   ];
 
-  const testimonials = [
-    {
-      name: "Nguyễn Minh Đức",
-      score: "9.8 điểm Toán",
-      target: "Đỗ Đại Học Bách Khoa Hà Nội",
-      comment: "Nhờ lộ trình tổng ôn cấp tốc của EduWeb, em học được các kỹ thuật bấm máy tính Casio giải trắc nghiệm siêu tốc và đặc biệt là cách loại bỏ lỗi sai ngu lý thuyết.",
-    },
-    {
-      name: "Trần Khánh Vy",
-      score: "9.6 điểm Vật Lý",
-      target: "Đỗ Đại Học Ngoại Thương",
-      comment: "Bài giảng livestream của Thầy Bình cực kỳ trực quan và cuốn hút. Các tài liệu tóm tắt công thức VIP giúp em ghi nhớ nhanh toàn bộ chương trình Vật lý 12 chỉ trong một tuần.",
-    },
-    {
-      name: "Phạm Hải Long",
-      score: "9.4 điểm Tiếng Anh",
-      target: "Đỗ Đại Học Quốc Gia HN",
-      comment: "Em mất gốc Tiếng Anh hoàn toàn từ lớp 11. Sau khóa lấy lại căn bản và luyện đề thi thử của Cô Mai Anh, điểm số của em đã bứt phá ngoạn mục lên 9.4.",
-    },
-  ];
+
 
   return (
     <div className="flex flex-col w-full overflow-hidden bg-canvas-parchment">
@@ -197,44 +181,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section className="bg-canvas text-ink flex flex-col items-center justify-center py-24 px-6 text-center border-t border-hairline">
-        <div className="max-w-[980px] w-full flex flex-col items-center gap-6">
-          <span className="text-[10px] uppercase font-bold text-primary tracking-widest">Bảng vàng vinh danh</span>
-          <h2 className="font-display-lg text-3xl font-bold text-ink">
-            Học Viên Điểm Cao Nói Gì Về EduWeb?
-          </h2>
-          <p className="text-xs text-ink-muted-80 max-w-[600px] font-body leading-relaxed">
-            Hàng ngàn học viên của trung tâm đã bứt phá điểm số và đỗ đạt vào các trường đại học hàng đầu Việt Nam.
-          </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mt-12 text-left">
-            {testimonials.map((t) => (
-              <div key={t.name} className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm flex flex-col justify-between min-h-[200px]">
-                <div>
-                  <div className="flex gap-1 text-amber-500 mb-3">
-                    <Star className="h-4.5 w-4.5 fill-current" />
-                    <Star className="h-4.5 w-4.5 fill-current" />
-                    <Star className="h-4.5 w-4.5 fill-current" />
-                    <Star className="h-4.5 w-4.5 fill-current" />
-                    <Star className="h-4.5 w-4.5 fill-current" />
-                  </div>
-                  <p className="text-xs text-ink-muted-80 font-body leading-relaxed italic mb-4">
-                    "{t.comment}"
-                  </p>
-                </div>
-                <div className="border-t border-divider-soft pt-4 flex flex-col gap-0.5">
-                  <h4 className="font-body-strong text-sm font-bold text-ink">{t.name}</h4>
-                  <div className="flex justify-between items-center text-[10px] font-semibold text-primary">
-                    <span>{t.score}</span>
-                    <span className="text-ink-muted-48">{t.target}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* CTA final Section */}
       <section className="bg-canvas-parchment text-ink flex flex-col items-center justify-center py-20 px-6 text-center border-t border-hairline">

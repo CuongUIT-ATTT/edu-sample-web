@@ -198,6 +198,225 @@ export default function SingleQuizPlayer({ quiz, sessionUser }: SingleQuizPlayer
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const renderQuestionPlaying = (q: any, displayIdx: number) => {
+    return (
+      <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4 text-left">
+        <h3 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
+          Câu {displayIdx}: <MathRenderer text={q.questionText} />
+        </h3>
+        
+        {q.imageUrl && q.imageUrl.trim() && (
+          <div className="my-2 border border-hairline rounded overflow-hidden max-w-full bg-canvas shadow-sm">
+            <img src={q.imageUrl} alt={`Hình minh họa câu ${displayIdx}`} className="w-full h-auto object-contain rounded" />
+          </div>
+        )}
+        
+        {q.type === "TRUE_FALSE" ? (
+          <div className="flex flex-col gap-3 border border-hairline rounded-lg p-4 bg-surface-pearl/50">
+            <div className="grid grid-cols-12 text-[10px] font-bold text-ink-muted-48 uppercase border-b border-divider pb-2 mb-2">
+              <div className="col-span-8">Ý phát biểu</div>
+              <div className="col-span-2 text-center">Đúng</div>
+              <div className="col-span-2 text-center">Sai</div>
+            </div>
+            {q.options.map((opt: string, optIndex: number) => {
+              const currentAnswers = (answers[q.id] || "-,-,-,-").split(",");
+              const val = currentAnswers[optIndex] || "-";
+              return (
+                <div key={optIndex} className="grid grid-cols-12 items-center gap-2 py-1 text-xs border-b border-divider-soft last:border-0 last:pb-0">
+                  <div className="col-span-8 flex gap-2">
+                    <span className="font-semibold text-ink-muted-80">{String.fromCharCode(97 + optIndex)})</span>
+                    <MathRenderer text={opt} />
+                  </div>
+                  <div className="col-span-2 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTrueFalse(q.id, optIndex, "T")}
+                      className={`w-7 h-7 rounded-full text-[10px] font-bold border transition-colors ${
+                        val === "T" ? "bg-green-600 border-green-600 text-white" : "border-ink-muted-48 hover:bg-green-50 text-green-700"
+                      }`}
+                    >
+                      Đ
+                    </button>
+                  </div>
+                  <div className="col-span-2 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTrueFalse(q.id, optIndex, "F")}
+                      className={`w-7 h-7 rounded-full text-[10px] font-bold border transition-colors ${
+                        val === "F" ? "bg-red-600 border-red-600 text-white" : "border-ink-muted-48 hover:bg-red-50 text-red-700"
+                      }`}
+                    >
+                      S
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : q.type === "SHORT_ANSWER" ? (
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-caption-strong text-ink-muted-80">Nhập đáp số:</label>
+            <input
+              type="text"
+              value={answers[q.id] || ""}
+              onChange={(e) => handleShortAnswerChange(q.id, e.target.value)}
+              placeholder="Nhập câu trả lời..."
+              className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-xs text-ink outline-none focus:border-primary-focus w-48"
+            />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {q.options.map((opt: string, optIndex: number) => {
+              const isSelected = answers[q.id] === optIndex.toString();
+              return (
+                <button
+                  key={optIndex}
+                  onClick={() => handleSelectOption(q.id, optIndex)}
+                  className={`flex items-center gap-3 text-left p-3.5 rounded-pill border text-xs transition-colors ${
+                    isSelected 
+                      ? "bg-surface-pearl border-primary-focus text-primary font-semibold" 
+                      : "bg-canvas border-divider-soft text-ink-muted-80 hover:bg-surface-pearl"
+                  }`}
+                >
+                  <span className={`h-4 w-4 rounded-full border flex items-center justify-center text-[10px] font-bold ${
+                    isSelected ? "border-primary bg-primary text-white" : "border-ink-muted-48 text-ink-muted-48"
+                  }`}>
+                    {String.fromCharCode(65 + optIndex)}
+                  </span>
+                  <MathRenderer text={opt} />
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderQuestionReview = (q: any, displayIdx: number, reviewInfo: any, studentAnsVal: string, correctAnsVal: string, isCorrect: boolean, scoreEarned: number, subCorrectText: string) => {
+    return (
+      <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4 text-left">
+        <div className="flex justify-between items-start gap-2">
+          <h3 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
+            Câu {displayIdx}: <MathRenderer text={q.questionText} />
+          </h3>
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+            isCorrect 
+              ? "bg-green-50 text-green-700 border border-green-200" 
+              : scoreEarned > 0
+              ? "bg-amber-50 text-amber-700 border border-amber-200"
+              : "bg-red-50 text-red-700 border border-red-200"
+          }`}>
+            {isCorrect ? `Đúng (${scoreEarned.toFixed(2)}đ)` : scoreEarned > 0 ? `Đúng một phần${subCorrectText} (${scoreEarned.toFixed(2)}đ)` : `Sai (0đ)`}
+          </span>
+        </div>
+        
+        {q.imageUrl && q.imageUrl.trim() && (
+          <div className="my-2 border border-hairline rounded overflow-hidden max-w-full bg-canvas shadow-sm">
+            <img src={q.imageUrl} alt={`Hình minh họa câu ${displayIdx}`} className="w-full h-auto object-contain rounded" />
+          </div>
+        )}
+
+        {/* MCQ options review */}
+        {q.type === "MULTIPLE_CHOICE" && (
+          <div className="flex flex-col gap-2">
+            {q.options.map((opt: string, optIndex: number) => {
+              const isStudentSelect = answers[q.id] === optIndex.toString();
+              const isCorrectAnswer = reviewInfo?.correctAnswer === optIndex.toString();
+              let btnStyle = "bg-canvas border-divider-soft text-ink-muted-80";
+              if (isStudentSelect) {
+                btnStyle = isCorrect ? "bg-green-50 border-green-500 text-green-800 font-semibold" : "bg-red-50 border-red-400 text-red-800 font-semibold";
+              } else if (isCorrectAnswer) {
+                btnStyle = "bg-green-50 border-green-500 text-green-800 border-dashed font-semibold";
+              }
+              return (
+                <div
+                  key={optIndex}
+                  className={`flex items-center gap-3 p-3.5 rounded-pill border text-xs ${btnStyle}`}
+                >
+                  <span className={`h-4 w-4 rounded-full border flex items-center justify-center text-[10px] font-bold ${
+                    isCorrectAnswer ? "border-green-600 bg-green-600 text-white" : isStudentSelect ? "border-red-500 bg-red-500 text-white" : "border-ink-muted-48 text-ink-muted-48"
+                  }`}>
+                    {String.fromCharCode(65 + optIndex)}
+                  </span>
+                  <MathRenderer text={opt} />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* True/False options review */}
+        {q.type === "TRUE_FALSE" && reviewInfo && (
+          <div className="flex flex-col gap-3 border border-hairline rounded-lg p-4 bg-surface-pearl/50">
+            <div className="grid grid-cols-12 text-[10px] font-bold text-ink-muted-48 uppercase border-b border-divider pb-2 mb-2">
+              <div className="col-span-6">Ý phát biểu</div>
+              <div className="col-span-3 text-center">Lựa chọn của bạn</div>
+              <div className="col-span-3 text-center">Đáp án đúng</div>
+            </div>
+            {q.options.map((opt: string, optIndex: number) => {
+              const studentParts = (answers[q.id] || "-,-,-,-").split(",");
+              const correctParts = (reviewInfo.correctAnswer || "T,T,T,T").split(",");
+              
+              const studVal = studentParts[optIndex] === "T" ? "Đúng" : studentParts[optIndex] === "F" ? "Sai" : "Chưa chọn";
+              const corrVal = correctParts[optIndex] === "T" ? "Đúng" : "Sai";
+              
+              const isPartCorrect = studentParts[optIndex] === correctParts[optIndex];
+              const badgeStyle = isPartCorrect ? "text-green-700 bg-green-50 border border-green-200" : studVal === "Chưa chọn" ? "text-slate-600 bg-slate-50 border border-slate-200" : "text-red-700 bg-red-50 border border-red-200";
+              
+              return (
+                <div key={optIndex} className="grid grid-cols-12 items-center gap-2 py-2 border-b border-divider-soft last:border-0 last:pb-0 text-left">
+                  <div className="col-span-6 flex gap-2">
+                    <span className="font-semibold text-ink-muted-80">{String.fromCharCode(97 + optIndex)})</span>
+                    <MathRenderer text={opt} />
+                  </div>
+                  <div className="col-span-3 flex justify-center">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${badgeStyle}`}>
+                      {studVal}
+                    </span>
+                  </div>
+                  <div className="col-span-3 flex justify-center">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-medium text-green-800 bg-green-50 border border-green-200">
+                      {corrVal}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Short Answer review */}
+        {q.type === "SHORT_ANSWER" && reviewInfo && (
+          <div className="flex flex-col gap-2 p-3 bg-surface-pearl border border-divider-soft rounded-lg">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-semibold text-ink-muted-80">Đáp án của bạn:</span>
+              <span className={`px-3 py-1 rounded-pill font-bold ${isCorrect ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                {answers[q.id] || "(Trống)"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-semibold text-ink-muted-80">Đáp án chính xác:</span>
+              <span className="px-3 py-1 rounded-pill bg-green-100 text-green-800 font-bold">
+                {reviewInfo.correctAnswer}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Explanation guidance */}
+        {q.explanation && q.explanation.trim() && (
+          <div className="mt-4 border-t border-divider-soft pt-4 text-left">
+            <span className="text-[10px] font-bold text-primary uppercase tracking-wider block mb-1">💡 Lời giải chi tiết:</span>
+            <div className="text-xs text-ink-muted-80 bg-blue-50/50 border border-blue-100 rounded-lg p-3 leading-relaxed">
+              <MathRenderer text={q.explanation} />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="bg-canvas-parchment min-h-screen py-8 px-4 flex flex-col gap-6 w-full">
       {/* 1. Intro screen (before start) */}
@@ -373,98 +592,47 @@ export default function SingleQuizPlayer({ quiz, sessionUser }: SingleQuizPlayer
                 </p>
               </div>
             )}
-            {quiz.questions.map((q, qIndex) => (
-              <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4">
-                <h3 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
-                  Câu {qIndex + 1}: <MathRenderer text={q.questionText} />
-                </h3>
-                
-                {q.imageUrl && q.imageUrl.trim() && (
-                  <div className="my-2 border border-hairline rounded overflow-hidden max-w-full bg-canvas shadow-sm">
-                    <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="w-full h-auto object-contain rounded" />
+            {/* PHẦN I */}
+            {((() => {
+              const part1Questions = (quiz.questions || []).filter(q => q.type === "MULTIPLE_CHOICE");
+              return part1Questions.length > 0 && (
+                <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
+                  <div className="border-b border-divider pb-2 mb-2 text-left">
+                    <span className="text-xs font-bold text-slate-800 block">PHẦN I. Câu hỏi trắc nghiệm nhiều phương án lựa chọn</span>
+                    <span className="text-[10px] text-ink-muted-48">Mỗi câu hỏi thí sinh chỉ chọn một phương án.</span>
                   </div>
-                )}
-                
-                {q.type === "TRUE_FALSE" ? (
-                  <div className="flex flex-col gap-3 border border-hairline rounded-lg p-4 bg-surface-pearl/50">
-                    <div className="grid grid-cols-12 text-[10px] font-bold text-ink-muted-48 uppercase border-b border-divider pb-2 mb-2">
-                      <div className="col-span-8">Ý phát biểu</div>
-                      <div className="col-span-2 text-center">Đúng</div>
-                      <div className="col-span-2 text-center">Sai</div>
-                    </div>
-                    {q.options.map((opt, optIndex) => {
-                      const currentAnswers = (answers[q.id] || "-,-,-,-").split(",");
-                      const val = currentAnswers[optIndex] || "-";
-                      return (
-                        <div key={optIndex} className="grid grid-cols-12 items-center gap-2 py-1 text-xs border-b border-divider-soft last:border-0 last:pb-0">
-                          <div className="col-span-8 flex gap-2">
-                            <span className="font-semibold text-ink-muted-80">{String.fromCharCode(97 + optIndex)})</span>
-                            <MathRenderer text={opt} />
-                          </div>
-                          <div className="col-span-2 flex justify-center">
-                            <button
-                              type="button"
-                              onClick={() => handleSelectTrueFalse(q.id, optIndex, "T")}
-                              className={`w-7 h-7 rounded-full text-[10px] font-bold border transition-colors ${
-                                val === "T" ? "bg-green-600 border-green-600 text-white" : "border-ink-muted-48 hover:bg-green-50 text-green-700"
-                              }`}
-                            >
-                              Đ
-                            </button>
-                          </div>
-                          <div className="col-span-2 flex justify-center">
-                            <button
-                              type="button"
-                              onClick={() => handleSelectTrueFalse(q.id, optIndex, "F")}
-                              className={`w-7 h-7 rounded-full text-[10px] font-bold border transition-colors ${
-                                val === "F" ? "bg-red-600 border-red-600 text-white" : "border-ink-muted-48 hover:bg-red-50 text-red-700"
-                              }`}
-                            >
-                              S
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  {part1Questions.map((q, idx) => renderQuestionPlaying(q, idx + 1))}
+                </div>
+              );
+            })())}
+
+            {/* PHẦN II */}
+            {((() => {
+              const part2Questions = (quiz.questions || []).filter(q => q.type === "TRUE_FALSE");
+              return part2Questions.length > 0 && (
+                <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
+                  <div className="border-b border-divider pb-2 mb-2 text-left">
+                    <span className="text-xs font-bold text-slate-800 block">PHẦN II. Câu hỏi trắc nghiệm Đúng/Sai</span>
+                    <span className="text-[10px] text-ink-muted-48">Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.</span>
                   </div>
-                ) : q.type === "SHORT_ANSWER" ? (
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[10px] font-caption-strong text-ink-muted-80">Nhập đáp số:</label>
-                    <input
-                      type="text"
-                      value={answers[q.id] || ""}
-                      onChange={(e) => handleShortAnswerChange(q.id, e.target.value)}
-                      placeholder="Nhập câu trả lời..."
-                      className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-xs text-ink outline-none focus:border-primary-focus w-48"
-                    />
+                  {part2Questions.map((q, idx) => renderQuestionPlaying(q, idx + 1))}
+                </div>
+              );
+            })())}
+
+            {/* PHẦN III */}
+            {((() => {
+              const part3Questions = (quiz.questions || []).filter(q => q.type === "SHORT_ANSWER");
+              return part3Questions.length > 0 && (
+                <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
+                  <div className="border-b border-divider pb-2 mb-2 text-left">
+                    <span className="text-xs font-bold text-slate-800 block">PHẦN III. Câu hỏi trắc nghiệm trả lời ngắn</span>
+                    <span className="text-[10px] text-ink-muted-48">Thí sinh trả lời đáp số ngắn vào ô trống.</span>
                   </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {q.options.map((opt, optIndex) => {
-                      const isSelected = answers[q.id] === optIndex.toString();
-                      return (
-                        <button
-                          key={optIndex}
-                          onClick={() => handleSelectOption(q.id, optIndex)}
-                          className={`flex items-center gap-3 text-left p-3.5 rounded-pill border text-xs transition-colors ${
-                            isSelected 
-                              ? "bg-surface-pearl border-primary-focus text-primary font-semibold" 
-                              : "bg-canvas border-divider-soft text-ink-muted-80 hover:bg-surface-pearl"
-                          }`}
-                        >
-                          <span className={`h-4 w-4 rounded-full border flex items-center justify-center text-[10px] font-bold ${
-                            isSelected ? "border-primary bg-primary text-white" : "border-ink-muted-48 text-ink-muted-48"
-                          }`}>
-                            {String.fromCharCode(65 + optIndex)}
-                          </span>
-                          <MathRenderer text={opt} />
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
+                  {part3Questions.map((q, idx) => renderQuestionPlaying(q, idx + 1))}
+                </div>
+              );
+            })())}
           </div>
 
           {/* Submit Action */}
@@ -552,144 +720,86 @@ export default function SingleQuizPlayer({ quiz, sessionUser }: SingleQuizPlayer
           </div>
 
           <div className="flex flex-col gap-6 mt-4">
-            {quiz.questions.map((q, qIndex) => {
-              const reviewInfo = quizResult.correctAnswers?.find((ca) => ca.id === q.id);
-              const studentAnsVal = (answers[q.id] || "").trim().toUpperCase();
-              const correctAnsVal = (reviewInfo?.correctAnswer || "").trim().toUpperCase();
-              
-              let isCorrect = studentAnsVal === correctAnsVal;
-              let scoreEarned = 0;
-              let subCorrectText = "";
-
-              if (q.type === "TRUE_FALSE") {
-                const studentParts = studentAnsVal.split(",");
-                const correctParts = correctAnsVal.split(",");
-                let subCorrect = 0;
-                for (let i = 0; i < Math.min(studentParts.length, correctParts.length); i++) {
-                  if (studentParts[i] && correctParts[i] && studentParts[i].trim() === correctParts[i].trim()) {
-                    subCorrect++;
-                  }
-                }
-                subCorrectText = ` (${subCorrect}/4 ý)`;
-                if (subCorrect === 1) scoreEarned = 0.1 * q.score;
-                else if (subCorrect === 2) scoreEarned = 0.25 * q.score;
-                else if (subCorrect === 3) scoreEarned = 0.5 * q.score;
-                else if (subCorrect === 4) {
-                  scoreEarned = q.score;
-                  isCorrect = true;
-                }
-              } else {
-                if (isCorrect) scoreEarned = q.score;
-              }
-
-              return (
-                <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4">
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
-                      Câu {qIndex + 1}: <MathRenderer text={q.questionText} />
-                    </h3>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                      isCorrect 
-                        ? "bg-green-50 text-green-700 border border-green-200" 
-                        : scoreEarned > 0
-                        ? "bg-amber-50 text-amber-700 border border-amber-200"
-                        : "bg-red-50 text-red-700 border border-red-200"
-                    }`}>
-                      {isCorrect ? `Đúng (${scoreEarned.toFixed(2)}đ)` : scoreEarned > 0 ? `Đúng một phần${subCorrectText} (${scoreEarned.toFixed(2)}đ)` : `Sai (0đ)`}
-                    </span>
+            {/* PHẦN I Review */}
+            {((() => {
+              const part1Questions = (quiz.questions || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "MULTIPLE_CHOICE");
+              return part1Questions.length > 0 && (
+                <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
+                  <div className="border-b border-divider pb-2 mb-2 text-left">
+                    <span className="text-xs font-bold text-slate-800 block">PHẦN I. Câu hỏi trắc nghiệm nhiều phương án lựa chọn</span>
                   </div>
-                  
-                  {q.imageUrl && q.imageUrl.trim() && (
-                    <div className="my-2 border border-hairline rounded overflow-hidden max-w-full bg-canvas shadow-sm">
-                      <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="w-full h-auto object-contain rounded" />
-                    </div>
-                  )}
-
-                  {/* MCQ options review */}
-                  {q.type === "MULTIPLE_CHOICE" && (
-                    <div className="flex flex-col gap-2">
-                      {q.options.map((opt, optIndex) => {
-                        const isStudentSelect = answers[q.id] === optIndex.toString();
-                        const isCorrectAnswer = reviewInfo?.correctAnswer === optIndex.toString();
-                        let btnStyle = "bg-canvas border-divider-soft text-ink-muted-80";
-                        if (isStudentSelect) {
-                          btnStyle = isCorrect ? "bg-green-50 border-green-500 text-green-800 font-semibold" : "bg-red-50 border-red-400 text-red-800 font-semibold";
-                        } else if (isCorrectAnswer) {
-                          btnStyle = "bg-green-50 border-green-500 text-green-800 border-dashed font-semibold";
-                        }
-                        return (
-                          <div
-                            key={optIndex}
-                            className={`flex items-center gap-3 p-3.5 rounded-pill border text-xs ${btnStyle}`}
-                          >
-                            <span className={`h-4 w-4 rounded-full border flex items-center justify-center text-[10px] font-bold ${
-                              isCorrectAnswer ? "border-green-600 bg-green-600 text-white" : isStudentSelect ? "border-red-500 bg-red-500 text-white" : "border-ink-muted-48 text-ink-muted-48"
-                            }`}>
-                              {String.fromCharCode(65 + optIndex)}
-                            </span>
-                            <MathRenderer text={opt} />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* True/False options review */}
-                  {q.type === "TRUE_FALSE" && reviewInfo && (
-                    <div className="flex flex-col gap-3 border border-hairline rounded-lg p-4 bg-surface-pearl/50">
-                      <div className="grid grid-cols-12 text-[10px] font-bold text-ink-muted-48 uppercase border-b border-divider pb-2 mb-2">
-                        <div className="col-span-6">Ý phát biểu</div>
-                        <div className="col-span-3 text-center">Lựa chọn của bạn</div>
-                        <div className="col-span-3 text-center">Đáp án đúng</div>
-                      </div>
-                      {q.options.map((opt, optIndex) => {
-                        const studentParts = (answers[q.id] || "-,-,-,-").split(",");
-                        const correctParts = (reviewInfo.correctAnswer || "T,T,T,T").split(",");
-                        
-                        const studVal = studentParts[optIndex] === "T" ? "Đúng" : studentParts[optIndex] === "F" ? "Sai" : "Chưa chọn";
-                        const corrVal = correctParts[optIndex] === "T" ? "Đúng" : "Sai";
-                        const rowCorrect = studentParts[optIndex] === correctParts[optIndex];
-
-                        return (
-                          <div key={optIndex} className="grid grid-cols-12 items-center gap-2 py-1 text-xs border-b border-divider-soft last:border-0 last:pb-0">
-                            <div className="col-span-6 flex gap-2">
-                              <span className="font-semibold text-ink-muted-80">{String.fromCharCode(97 + optIndex)})</span>
-                              <MathRenderer text={opt} />
-                            </div>
-                            <div className={`col-span-3 text-center font-bold ${rowCorrect ? "text-green-700" : "text-red-600"}`}>
-                              {studVal}
-                            </div>
-                            <div className="col-span-3 text-center font-bold text-green-700">
-                              {corrVal}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Short Answer review */}
-                  {q.type === "SHORT_ANSWER" && reviewInfo && (
-                    <div className="flex flex-col gap-2 bg-surface-pearl/50 p-4 border border-divider-soft rounded-lg text-xs font-body">
-                      <div>
-                        Bạn đã trả lời: <strong className={isCorrect ? "text-green-700 font-bold" : "text-red-600 font-bold"}>{answers[q.id] || "(Chưa nhập)"}</strong>
-                      </div>
-                      <div>
-                        Đáp án đúng: <strong className="text-green-700 font-bold">{reviewInfo.correctAnswer}</strong>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Explanation card */}
-                  {reviewInfo?.explanation && (
-                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mt-2 flex flex-col gap-1 text-xs text-blue-900 font-body">
-                      <span className="font-bold flex items-center gap-1">💡 Lời giải chi tiết:</span>
-                      <MathRenderer text={reviewInfo.explanation} />
-                    </div>
-                  )}
+                  {part1Questions.map((item, index) => {
+                    const q = item.q;
+                    const reviewInfo = quizResult?.correctAnswers?.find((ca) => ca.id === q.id);
+                    const studentAnsVal = (answers[q.id] || "").trim().toUpperCase();
+                    const correctAnsVal = (reviewInfo?.correctAnswer || "").trim().toUpperCase();
+                    const isCorrect = studentAnsVal === correctAnsVal;
+                    const scoreEarned = isCorrect ? q.score : 0;
+                    return renderQuestionReview(q, index + 1, reviewInfo, studentAnsVal, correctAnsVal, isCorrect, scoreEarned, "");
+                  })}
                 </div>
               );
-            })}
+            })())}
+
+            {/* PHẦN II Review */}
+            {((() => {
+              const part2Questions = (quiz.questions || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "TRUE_FALSE");
+              return part2Questions.length > 0 && (
+                <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
+                  <div className="border-b border-divider pb-2 mb-2 text-left">
+                    <span className="text-xs font-bold text-slate-800 block">PHẦN II. Câu hỏi trắc nghiệm Đúng/Sai</span>
+                  </div>
+                  {part2Questions.map((item, index) => {
+                    const q = item.q;
+                    const reviewInfo = quizResult?.correctAnswers?.find((ca) => ca.id === q.id);
+                    const studentAnsVal = (answers[q.id] || "").trim().toUpperCase();
+                    const correctAnsVal = (reviewInfo?.correctAnswer || "").trim().toUpperCase();
+                    
+                    const studentParts = studentAnsVal.split(",");
+                    const correctParts = correctAnsVal.split(",");
+                    let subCorrect = 0;
+                    for (let i = 0; i < Math.min(studentParts.length, correctParts.length); i++) {
+                      if (studentParts[i] && correctParts[i] && studentParts[i].trim() === correctParts[i].trim()) {
+                        subCorrect++;
+                      }
+                    }
+                    const subCorrectText = ` (${subCorrect}/4 ý)`;
+                    let isCorrect = false;
+                    let scoreEarned = 0;
+                    if (subCorrect === 1) scoreEarned = 0.1 * q.score;
+                    else if (subCorrect === 2) scoreEarned = 0.25 * q.score;
+                    else if (subCorrect === 3) scoreEarned = 0.5 * q.score;
+                    else if (subCorrect === 4) {
+                      scoreEarned = q.score;
+                      isCorrect = true;
+                    }
+                    
+                    return renderQuestionReview(q, index + 1, reviewInfo, studentAnsVal, correctAnsVal, isCorrect, scoreEarned, subCorrectText);
+                  })}
+                </div>
+              );
+            })())}
+
+            {/* PHẦN III Review */}
+            {((() => {
+              const part3Questions = (quiz.questions || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "SHORT_ANSWER");
+              return part3Questions.length > 0 && (
+                <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
+                  <div className="border-b border-divider pb-2 mb-2 text-left">
+                    <span className="text-xs font-bold text-slate-800 block">PHẦN III. Câu hỏi trắc nghiệm trả lời ngắn</span>
+                  </div>
+                  {part3Questions.map((item, index) => {
+                    const q = item.q;
+                    const reviewInfo = quizResult?.correctAnswers?.find((ca) => ca.id === q.id);
+                    const studentAnsVal = (answers[q.id] || "").trim().toUpperCase();
+                    const correctAnsVal = (reviewInfo?.correctAnswer || "").trim().toUpperCase();
+                    const isCorrect = studentAnsVal === correctAnsVal;
+                    const scoreEarned = isCorrect ? q.score : 0;
+                    return renderQuestionReview(q, index + 1, reviewInfo, studentAnsVal, correctAnsVal, isCorrect, scoreEarned, "");
+                  })}
+                </div>
+              );
+            })())}
           </div>
         </div>
       )}    </div>

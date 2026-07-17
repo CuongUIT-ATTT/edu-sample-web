@@ -114,7 +114,29 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   ]);
 
   const handleAddQuestion = () => {
-    setQuestions([...questions, { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "", imageUrl: "" }]);
+    setQuestions([...questions, { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 0.25, explanation: "", imageUrl: "" }]);
+  };
+
+  const handleAddQuestionByType = (type: "MULTIPLE_CHOICE" | "TRUE_FALSE" | "SHORT_ANSWER") => {
+    let options: string[] = [];
+    let correctAnswer = "";
+    let score = 1.0;
+
+    if (type === "MULTIPLE_CHOICE") {
+      options = ["", "", "", ""];
+      correctAnswer = "0";
+      score = 0.25;
+    } else if (type === "TRUE_FALSE") {
+      options = ["", "", "", ""];
+      correctAnswer = "T,T,T,T";
+      score = 1.0;
+    } else if (type === "SHORT_ANSWER") {
+      options = [];
+      correctAnswer = "";
+      score = 0.5;
+    }
+
+    setQuestions([...questions, { questionText: "", type, options, correctAnswer, score, explanation: "", imageUrl: "" }]);
   };
 
   const handleRemoveQuestion = (idx: number) => {
@@ -600,6 +622,223 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     });
   };
 
+  const renderQuestionEditor = (q: any, qIdx: number, displayIdx: number) => {
+    return (
+      <div key={qIdx} className="border border-hairline rounded-lg p-5 flex flex-col gap-4 bg-surface-pearl relative text-left">
+        <button
+          type="button"
+          onClick={() => handleRemoveQuestion(qIdx)}
+          className="absolute top-2 right-2 text-ink-muted-48 hover:text-red-500"
+          title="Xoá câu hỏi này"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+
+        {/* Question text & type */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex flex-col gap-1.5 md:col-span-2 pr-8">
+            <label className="text-xs font-semibold text-ink">Câu hỏi {displayIdx}</label>
+            <input
+              type="text"
+              value={q.questionText}
+              onChange={(e) => handleQuestionTextChange(qIdx, e.target.value)}
+              placeholder="Nội dung câu hỏi..."
+              className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full"
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-ink">Dạng thức đề THPT 2026</label>
+            <select
+              value={q.type}
+              onChange={(e) => handleTypeChange(qIdx, e.target.value as any)}
+              className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-xs outline-none w-full"
+            >
+              <option value="MULTIPLE_CHOICE">Dạng thức I (4 lựa chọn)</option>
+              <option value="TRUE_FALSE">Dạng thức II (Đúng/Sai)</option>
+              <option value="SHORT_ANSWER">Dạng thức III (Trả lời ngắn/Điền số)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Conditional options rendering depending on type */}
+        {q.type === "MULTIPLE_CHOICE" && (
+          <div className="grid grid-cols-2 gap-3">
+            {q.options.map((opt: string, optIdx: number) => (
+              <div key={optIdx} className="flex flex-col gap-1">
+                <label className="text-[10px] font-semibold text-ink-muted-80">Phương án {String.fromCharCode(65 + optIdx)}</label>
+                <input
+                  type="text"
+                  value={opt}
+                  onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
+                  placeholder={`Phương án ${String.fromCharCode(65 + optIdx)}`}
+                  className="bg-canvas border border-hairline rounded-pill px-4 py-1.5 text-xs text-ink outline-none focus:border-primary-focus w-full"
+                  required
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {q.type === "TRUE_FALSE" && (
+          <div className="flex flex-col gap-3 bg-canvas p-3 border border-hairline rounded-lg">
+            <span className="text-[10px] font-bold text-ink-muted-48 uppercase">Khai báo 4 phát biểu và đáp án đúng/sai</span>
+            {q.options.map((opt: string, optIdx: number) => {
+              const currentAnswers = (q.correctAnswer || "T,T,T,T").split(",");
+              const tfVal = currentAnswers[optIdx] || "T";
+              return (
+                <div key={optIdx} className="grid grid-cols-12 gap-3 items-center">
+                  <span className="col-span-1 text-xs font-bold text-center">{String.fromCharCode(97 + optIdx)})</span>
+                  <input
+                    type="text"
+                    value={opt}
+                    onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
+                    placeholder={`Ý phát biểu ${String.fromCharCode(97 + optIdx)}`}
+                    className="col-span-8 bg-canvas border border-hairline rounded px-3 py-1 text-xs outline-none"
+                    required
+                  />
+                  <select
+                    value={tfVal}
+                    onChange={(e) => handleTrueFalseCorrectChange(qIdx, optIdx, e.target.value as any)}
+                    className="col-span-3 bg-canvas border border-hairline rounded px-2 py-1 text-xs outline-none"
+                  >
+                    <option value="T">Đúng</option>
+                    <option value="F">Sai</option>
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Answer & score footer */}
+        <div className="grid grid-cols-2 gap-4 mt-2 border-t border-divider-soft pt-3">
+          {q.type === "MULTIPLE_CHOICE" && (
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold text-ink-muted-80">Đáp án chính xác</label>
+              <select
+                value={q.correctAnswer}
+                onChange={(e) => handleCorrectAnswerChange(qIdx, e.target.value)}
+                className="bg-canvas border border-hairline rounded-pill px-3 py-1.5 text-xs outline-none w-full"
+              >
+                <option value="0">Phương án A</option>
+                <option value="1">Phương án B</option>
+                <option value="2">Phương án C</option>
+                <option value="3">Phương án D</option>
+              </select>
+            </div>
+          )}
+
+          {q.type === "SHORT_ANSWER" && (
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold text-ink-muted-80">Giá trị đáp số chính xác</label>
+              <input
+                type="text"
+                value={q.correctAnswer}
+                onChange={(e) => handleCorrectAnswerChange(qIdx, e.target.value)}
+                placeholder="Ví dụ: -1.25 hoặc 10"
+                className="bg-canvas border border-hairline rounded-pill px-4 py-1.5 text-xs outline-none w-full text-center"
+                required
+              />
+            </div>
+          )}
+
+          {/* Display read-only representation for true/false correct answers */}
+          {q.type === "TRUE_FALSE" && (
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold text-ink-muted-80">Chuỗi đáp án (Đ/S)</label>
+              <input
+                type="text"
+                value={q.correctAnswer.split(",").map((c: string) => c === "T" ? "Đúng" : "Sai").join(", ")}
+                className="bg-slate-100 border border-hairline rounded-pill px-4 py-1.5 text-xs text-ink-muted-80 w-full text-center"
+                disabled
+              />
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-semibold text-ink-muted-80">Điểm số câu hỏi</label>
+            <input
+              type="number"
+              step="0.05"
+              value={q.score}
+              onChange={(e) => handleScoreChange(qIdx, Number(e.target.value))}
+              className="bg-canvas border border-hairline rounded-pill px-3 py-1.5 text-xs outline-none w-full text-center"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5 mt-2">
+          <label className="text-[10px] font-semibold text-ink-muted-80">Ảnh minh họa câu hỏi (Tùy chọn)</label>
+          <div className="flex gap-2 items-center">
+            <input
+              type="text"
+              value={q.imageUrl || ""}
+              onChange={(e) => handleImageUrlChange(qIdx, e.target.value)}
+              placeholder="Dán link ảnh hoặc bấm nút upload →"
+              className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-xs text-ink outline-none focus:border-primary-focus flex-1 min-w-0"
+            />
+            <input
+              ref={(el) => { imageFileRefs.current[qIdx] = el; }}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setUploadingIdx(qIdx);
+                try {
+                  const fd = new FormData();
+                  fd.append("image", file);
+                  const res = await fetch("/api/upload-image", { method: "POST", body: fd });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error ?? "Upload thất bại");
+                  handleImageUrlChange(qIdx, data.url);
+                  showToast("✅ Upload ảnh thành công!", "success");
+                } catch (err) {
+                  showToast(`❌ ${err instanceof Error ? err.message : "Upload thất bại"}`, "error");
+                } finally {
+                  setUploadingIdx(null);
+                  e.target.value = "";
+                }
+              }}
+            />
+            <button
+              type="button"
+              title="Upload ảnh lên ImgBB"
+              disabled={uploadingIdx === qIdx}
+              onClick={() => imageFileRefs.current[qIdx]?.click()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-pill text-[10px] font-semibold border border-hairline bg-canvas hover:bg-surface text-ink-muted-80 hover:text-ink transition-colors disabled:opacity-50 flex-shrink-0"
+            >
+              {uploadingIdx === qIdx
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <ImagePlus className="h-3.5 w-3.5" />}
+              {uploadingIdx === qIdx ? "Đang tải..." : "Upload"}
+            </button>
+          </div>
+          {q.imageUrl && q.imageUrl.trim() && (
+            <div className="mt-1 border border-hairline rounded p-1 max-w-[150px] bg-canvas self-start">
+              <img src={q.imageUrl} alt="Xem trước" className="max-h-24 w-auto rounded object-contain mx-auto" />
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5 mt-2">
+          <label className="text-[10px] font-semibold text-ink-muted-80">Lời giải thích / Hướng dẫn giải (Hỗ trợ LaTeX $...$)</label>
+          <textarea
+            rows={2}
+            value={q.explanation || ""}
+            onChange={(e) => handleExplanationChange(qIdx, e.target.value)}
+            placeholder="Nhập lời giải thích hoặc hướng dẫn cách giải câu hỏi này..."
+            className="bg-canvas border border-hairline rounded-lg p-2.5 text-xs outline-none focus:border-primary-focus w-full"
+          />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-6">
       {/* Alert status */}
@@ -1032,232 +1271,97 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
               {/* Questions List & Fields Editor */}
               <div className="border-t border-divider-soft pt-4 flex flex-col gap-6">
-                <div className="flex justify-between items-center">
-                  <h4 className="text-xs font-caption-strong text-ink uppercase tracking-wider">Danh sách câu hỏi trắc nghiệm ({questions.length} câu)</h4>
-                  <button
-                    type="button"
-                    onClick={handleAddQuestion}
-                    className="text-primary hover:underline text-xs font-semibold flex items-center gap-1"
-                  >
-                    <PlusCircle className="h-4 w-4" /> Thêm câu hỏi mới
-                  </button>
-                </div>
-
-                {questions.map((q, qIdx) => (
-                  <div key={qIdx} className="border border-hairline rounded-lg p-5 flex flex-col gap-4 bg-surface-pearl relative">
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveQuestion(qIdx)}
-                      className="absolute top-2 right-2 text-ink-muted-48 hover:text-red-500"
-                      title="Xoá câu hỏi này"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-
-                    {/* Question text & type */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="flex flex-col gap-1.5 md:col-span-2 pr-8">
-                        <label className="text-xs font-semibold text-ink">Câu hỏi {qIdx + 1}</label>
-                        <input
-                          type="text"
-                          value={q.questionText}
-                          onChange={(e) => handleQuestionTextChange(qIdx, e.target.value)}
-                          placeholder="Nội dung câu hỏi..."
-                          className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full"
-                          required
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold text-ink">Dạng thức đề THPT 2026</label>
-                        <select
-                          value={q.type}
-                          onChange={(e) => handleTypeChange(qIdx, e.target.value as any)}
-                          className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-xs outline-none w-full"
-                        >
-                          <option value="MULTIPLE_CHOICE">Dạng thức I (4 lựa chọn)</option>
-                          <option value="TRUE_FALSE">Dạng thức II (Đúng/Sai)</option>
-                          <option value="SHORT_ANSWER">Dạng thức III (Trả lời ngắn/Điền số)</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Conditional options rendering depending on type */}
-                    {q.type === "MULTIPLE_CHOICE" && (
-                      <div className="grid grid-cols-2 gap-3">
-                        {q.options.map((opt, optIdx) => (
-                          <div key={optIdx} className="flex flex-col gap-1">
-                            <label className="text-[10px] font-semibold text-ink-muted-80">Phương án {String.fromCharCode(65 + optIdx)}</label>
-                            <input
-                              type="text"
-                              value={opt}
-                              onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
-                              placeholder={`Phương án ${String.fromCharCode(65 + optIdx)}`}
-                              className="bg-canvas border border-hairline rounded-pill px-4 py-1.5 text-xs text-ink outline-none focus:border-primary-focus w-full"
-                              required
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {q.type === "TRUE_FALSE" && (
-                      <div className="flex flex-col gap-3 bg-canvas p-3 border border-hairline rounded-lg">
-                        <span className="text-[10px] font-bold text-ink-muted-48 uppercase">Khai báo 4 phát biểu và đáp án đúng/sai</span>
-                        {q.options.map((opt, optIdx) => {
-                          const currentAnswers = (q.correctAnswer || "T,T,T,T").split(",");
-                          const tfVal = currentAnswers[optIdx] || "T";
-                          return (
-                            <div key={optIdx} className="grid grid-cols-12 gap-3 items-center">
-                              <span className="col-span-1 text-xs font-bold text-center">{String.fromCharCode(97 + optIdx)})</span>
-                              <input
-                                type="text"
-                                value={opt}
-                                onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
-                                placeholder={`Ý phát biểu ${String.fromCharCode(97 + optIdx)}`}
-                                className="col-span-8 bg-canvas border border-hairline rounded px-3 py-1 text-xs outline-none"
-                                required
-                              />
-                              <select
-                                value={tfVal}
-                                onChange={(e) => handleTrueFalseCorrectChange(qIdx, optIdx, e.target.value as any)}
-                                className="col-span-3 bg-canvas border border-hairline rounded px-2 py-1 text-xs outline-none"
-                              >
-                                <option value="T">Đúng</option>
-                                <option value="F">Sai</option>
-                              </select>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Answer & score footer */}
-                    <div className="grid grid-cols-2 gap-4 mt-2 border-t border-divider-soft pt-3">
-                      {q.type === "MULTIPLE_CHOICE" && (
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10px] font-semibold text-ink-muted-80">Đáp án chính xác</label>
-                          <select
-                            value={q.correctAnswer}
-                            onChange={(e) => handleCorrectAnswerChange(qIdx, e.target.value)}
-                            className="bg-canvas border border-hairline rounded-pill px-3 py-1.5 text-xs outline-none w-full"
-                          >
-                            <option value="0">Phương án A</option>
-                            <option value="1">Phương án B</option>
-                            <option value="2">Phương án C</option>
-                            <option value="3">Phương án D</option>
-                          </select>
+                <h4 className="text-xs font-caption-strong text-ink uppercase tracking-wider">Danh sách câu hỏi trắc nghiệm ({questions.length} câu)</h4>
+                
+                {/* PHẦN I */}
+                {(() => {
+                  const part1Questions = questions.map((q, idx) => ({ q, idx })).filter(item => item.q.type === "MULTIPLE_CHOICE");
+                  return (
+                    <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
+                      <div className="flex justify-between items-center border-b border-divider pb-2 mb-2">
+                        <div className="flex flex-col text-left">
+                          <span className="text-xs font-bold text-slate-800">PHẦN I. Câu hỏi trắc nghiệm nhiều phương án lựa chọn</span>
+                          <span className="text-[10px] text-ink-muted-48">Mỗi câu hỏi thí sinh chỉ chọn một phương án. Thí sinh trả lời từ câu 1 đến câu {part1Questions.length}.</span>
                         </div>
-                      )}
-
-                      {q.type === "SHORT_ANSWER" && (
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10px] font-semibold text-ink-muted-80">Giá trị đáp số chính xác</label>
-                          <input
-                            type="text"
-                            value={q.correctAnswer}
-                            onChange={(e) => handleCorrectAnswerChange(qIdx, e.target.value)}
-                            placeholder="Ví dụ: -1.25 hoặc 10"
-                            className="bg-canvas border border-hairline rounded-pill px-4 py-1.5 text-xs outline-none w-full text-center"
-                            required
-                          />
-                        </div>
-                      )}
-
-                      {/* Display read-only representation for true/false correct answers */}
-                      {q.type === "TRUE_FALSE" && (
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10px] font-semibold text-ink-muted-80">Chuỗi đáp án (Đ/S)</label>
-                          <input
-                            type="text"
-                            value={q.correctAnswer.split(",").map(c => c === "T" ? "Đúng" : "Sai").join(", ")}
-                            className="bg-slate-100 border border-hairline rounded-pill px-4 py-1.5 text-xs text-ink-muted-80 w-full text-center"
-                            disabled
-                          />
-                        </div>
-                      )}
-
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-semibold text-ink-muted-80">Điểm số câu hỏi</label>
-                        <input
-                          type="number"
-                          step="0.5"
-                          value={q.score}
-                          onChange={(e) => handleScoreChange(qIdx, Number(e.target.value))}
-                          className="bg-canvas border border-hairline rounded-pill px-3 py-1.5 text-xs outline-none w-full text-center"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1.5 mt-2">
-                      <label className="text-[10px] font-semibold text-ink-muted-80">Ảnh minh họa câu hỏi (Tùy chọn)</label>
-                      <div className="flex gap-2 items-center">
-                        <input
-                          type="text"
-                          value={q.imageUrl || ""}
-                          onChange={(e) => handleImageUrlChange(qIdx, e.target.value)}
-                          placeholder="Dán link ảnh hoặc bấm nút upload →"
-                          className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-xs text-ink outline-none focus:border-primary-focus flex-1 min-w-0"
-                        />
-                        {/* Hidden file input */}
-                        <input
-                          ref={(el) => { imageFileRefs.current[qIdx] = el; }}
-                          type="file"
-                          accept="image/jpeg,image/png,image/gif,image/webp"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            setUploadingIdx(qIdx);
-                            try {
-                              const fd = new FormData();
-                              fd.append("image", file);
-                              const res = await fetch("/api/upload-image", { method: "POST", body: fd });
-                              const data = await res.json();
-                              if (!res.ok) throw new Error(data.error ?? "Upload thất bại");
-                              handleImageUrlChange(qIdx, data.url);
-                              showToast("✅ Upload ảnh thành công!", "success");
-                            } catch (err) {
-                              showToast(`❌ ${err instanceof Error ? err.message : "Upload thất bại"}`, "error");
-                            } finally {
-                              setUploadingIdx(null);
-                              e.target.value = "";
-                            }
-                          }}
-                        />
                         <button
                           type="button"
-                          title="Upload ảnh lên ImgBB"
-                          disabled={uploadingIdx === qIdx}
-                          onClick={() => imageFileRefs.current[qIdx]?.click()}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-pill text-[10px] font-semibold border border-hairline bg-canvas hover:bg-surface text-ink-muted-80 hover:text-ink transition-colors disabled:opacity-50 flex-shrink-0"
+                          onClick={() => handleAddQuestionByType("MULTIPLE_CHOICE")}
+                          className="text-primary hover:underline text-xs font-semibold flex items-center gap-1"
                         >
-                          {uploadingIdx === qIdx
-                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            : <ImagePlus className="h-3.5 w-3.5" />}
-                          {uploadingIdx === qIdx ? "Đang tải..." : "Upload"}
+                          <PlusCircle className="h-3.5 w-3.5" /> Thêm câu hỏi Phần I
                         </button>
                       </div>
-                      {q.imageUrl && q.imageUrl.trim() && (
-                        <div className="mt-1 border border-hairline rounded p-1 max-w-[150px] bg-canvas self-start">
-                          <img src={q.imageUrl} alt="Xem trước" className="max-h-24 w-auto rounded object-contain mx-auto" />
+                      
+                      {part1Questions.length === 0 ? (
+                        <div className="text-center py-4 text-xs text-ink-muted-48 italic">Chưa có câu hỏi Phần I</div>
+                      ) : (
+                        <div className="flex flex-col gap-4">
+                          {part1Questions.map((item, index) => renderQuestionEditor(item.q, item.idx, index + 1))}
                         </div>
                       )}
                     </div>
+                  );
+                })()}
 
-                    <div className="flex flex-col gap-1.5 mt-2">
-                      <label className="text-[10px] font-semibold text-ink-muted-80">Lời giải thích / Hướng dẫn giải (Hỗ trợ LaTeX $...$)</label>
-                      <textarea
-                        rows={2}
-                        value={q.explanation || ""}
-                        onChange={(e) => handleExplanationChange(qIdx, e.target.value)}
-                        placeholder="Nhập lời giải thích hoặc hướng dẫn cách giải câu hỏi này..."
-                        className="bg-canvas border border-hairline rounded-lg p-2.5 text-xs outline-none focus:border-primary-focus w-full"
-                      />
+                {/* PHẦN II */}
+                {(() => {
+                  const part2Questions = questions.map((q, idx) => ({ q, idx })).filter(item => item.q.type === "TRUE_FALSE");
+                  return (
+                    <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
+                      <div className="flex justify-between items-center border-b border-divider pb-2 mb-2">
+                        <div className="flex flex-col text-left">
+                          <span className="text-xs font-bold text-slate-800">PHẦN II. Câu hỏi trắc nghiệm Đúng/Sai</span>
+                          <span className="text-[10px] text-ink-muted-48">Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai. Thí sinh trả lời từ câu 1 đến câu {part2Questions.length}.</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleAddQuestionByType("TRUE_FALSE")}
+                          className="text-primary hover:underline text-xs font-semibold flex items-center gap-1"
+                        >
+                          <PlusCircle className="h-3.5 w-3.5" /> Thêm câu hỏi Phần II
+                        </button>
+                      </div>
+                      
+                      {part2Questions.length === 0 ? (
+                        <div className="text-center py-4 text-xs text-ink-muted-48 italic">Chưa có câu hỏi Phần II</div>
+                      ) : (
+                        <div className="flex flex-col gap-4">
+                          {part2Questions.map((item, index) => renderQuestionEditor(item.q, item.idx, index + 1))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })()}
+
+                {/* PHẦN III */}
+                {(() => {
+                  const part3Questions = questions.map((q, idx) => ({ q, idx })).filter(item => item.q.type === "SHORT_ANSWER");
+                  return (
+                    <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
+                      <div className="flex justify-between items-center border-b border-divider pb-2 mb-2">
+                        <div className="flex flex-col text-left">
+                          <span className="text-xs font-bold text-slate-800">PHẦN III. Câu hỏi trắc nghiệm trả lời ngắn</span>
+                          <span className="text-[10px] text-ink-muted-48">Thí sinh trả lời đáp số ngắn vào ô trống. Thí sinh trả lời từ câu 1 đến câu {part3Questions.length}.</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleAddQuestionByType("SHORT_ANSWER")}
+                          className="text-primary hover:underline text-xs font-semibold flex items-center gap-1"
+                        >
+                          <PlusCircle className="h-3.5 w-3.5" /> Thêm câu hỏi Phần III
+                        </button>
+                      </div>
+                      
+                      {part3Questions.length === 0 ? (
+                        <div className="text-center py-4 text-xs text-ink-muted-48 italic">Chưa có câu hỏi Phần III</div>
+                      ) : (
+                        <div className="flex flex-col gap-4">
+                          {part3Questions.map((item, index) => renderQuestionEditor(item.q, item.idx, index + 1))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               <button

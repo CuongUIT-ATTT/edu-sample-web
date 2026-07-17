@@ -55,25 +55,13 @@ export default async function LeaderboardPage() {
           badge,
         };
       })
-      // If average score is 0, filter it out or keep it at bottom. Let's keep those with tests.
+      // If average score is 0, filter it out
       .filter((s) => s.avgScore > 0)
       .sort((a, b) => b.avgScore - a.avgScore);
 
     rankedStudents = studentsWithGrades;
   } catch (error) {
     console.error("Error loading database leaderboard:", error);
-  }
-
-  // Fallback realistic mock data if database is empty/not seeded
-  if (rankedStudents.length === 0) {
-    rankedStudents = [
-      { name: "Nguyễn Hoàng Nam", className: "12A1 VIP", gradeLevel: 12, avgScore: 9.6, badge: "Huyền Thoại Luyện Đề 🏆" },
-      { name: "Trần Minh Thư", className: "12A2 VIP", gradeLevel: 12, avgScore: 9.2, badge: "Huyền Thoại Luyện Đề 🏆" },
-      { name: "Lê Quốc Khánh", className: "11B1", gradeLevel: 11, avgScore: 8.8, badge: "Thần Phản Ứng Luyện Thi ⚡" },
-      { name: "Nguyễn Văn A", className: "10A1", gradeLevel: 10, avgScore: 8.5, badge: "Thần Phản Ứng Luyện Thi ⚡" },
-      { name: "Phạm Hà Chi", className: "12A1 VIP", gradeLevel: 12, avgScore: 8.1, badge: "Thần Phản Ứng Luyện Thi ⚡" },
-      { name: "Vũ Tuấn Kiệt", className: "12A3", gradeLevel: 12, avgScore: 7.8, badge: "Chiến Binh Chuyên Đề 🔥" },
-    ];
   }
 
   return (
@@ -94,72 +82,79 @@ export default async function LeaderboardPage() {
         </div>
 
         {/* Leaderboard Table container */}
-        <div className="bg-canvas border border-hairline rounded-lg shadow-product overflow-hidden">
-          <div className="px-6 py-4 border-b border-divider-soft bg-surface-pearl flex items-center justify-between">
-            <h2 className="font-body-strong text-sm text-ink flex items-center gap-2">
-              <Trophy className="h-4.5 w-4.5 text-amber-500" />
-              TOP 10 Học viên dẫn đầu
-            </h2>
-            <span className="text-[10px] text-ink-muted-48 uppercase font-bold tracking-wider">
-              Cập nhật trực tiếp từ DB
-            </span>
+        {rankedStudents.length === 0 ? (
+          <div className="bg-canvas border border-hairline rounded-lg p-16 text-center shadow-sm">
+            <Trophy className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
+            <p className="font-body text-ink-muted-80">Hiện tại chưa có dữ liệu kết quả học viên xuất sắc.</p>
           </div>
+        ) : (
+          <div className="bg-canvas border border-hairline rounded-lg shadow-product overflow-hidden">
+            <div className="px-6 py-4 border-b border-divider-soft bg-surface-pearl flex items-center justify-between">
+              <h2 className="font-body-strong text-sm text-ink flex items-center gap-2">
+                <Trophy className="h-4.5 w-4.5 text-amber-500" />
+                TOP 10 Học viên dẫn đầu
+              </h2>
+              <span className="text-[10px] text-ink-muted-48 uppercase font-bold tracking-wider">
+                Cập nhật trực tiếp
+              </span>
+            </div>
 
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-hairline bg-surface-pearl text-left">
-                <th className="px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-center w-16">Hạng</th>
-                <th className="px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Học viên</th>
-                <th className="hidden min-[480px]:table-cell px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-center w-24">Lớp VIP</th>
-                <th className="px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-center w-24">Điểm TB</th>
-                <th className="hidden sm:table-cell px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-right w-48">Danh hiệu</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rankedStudents.slice(0, 10).map((student, index) => {
-                const isTop1 = index === 0;
-                const isTop2 = index === 1;
-                const isTop3 = index === 2;
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-hairline bg-surface-pearl text-left">
+                  <th className="px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-center w-16">Hạng</th>
+                  <th className="px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Học viên</th>
+                  <th className="hidden min-[480px]:table-cell px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-center w-24">Lớp VIP</th>
+                  <th className="px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-center w-24">Điểm TB</th>
+                  <th className="hidden sm:table-cell px-6 py-3 text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider text-right w-48">Danh hiệu</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rankedStudents.slice(0, 10).map((student, index) => {
+                  const isTop1 = index === 0;
+                  const isTop2 = index === 1;
+                  const isTop3 = index === 2;
 
-                return (
-                  <tr 
-                    key={`${student.name}-${index}`} 
-                    className="border-b border-hairline last:border-0 hover:bg-surface-pearl transition-colors"
-                  >
-                    <td className="px-6 py-4 text-center">
-                      {isTop1 ? (
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-amber-800 text-xs font-bold shadow-sm">1</span>
-                      ) : isTop2 ? (
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-800 text-xs font-bold shadow-sm">2</span>
-                      ) : isTop3 ? (
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-orange-100 text-orange-800 text-xs font-bold shadow-sm">3</span>
-                      ) : (
-                        <span className="text-xs font-mono text-ink-muted-48">{index + 1}</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        {isTop1 && <Medal className="h-4 w-4 text-amber-500" />}
-                        <span className="text-sm font-body-strong text-ink font-semibold">{student.name}</span>
-                      </div>
-                    </td>
-                    <td className="hidden min-[480px]:table-cell px-6 py-4 text-center text-xs font-caption text-ink-muted-80">
-                      {student.className}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="text-sm font-bold text-primary font-mono bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
-                        {student.avgScore.toFixed(1)}
-                      </span>
-                    </td>
-                    <td className="hidden sm:table-cell px-6 py-4 text-right text-xs font-caption text-ink-muted-80 font-semibold">
-                      {student.badge}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  return (
+                    <tr 
+                      key={`${student.name}-${index}`} 
+                      className="border-b border-hairline last:border-0 hover:bg-surface-pearl transition-colors"
+                    >
+                      <td className="px-6 py-4 text-center">
+                        {isTop1 ? (
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-amber-800 text-xs font-bold shadow-sm">1</span>
+                        ) : isTop2 ? (
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-800 text-xs font-bold shadow-sm">2</span>
+                        ) : isTop3 ? (
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-orange-100 text-orange-800 text-xs font-bold shadow-sm">3</span>
+                        ) : (
+                          <span className="text-xs font-mono text-ink-muted-48">{index + 1}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          {isTop1 && <Medal className="h-4 w-4 text-amber-500" />}
+                          <span className="text-sm font-body-strong text-ink font-semibold">{student.name}</span>
+                        </div>
+                      </td>
+                      <td className="hidden min-[480px]:table-cell px-6 py-4 text-center text-xs font-caption text-ink-muted-80">
+                        {student.className}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="text-sm font-bold text-primary font-mono bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
+                          {student.avgScore.toFixed(1)}
+                        </span>
+                      </td>
+                      <td className="hidden sm:table-cell px-6 py-4 text-right text-xs font-caption text-ink-muted-80 font-semibold">
+                        {student.badge}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Play & Join CTA for students */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-lg p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
