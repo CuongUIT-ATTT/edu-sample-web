@@ -68,6 +68,8 @@ export default async function SharedQuizPage({
     type: q.type,
     options: typeof q.options === "string" ? JSON.parse(q.options) : q.options,
     score: q.score,
+    correctAnswer: q.correctAnswer,
+    imageUrl: q.imageUrl ?? null,
   }));
 
   const formattedQuiz = {

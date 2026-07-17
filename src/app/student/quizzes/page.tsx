@@ -28,7 +28,7 @@ export default async function StudentQuizzesPage() {
     description: string | null;
     duration: number;
     passingScore: number;
-    questions: { id: string; text: string; type?: string; options: string[]; score: number }[];
+    questions: { id: string; text: string; type?: string; options: string[]; score: number; correctAnswer: string; imageUrl?: string | null }[];
   }[] = [];
 
   try {
@@ -58,6 +58,8 @@ export default async function StudentQuizzesPage() {
         type: q.type,
         options: q.options as string[],
         score: q.score,
+        correctAnswer: q.correctAnswer,
+        imageUrl: q.imageUrl ?? null,
       })),
     }));
   } catch (error) {
