@@ -202,128 +202,132 @@ export default function SingleQuizPlayer({ quiz, sessionUser }: SingleQuizPlayer
     <div className="bg-canvas-parchment min-h-screen py-8 px-4 flex flex-col gap-6 w-full">
       {/* 1. Intro screen (before start) */}
       {!quizStarted && !quizResult && !showRules && (
-        <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm max-w-xl mx-auto w-full animate-fade-in flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full self-start">
-              {quiz.subjectName}
-            </span>
-            <h1 className="font-tagline text-2xl font-bold text-ink leading-tight">
-              {quiz.title}
-            </h1>
-            <p className="text-xs text-ink-muted-80 font-body">
-              {quiz.description || "Đề ôn thi thử chất lượng cao bám sát chương trình mới kèm lời giải chi tiết."}
-            </p>
-          </div>
+        <div className="w-full flex justify-center px-4">
+          <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm max-w-xl w-full animate-fade-in flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full self-start">
+                {quiz.subjectName}
+              </span>
+              <h1 className="font-tagline text-2xl font-bold text-ink leading-tight">
+                {quiz.title}
+              </h1>
+              <p className="text-xs text-ink-muted-80 font-body">
+                {quiz.description || "Đề ôn thi thử chất lượng cao bám sát chương trình mới kèm lời giải chi tiết."}
+              </p>
+            </div>
 
-          <div className="border-t border-divider-soft pt-4 flex flex-col gap-3 text-xs text-ink-muted-80 font-body">
-            <div className="flex justify-between">
-              <span>Thời gian làm bài:</span>
-              <strong className="text-ink">{quiz.duration} phút</strong>
+            <div className="border-t border-divider-soft pt-4 flex flex-col gap-3 text-xs text-ink-muted-80 font-body">
+              <div className="flex justify-between">
+                <span>Thời gian làm bài:</span>
+                <strong className="text-ink">{quiz.duration} phút</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Số câu hỏi:</span>
+                <strong className="text-ink">{quiz.questions.length} câu</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Mục tiêu đạt:</span>
+                <strong className="text-ink">{quiz.passingScore.toFixed(1)} điểm</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Loại đề:</span>
+                <strong className="text-ink">{quiz.isPublic ? "Công khai (Miễn phí)" : "Nội bộ lớp học"}</strong>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span>Số câu hỏi:</span>
-              <strong className="text-ink">{quiz.questions.length} câu</strong>
-            </div>
-            <div className="flex justify-between">
-              <span>Mục tiêu đạt:</span>
-              <strong className="text-ink">{quiz.passingScore.toFixed(1)} điểm</strong>
-            </div>
-            <div className="flex justify-between">
-              <span>Loại đề:</span>
-              <strong className="text-ink">{quiz.isPublic ? "Công khai (Miễn phí)" : "Nội bộ lớp học"}</strong>
-            </div>
-          </div>
 
-          <button
-            onClick={() => setShowRules(true)}
-            className="bg-primary hover:bg-primary-focus text-white px-6 py-3 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm w-full mt-4 flex items-center justify-center gap-1.5"
-          >
-            Tiếp tục <Play className="h-3.5 w-3.5 fill-current" />
-          </button>
+            <button
+              onClick={() => setShowRules(true)}
+              className="bg-primary hover:bg-primary-focus text-white px-6 py-3 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm w-full mt-4 flex items-center justify-center gap-1.5"
+            >
+              Tiếp tục <Play className="h-3.5 w-3.5 fill-current" />
+            </button>
+          </div>
         </div>
       )}
 
       {/* 1.1 Rules & Name screen */}
       {!quizStarted && !quizResult && showRules && (
-        <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm max-w-xl mx-auto w-full animate-fade-in flex flex-col gap-5">
-          <div className="flex flex-col gap-1 border-b border-divider-soft pb-3">
-            <h2 className="font-tagline text-lg font-bold text-ink flex items-center gap-2">
-              📝 Quy Chế Phòng Thi & Chống Gian Lận
-            </h2>
-            <p className="text-[11px] text-ink-muted-80 font-body">
-              Vui lòng xem kỹ trước khi bắt đầu tính giờ làm bài.
-            </p>
-          </div>
+        <div className="w-full flex justify-center px-4">
+          <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm max-w-xl w-full animate-fade-in flex flex-col gap-5">
+            <div className="flex flex-col gap-1 border-b border-divider-soft pb-3">
+              <h2 className="font-tagline text-lg font-bold text-ink flex items-center gap-2">
+                📝 Quy Chế Phòng Thi & Chống Gian Lận
+              </h2>
+              <p className="text-[11px] text-ink-muted-80 font-body">
+                Vui lòng xem kỹ trước khi bắt đầu tính giờ làm bài.
+              </p>
+            </div>
 
-          {/* Rules List */}
-          <div className="flex flex-col gap-3 text-xs text-ink-muted-80 font-body">
-            <div className="flex gap-2 items-start bg-slate-50 border border-divider-soft p-3 rounded-lg">
-              <span className="text-blue-600 font-bold flex-shrink-0">⚠️</span>
-              <div className="flex flex-col gap-0.5">
-                <strong className="text-ink">Thời gian làm bài liên tục:</strong>
-                <span>Thời gian sẽ đếm ngược ngay khi vào đề. Khi hết giờ, hệ thống sẽ tự động thu bài và nộp kết quả hiện tại.</span>
+            {/* Rules List */}
+            <div className="flex flex-col gap-3 text-xs text-ink-muted-80 font-body">
+              <div className="flex gap-2 items-start bg-slate-50 border border-divider-soft p-3 rounded-lg">
+                <span className="text-blue-600 font-bold flex-shrink-0">⚠️</span>
+                <div className="flex flex-col gap-0.5">
+                  <strong className="text-ink">Thời gian làm bài liên tục:</strong>
+                  <span>Thời gian sẽ đếm ngược ngay khi vào đề. Khi hết giờ, hệ thống sẽ tự động thu bài và nộp kết quả hiện tại.</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 items-start bg-amber-50 border border-amber-200 p-3 rounded-lg">
+                <span className="text-amber-600 font-bold flex-shrink-0">🚫</span>
+                <div className="flex flex-col gap-0.5">
+                  <strong className="text-amber-800">Cấm rời khỏi phòng thi (Chống chuyển tab):</strong>
+                  <span className="text-amber-900">Không chuyển đổi tab, rời trình duyệt hay thu nhỏ cửa sổ. Hệ thống sẽ phát hiện ngay. Vi phạm quá <strong>3 lần</strong> sẽ tự động nộp bài và khóa kết quả thi của bạn.</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 items-start bg-red-50 border border-red-200 p-3 rounded-lg">
+                <span className="text-red-600 font-bold flex-shrink-0">🔒</span>
+                <div className="flex flex-col gap-0.5">
+                  <strong className="text-red-800">Bảo mật đề thi:</strong>
+                  <span className="text-red-900">EduWeb hiển thị Watermark bảo mật để chống sao chép và quay chụp màn hình trái phép.</span>
+                </div>
               </div>
             </div>
 
-            <div className="flex gap-2 items-start bg-amber-50 border border-amber-200 p-3 rounded-lg">
-              <span className="text-amber-600 font-bold flex-shrink-0">🚫</span>
-              <div className="flex flex-col gap-0.5">
-                <strong className="text-amber-800">Cấm rời khỏi phòng thi (Chống chuyển tab):</strong>
-                <span className="text-amber-900">Không chuyển đổi tab, rời trình duyệt hay thu nhỏ cửa sổ. Hệ thống sẽ phát hiện ngay. Vi phạm quá <strong>3 lần</strong> sẽ tự động nộp bài và khóa kết quả thi của bạn.</span>
+            {/* Name input for Guests */}
+            {!sessionUser && (
+              <div className="flex flex-col gap-1.5 border-t border-divider-soft pt-4">
+                <label className="text-xs font-semibold text-ink">Họ Tên Thí Sinh:</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Nguyễn Văn A..."
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-xs text-ink outline-none focus:border-primary-focus w-full"
+                  required
+                />
               </div>
-            </div>
+            )}
 
-            <div className="flex gap-2 items-start bg-red-50 border border-red-200 p-3 rounded-lg">
-              <span className="text-red-600 font-bold flex-shrink-0">🔒</span>
-              <div className="flex flex-col gap-0.5">
-                <strong className="text-red-800">Bảo mật đề thi:</strong>
-                <span className="text-red-900">EduWeb hiển thị Watermark bảo mật để chống sao chép và quay chụp màn hình trái phép.</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Name input for Guests */}
-          {!sessionUser && (
-            <div className="flex flex-col gap-1.5 border-t border-divider-soft pt-4">
-              <label className="text-xs font-semibold text-ink">Họ Tên Thí Sinh:</label>
+            {/* Agreement Checkbox */}
+            <label className="flex items-start gap-2.5 mt-2 cursor-pointer select-none">
               <input
-                type="text"
-                placeholder="Ví dụ: Nguyễn Văn A..."
-                value={guestName}
-                onChange={(e) => setGuestName(e.target.value)}
-                className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-xs text-ink outline-none focus:border-primary-focus w-full"
-                required
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="mt-1 accent-primary h-4 w-4"
               />
+              <span className="text-xs text-ink font-semibold leading-relaxed">
+                Tôi xác nhận đã đọc kỹ nội quy phòng thi và cam kết làm bài tự lực, trung thực.
+              </span>
+            </label>
+
+            {/* Actions */}
+            <div className="flex gap-3 justify-end mt-2">
+              <button
+                onClick={() => setShowRules(false)}
+                className="border border-divider-soft hover:bg-surface-pearl text-ink-muted-80 text-xs px-4 py-2.5 rounded-pill font-semibold"
+              >
+                Quay lại
+              </button>
+              <button
+                onClick={handleStartQuiz}
+                className="bg-primary hover:bg-primary-focus text-white text-xs px-6 py-2.5 rounded-pill font-semibold flex items-center gap-1.5"
+              >
+                Vào làm bài (Tính giờ) <Play className="h-3 w-3 fill-current" />
+              </button>
             </div>
-          )}
-
-          {/* Agreement Checkbox */}
-          <label className="flex items-start gap-2.5 mt-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-              className="mt-1 accent-primary h-4 w-4"
-            />
-            <span className="text-xs text-ink font-semibold leading-relaxed">
-              Tôi xác nhận đã đọc kỹ nội quy phòng thi và cam kết làm bài tự lực, trung thực.
-            </span>
-          </label>
-
-          {/* Actions */}
-          <div className="flex gap-3 justify-end mt-2">
-            <button
-              onClick={() => setShowRules(false)}
-              className="border border-divider-soft hover:bg-surface-pearl text-ink-muted-80 text-xs px-4 py-2.5 rounded-pill font-semibold"
-            >
-              Quay lại
-            </button>
-            <button
-              onClick={handleStartQuiz}
-              className="bg-primary hover:bg-primary-focus text-white text-xs px-6 py-2.5 rounded-pill font-semibold flex items-center gap-1.5"
-            >
-              Vào làm bài (Tính giờ) <Play className="h-3 w-3 fill-current" />
-            </button>
           </div>
         </div>
       )}
@@ -480,52 +484,54 @@ export default function SingleQuizPlayer({ quiz, sessionUser }: SingleQuizPlayer
 
       {/* 3. Quiz Result View */}
       {quizStarted && quizResult && !showReview && (
-        <div className="bg-canvas border border-hairline rounded-lg p-8 shadow-sm flex flex-col items-center text-center max-w-[650px] mx-auto w-full animate-fade-in">
-          {quizResult.passed ? (
-            <div className="h-14 w-14 rounded-full bg-green-50 text-green-600 flex items-center justify-center mb-4">
-              <CheckCircle2 className="h-8 w-8" />
+        <div className="w-full flex justify-center px-4">
+          <div className="bg-canvas border border-hairline rounded-lg p-8 shadow-sm flex flex-col items-center text-center max-w-[650px] w-full animate-fade-in">
+            {quizResult.passed ? (
+              <div className="h-14 w-14 rounded-full bg-green-50 text-green-600 flex items-center justify-center mb-4">
+                <CheckCircle2 className="h-8 w-8" />
+              </div>
+            ) : (
+              <div className="h-14 w-14 rounded-full bg-red-50 text-red-600 flex items-center justify-center mb-4">
+                <CheckCircle2 className="h-8 w-8 text-red-500" />
+              </div>
+            )}
+
+            <h2 className="font-tagline text-xl font-semibold text-ink mb-1">
+              Kết quả của {guestName}
+            </h2>
+            <p className="font-caption text-ink-muted-80 text-xs mb-6 max-w-[400px]">
+              {quiz.title}
+            </p>
+
+            <div className="h-24 w-24 rounded-full border-4 border-divider-soft flex flex-col items-center justify-center mb-6 bg-surface-pearl">
+              <span className="text-2xl font-bold text-ink">{quizResult.score.toFixed(1)}</span>
+              <span className="text-[9px] text-ink-muted-48 uppercase font-bold">Điểm đạt</span>
             </div>
-          ) : (
-            <div className="h-14 w-14 rounded-full bg-red-50 text-red-600 flex items-center justify-center mb-4">
-              <CheckCircle2 className="h-8 w-8 text-red-500" />
+
+            <div className="flex flex-col gap-2 w-full border-t border-divider-soft pt-4 mb-4">
+              <span className={`text-xs font-bold uppercase tracking-wider ${
+                quizResult.passed ? "text-green-600" : "text-red-600"
+              }`}>
+                {quizResult.passed ? "Chúc mừng bạn đã đạt!" : "Rất tiếc bạn chưa đạt mục tiêu."}
+              </span>
             </div>
-          )}
 
-          <h2 className="font-tagline text-xl font-semibold text-ink mb-1">
-            Kết quả của {guestName}
-          </h2>
-          <p className="font-caption text-ink-muted-80 text-xs mb-6 max-w-[400px]">
-            {quiz.title}
-          </p>
+            {quizResult.correctAnswers && (
+              <button
+                onClick={() => setShowReview(true)}
+                className="bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 px-6 py-2.5 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm w-full mt-2"
+              >
+                Xem đáp án & lời giải chi tiết
+              </button>
+            )}
 
-          <div className="h-24 w-24 rounded-full border-4 border-divider-soft flex flex-col items-center justify-center mb-6 bg-surface-pearl">
-            <span className="text-2xl font-bold text-ink">{quizResult.score.toFixed(1)}</span>
-            <span className="text-[9px] text-ink-muted-48 uppercase font-bold">Điểm đạt</span>
-          </div>
-
-          <div className="flex flex-col gap-2 w-full border-t border-divider-soft pt-4 mb-4">
-            <span className={`text-xs font-bold uppercase tracking-wider ${
-              quizResult.passed ? "text-green-600" : "text-red-600"
-            }`}>
-              {quizResult.passed ? "Chúc mừng bạn đã đạt!" : "Rất tiếc bạn chưa đạt mục tiêu."}
-            </span>
-          </div>
-
-          {quizResult.correctAnswers && (
-            <button
-              onClick={() => setShowReview(true)}
-              className="bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 px-6 py-2.5 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm w-full mt-2"
+            <Link
+              href="/quizzes"
+              className="bg-primary hover:bg-primary-focus text-white px-6 py-2.5 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm w-full mt-4 block text-center"
             >
-              Xem đáp án & lời giải chi tiết
-            </button>
-          )}
-
-          <Link
-            href="/quizzes"
-            className="bg-primary hover:bg-primary-focus text-white px-6 py-2.5 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm w-full mt-4 block text-center"
-          >
-            Quay lại danh sách đề thi
-          </Link>
+              Quay lại danh sách đề thi
+            </Link>
+          </div>
         </div>
       )}
 
