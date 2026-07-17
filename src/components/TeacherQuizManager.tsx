@@ -36,6 +36,7 @@ interface QuizItem {
     correctAnswer: string;
     score: number;
     explanation?: string | null;
+    imageUrl?: string | null;
   }[];
 }
 
@@ -682,9 +683,9 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 )}
                 
                 {(() => {
-                  const subCount = q.submissions ? q.submissions.length : 0;
+                  const subCount = q.submissions?.length ?? 0;
                   const avgScore = subCount > 0
-                    ? (q.submissions.reduce((acc, s) => acc + s.score, 0) / subCount).toFixed(1)
+                    ? (q.submissions!.reduce((acc, s) => acc + s.score, 0) / subCount).toFixed(1)
                     : "N/A";
                   return (
                     <>
