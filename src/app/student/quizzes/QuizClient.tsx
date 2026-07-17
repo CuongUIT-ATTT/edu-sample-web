@@ -198,7 +198,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
   );
 
   return (
-    <div className="max-w-[1000px] mx-auto flex flex-col gap-8">
+    <div className="w-full max-w-[1000px] mx-auto flex flex-col gap-8">
       
       {/* Back button when inside quiz */}
       {quizStarted && !quizResult && (

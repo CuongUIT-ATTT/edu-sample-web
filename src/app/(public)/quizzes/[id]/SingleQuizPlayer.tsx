@@ -199,7 +199,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser }: SingleQuizPlayer
   };
 
   return (
-    <div className="bg-canvas-parchment min-h-screen py-8 px-4 flex flex-col gap-6">
+    <div className="bg-canvas-parchment min-h-screen py-8 px-4 flex flex-col gap-6 w-full">
       {/* 1. Intro screen (before start) */}
       {!quizStarted && !quizResult && !showRules && (
         <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm max-w-xl mx-auto w-full animate-fade-in flex flex-col gap-4">
