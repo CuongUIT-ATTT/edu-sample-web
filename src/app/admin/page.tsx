@@ -5,6 +5,26 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+// Module-level constants: computed once at module load time (not during render)
+const MODULE_LOAD_TIME = new Date();
+const FALLBACK_ACTIVITIES = [
+  { title: "Khởi tạo hệ thống Lớp học trực tuyến", actor: "Thực hiện bởi Admin", timestamp: new Date(MODULE_LOAD_TIME.getTime() - 4 * 3600 * 1000) },
+  { title: "Khởi tạo tài khoản Giảng viên Nguyễn Văn Bình", actor: "Thực hiện bởi Admin", timestamp: new Date(MODULE_LOAD_TIME.getTime() - 6 * 3600 * 1000) },
+  { title: "Khởi tạo tài khoản Học viên Nguyễn Văn A", actor: "Thực hiện bởi Admin", timestamp: new Date(MODULE_LOAD_TIME.getTime() - 8 * 3600 * 1000) }
+];
+
+function formatTimeAgo(date: Date) {
+  const now = MODULE_LOAD_TIME;
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  if (diffMins < 1) return "Vừa xong";
+  if (diffMins < 60) return `${diffMins} phút trước`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours} giờ trước`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} ngày trước`;
+}
+
 export default async function AdminDashboardPage() {
   // 1. Dynamic database counts and activities using Prisma
   let teachersCount = 0;
@@ -119,22 +139,8 @@ export default async function AdminDashboardPage() {
           { id: "3", name: "Lớp 12C3", studentsCount: 28 },
         ];
 
-  const finalActivities = displayActivities.length > 0 ? displayActivities : [
-    { title: "Khởi tạo hệ thống Lớp học trực tuyến", actor: "Thực hiện bởi Admin", timestamp: new Date(Date.now() - 4 * 3600 * 1000) },
-    { title: "Khởi tạo tài khoản Giảng viên Nguyễn Văn Bình", actor: "Thực hiện bởi Admin", timestamp: new Date(Date.now() - 6 * 3600 * 1000) },
-    { title: "Khởi tạo tài khoản Học viên Nguyễn Văn A", actor: "Thực hiện bởi Admin", timestamp: new Date(Date.now() - 8 * 3600 * 1000) }
-  ];
+  const finalActivities = displayActivities.length > 0 ? displayActivities : FALLBACK_ACTIVITIES;
 
-  function formatTimeAgo(date: Date) {
-    const diffMs = Date.now() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    if (diffMins < 1) return "Vừa xong";
-    if (diffMins < 60) return `${diffMins} phút trước`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} giờ trước`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays} ngày trước`;
-  }
 
   return (
     <div className="flex flex-col gap-8 max-w-[1200px]">
