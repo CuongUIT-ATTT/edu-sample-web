@@ -23,7 +23,7 @@ export default function FeesPage() {
       period: "tháng",
       target: "Luyện thi đại học chuyên sâu, đặc trị các dạng bài vận dụng cao và lỗi sai lý thuyết.",
       features: [
-        "3 ca học livestream thực chiến cùng Thầy Hùng Cường",
+        "3 ca học livestream thực chiến cùng Giảng viên chuyên môn",
         "Đặc quyền thi thử thi đấu cọ xát trực tiếp nhận quà",
         "Mở khóa toàn bộ tài liệu VIP & bài giải chi tiết",
         "Cam kết chất lượng tăng tối thiểu 1.5 - 2.0 điểm số",
@@ -41,7 +41,7 @@ export default function FeesPage() {
         "Lộ trình ôn tập thiết kế riêng biệt cá nhân hóa",
         "Cam kết hoàn 100% học phí bằng hợp đồng văn bản nếu không đạt mục tiêu",
         "Điều kiện: Đi học đầy đủ ≥90% số ca học và hoàn thành các bài thi định kỳ",
-        "Hỗ trợ đặc biệt 1-1 trực tiếp cùng Thầy Hùng Cường hàng tuần",
+        "Hỗ trợ đặc biệt 1-1 trực tiếp cùng Giảng viên hàng tuần",
       ],
       popular: false,
     },
@@ -129,7 +129,7 @@ export default function FeesPage() {
             <Award className="h-5 w-5" />
           </div>
           <div className="flex flex-col gap-2">
-            <h4 className="font-body-strong text-sm font-semibold text-ink">Quỹ Học Bổng Đồng Hành - Thầy Hùng Cường</h4>
+            <h4 className="font-body-strong text-sm font-semibold text-ink">Quỹ Học Bổng Đồng Hành EduWeb</h4>
             <p className="text-xs text-ink-muted-80 leading-relaxed font-body">
               Học viên đạt danh hiệu **Thủ khoa tuần** trên Bảng xếp hạng online của trung tâm sẽ được tặng ngay **học bổng 50% học phí** tháng tiếp theo. Cuối năm, TOP 3 học viên đạt kết quả thi thử tốt nghiệp THPT cao nhất sẽ nhận phần thưởng trị giá **5,000,000đ tiền mặt** cùng cơ hội làm trợ giảng học tập tại trung tâm.
             </p>

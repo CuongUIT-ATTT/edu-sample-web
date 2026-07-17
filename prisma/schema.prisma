@@ -245,6 +245,7 @@ model Question {
   correctAnswer String   // Index or text of correct answer
   score         Float    @default(1.0)
   explanation   String?
+  imageUrl      String?
   
   quizId        String
   quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)

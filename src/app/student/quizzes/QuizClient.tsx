@@ -12,6 +12,7 @@ interface Question {
   type?: string;
   options: string[];
   score: number;
+  imageUrl?: string | null;
 }
 
 interface Quiz {
@@ -311,6 +312,12 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
                   Câu {qIndex + 1}: <MathRenderer text={q.text} />
                 </h3>
                 
+                {q.imageUrl && q.imageUrl.trim() && (
+                  <div className="my-1 border border-hairline rounded overflow-hidden max-w-full md:max-w-md bg-canvas">
+                    <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="max-h-64 w-auto object-contain rounded" />
+                  </div>
+                )}
+                
                 {q.type === "TRUE_FALSE" ? (
                   // Section II: True/False statements
                   <div className="flex flex-col gap-3 border border-hairline rounded-lg p-4 bg-surface-pearl/50">
@@ -593,6 +600,12 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
                       {isCorrect ? `Đúng (${scoreEarned.toFixed(2)}đ)` : scoreEarned > 0 ? `Đúng một phần${subCorrectText} (${scoreEarned.toFixed(2)}đ)` : `Sai (0đ)`}
                     </span>
                   </div>
+                  
+                  {q.imageUrl && q.imageUrl.trim() && (
+                    <div className="my-1 border border-hairline rounded overflow-hidden max-w-full md:max-w-md bg-canvas">
+                      <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="max-h-64 w-auto object-contain rounded" />
+                    </div>
+                  )}
 
                   {/* MCQ options review */}
                   {q.type === "MULTIPLE_CHOICE" && (

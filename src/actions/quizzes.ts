@@ -153,6 +153,7 @@ interface CreateQuizInput {
     correctAnswer: string;
     score?: number;
     explanation?: string;
+    imageUrl?: string;
   }[];
 }
 
@@ -205,6 +206,7 @@ export async function createQuiz(input: CreateQuizInput) {
             correctAnswer: q.correctAnswer,
             score: q.score || 1.0,
             explanation: q.explanation || null,
+            imageUrl: q.imageUrl || null,
           },
         });
       }
@@ -289,6 +291,7 @@ export async function updateQuiz(input: UpdateQuizInput) {
             correctAnswer: q.correctAnswer,
             score: q.score || 1.0,
             explanation: q.explanation || null,
+            imageUrl: q.imageUrl || null,
           },
         });
       }
@@ -390,5 +393,27 @@ export async function getStudentQuizResult(quizId: string) {
   } catch (error) {
     console.error(error);
     return { success: false, error: "Lỗi hệ thống khi tải kết quả BTVN." };
+  }
+}
+
+export async function getSystemStats() {
+  try {
+    const totalQuizzes = await db.quiz.count();
+    const totalStudents = await db.studentProfile.count();
+    const totalSubmissions = await db.quizSubmission.count() + await db.homeworkSubmission.count();
+    const totalCourses = await db.course.count();
+
+    return {
+      success: true,
+      data: {
+        totalQuizzes,
+        totalStudents,
+        totalSubmissions,
+        totalCourses,
+      }
+    };
+  } catch (error) {
+    console.error("Error getting system stats:", error);
+    return { success: false, error: "Không thể lấy thông số hệ thống." };
   }
 }

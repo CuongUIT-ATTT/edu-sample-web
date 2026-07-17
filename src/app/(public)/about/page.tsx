@@ -16,7 +16,7 @@ export default function AboutPage() {
             Nơi Khởi Đầu Hành Trình <br />Đỗ Nguyện Vọng 1
           </h1>
           <p className="font-lead text-ink-muted-80 text-base max-w-[680px] leading-relaxed mt-2">
-            EduWeb được sáng lập bởi <strong>Thầy Hùng Cường</strong> cùng đội ngũ giảng viên kỳ cựu với mục tiêu tối giản lý thuyết, tập trung thực chiến luyện đề, mang lại phản xạ phòng thi tốt nhất cho học viên.
+            EduWeb được sáng lập bởi đội ngũ giảng viên chuyên môn cao với mục tiêu tối giản lý thuyết, tập trung thực chiến luyện đề, mang lại phản xạ phòng thi tốt nhất cho học viên.
           </p>
         </div>
 
@@ -64,13 +64,13 @@ export default function AboutPage() {
               <div className="h-56 bg-slate-100 relative overflow-hidden flex items-center justify-center">
                 <img 
                   src="/teacher_hung_cuong.png" 
-                  alt="Thầy Hùng Cường" 
+                  alt="Thầy Minh Trí" 
                   className="w-full h-full object-cover object-center"
                 />
               </div>
               <div className="p-5 flex flex-col gap-2">
                 <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Founder & Giảng viên Toán</span>
-                <h4 className="font-body-strong text-base font-bold text-ink">Thầy Hùng Cường</h4>
+                <h4 className="font-body-strong text-base font-bold text-ink">Thầy Minh Trí</h4>
                 <p className="text-xs text-ink-muted-80 font-body leading-relaxed">
                   Cựu học sinh chuyên Toán ĐHQG, 10 năm kinh nghiệm biên soạn đề thi thử và ôn thi đại học lớp chuyên đề 9+.
                 </p>

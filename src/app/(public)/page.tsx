@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowRight, Sparkles, Trophy, BookOpen, Clock, Users, Play, Heart, Star, StarHalf } from "lucide-react";
 
+import { getSystemStats } from "@/actions/quizzes";
+
 export default function HomePage() {
   // Countdown to THPT Quốc Gia 2027 (Approx June 25, 2027)
   const [timeLeft, setTimeLeft] = useState({
@@ -11,6 +13,13 @@ export default function HomePage() {
     hours: 0,
     minutes: 0,
     seconds: 0,
+  });
+
+  const [realStats, setRealStats] = useState({
+    totalQuizzes: 0,
+    totalStudents: 0,
+    totalSubmissions: 0,
+    totalCourses: 0,
   });
 
   useEffect(() => {
@@ -33,14 +42,22 @@ export default function HomePage() {
       setTimeLeft({ days, hours, minutes, seconds });
     }, 1000);
 
+    const fetchStats = async () => {
+      const res = await getSystemStats();
+      if (res.success && res.data) {
+        setRealStats(res.data);
+      }
+    };
+    fetchStats();
+
     return () => clearInterval(interval);
   }, []);
 
   const stats = [
-    { value: "+2.5K", label: "Đề thi thử trực tuyến" },
-    { value: "98.6%", label: "Tỉ lệ đỗ nguyện vọng 1" },
-    { value: "3,200+", label: "Học viên đạt điểm 9+" },
-    { value: "+1.8M", label: "Lượt luyện đề tích lũy" },
+    { value: realStats.totalQuizzes ? `${realStats.totalQuizzes}` : "...", label: "Đề thi thử trực tuyến" },
+    { value: realStats.totalStudents ? `${realStats.totalStudents}` : "...", label: "Học viên đã đăng ký" },
+    { value: realStats.totalCourses ? `${realStats.totalCourses}` : "...", label: "Khóa học chính thức" },
+    { value: realStats.totalSubmissions ? `${realStats.totalSubmissions}` : "...", label: "Lượt làm bài nộp tích lũy" },
   ];
 
   const testimonials = [
@@ -48,7 +65,7 @@ export default function HomePage() {
       name: "Nguyễn Minh Đức",
       score: "9.8 điểm Toán",
       target: "Đỗ Đại Học Bách Khoa Hà Nội",
-      comment: "Nhờ lộ trình tổng ôn cấp tốc của Thầy Hùng Cường, em học được các kỹ thuật bấm máy tính Casio giải trắc nghiệm siêu tốc và đặc biệt là cách loại bỏ lỗi sai ngu lý thuyết.",
+      comment: "Nhờ lộ trình tổng ôn cấp tốc của EduWeb, em học được các kỹ thuật bấm máy tính Casio giải trắc nghiệm siêu tốc và đặc biệt là cách loại bỏ lỗi sai ngu lý thuyết.",
     },
     {
       name: "Trần Khánh Vy",
@@ -90,7 +107,7 @@ export default function HomePage() {
             Luyện Thi Thông Minh. <br />Đỗ Nguyện Vọng 1.
           </h1>
           <p className="font-lead text-base md:text-lg text-ink-muted-80 max-w-[640px] mt-4 leading-relaxed font-body">
-            Học sâu hiểu bản chất, thực chiến luyện đề thi thử bám sát đề minh họa. Hệ thống ôn luyện của <strong>Thầy Hùng Cường</strong> cam kết mang lại bứt phá điểm số tối ưu cho mục tiêu đại học của bạn.
+            Học sâu hiểu bản chất, thực chiến luyện đề thi thử bám sát đề minh họa. Hệ thống ôn luyện của <strong>EduWeb</strong> cam kết mang lại bứt phá điểm số tối ưu cho mục tiêu đại học của bạn.
           </p>
           <div className="flex items-center gap-4 mt-8 flex-wrap justify-center">
             <Link 
@@ -185,7 +202,7 @@ export default function HomePage() {
         <div className="max-w-[980px] w-full flex flex-col items-center gap-6">
           <span className="text-[10px] uppercase font-bold text-primary tracking-widest">Bảng vàng vinh danh</span>
           <h2 className="font-display-lg text-3xl font-bold text-ink">
-            Học Viên Điểm Cao Nói Gì Về Thầy Hùng Cường?
+            Học Viên Điểm Cao Nói Gì Về EduWeb?
           </h2>
           <p className="text-xs text-ink-muted-80 max-w-[600px] font-body leading-relaxed">
             Hàng ngàn học viên của trung tâm đã bứt phá điểm số và đỗ đạt vào các trường đại học hàng đầu Việt Nam.
@@ -226,7 +243,7 @@ export default function HomePage() {
             Đừng Bỏ Lỡ Giai Đoạn Vàng Để Luyện Thi THPT
           </h2>
           <p className="font-lead text-xs md:text-sm text-ink-muted-80 max-w-[550px] leading-relaxed font-body">
-            Gửi đơn đăng ký tuyển sinh học thử miễn phí ngay hôm nay để nhận tài liệu VIP độc quyền giải mã đề thi thử THPT Quốc Gia từ Thầy Hùng Cường.
+            Gửi đơn đăng ký tuyển sinh học thử miễn phí ngay hôm nay để nhận tài liệu VIP độc quyền giải mã đề thi thử THPT Quốc Gia từ EduWeb.
           </p>
           <div className="flex gap-4 mt-4 w-full justify-center">
             <Link 

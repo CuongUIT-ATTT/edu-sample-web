@@ -14,7 +14,7 @@ export default function PublicLayout({
         <div className="max-w-[1440px] w-full mx-auto flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-tagline tracking-tight text-white select-none">
             <GraduationCap className="h-5 w-5 text-primary-on-dark animate-pulse" />
-            <span className="font-semibold text-sm">Luyện Thi Hùng Cường</span>
+            <span className="font-semibold text-sm">EduWeb</span>
           </Link>
           
           <div className="hidden md:flex items-center gap-8 text-xs font-semibold">
@@ -80,7 +80,7 @@ export default function PublicLayout({
             </div>
             <div className="flex flex-col gap-3">
               <h4 className="font-caption-strong text-ink font-bold">Giới thiệu & Hỗ trợ</h4>
-              <Link href="/about" className="hover:underline font-dense-link leading-relaxed block text-xs">Về Thầy Hùng Cường</Link>
+              <Link href="/about" className="hover:underline font-dense-link leading-relaxed block text-xs">Về EduWeb</Link>
               <Link href="/contact" className="hover:underline font-dense-link leading-relaxed block text-xs">Liên hệ trực tiếp ban tuyển sinh</Link>
               <Link href="/documents" className="hover:underline font-dense-link leading-relaxed block text-xs">Kho tài liệu miễn phí</Link>
             </div>
@@ -93,7 +93,7 @@ export default function PublicLayout({
           </div>
           <hr className="border-hairline" />
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-ink-muted-48 text-[11px]">
-            <p>Bản quyền © 2026 Luyện Thi Hùng Cường Inc. Mọi quyền được bảo lưu.</p>
+            <p>Bản quyền © 2026 EduWeb. Mọi quyền được bảo lưu.</p>
             <div className="flex gap-4">
               <Link href="/privacy" className="hover:underline">Chính sách bảo mật</Link>
               <Link href="/terms" className="hover:underline">Điều khoản sử dụng</Link>

@@ -28,12 +28,12 @@ export async function GET(
   }
 
   // 2. Generate dummy PDF response payload for download
-  const dummyFileContent = `--- TÀI LIỆU VIP - ĐỘC QUYỀN ĐÀO TẠO THẦY HÙNG CƯỜNG ---
+  const dummyFileContent = `--- TÀI LIỆU VIP - ĐỘC QUYỀN ĐÀO TẠO EDUWEB ---
 Học viên: ${session.name} (${session.email})
 Tên tệp: ${filename}
 Ngày xuất bản tải về: ${new Date().toLocaleDateString("vi-VN")}
 
-Nội dung: Tài liệu luyện thi chuyên sâu của Thầy Hùng Cường.
+Nội dung: Tài liệu luyện thi chuyên sâu của EduWeb.
 Vui lòng không sao chép hoặc phân phối tài liệu này ra ngoài cộng đồng.
 Chúc bạn ôn thi đạt kết quả tốt nhất!
 `;

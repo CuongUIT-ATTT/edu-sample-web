@@ -63,7 +63,7 @@ export default function DocumentsPage() {
             Tài Liệu Ôn Thi &amp; Tóm Tắt Lý Thuyết
           </h1>
           <p className="font-lead text-ink-muted-80 text-sm max-w-[620px] leading-relaxed mt-1">
-            Tải về hệ thống tài liệu biên soạn độc quyền của Thầy Hùng Cường giúp rút ngắn thời gian ôn thi, ghi nhớ sâu công thức cốt lõi.
+            Tải về hệ thống tài liệu biên soạn độc quyền của EduWeb giúp rút ngắn thời gian ôn thi, ghi nhớ sâu công thức cốt lõi.
           </p>
         </div>
 
@@ -168,7 +168,7 @@ export default function DocumentsPage() {
               Đặc quyền tài khoản học viên VIP
             </h3>
             <p className="text-xs text-ink-muted-80 font-body leading-relaxed">
-              Trở thành học viên chính thức để tải hàng trăm đề thi thử tốt nghiệp THPT giải chi tiết, tóm tắt lý thuyết độc quyền và được hỗ trợ đáp án bài tập trực tuyến từ trợ giảng học tập. Tài khoản được cấp sau khi hoàn thành đăng ký tư vấn lộ trình.
+              Trở thành học viên chính thức để tải hệ thống đề thi thử tốt nghiệp THPT giải chi tiết, tóm tắt lý thuyết độc quyền và được hỗ trợ đáp án bài tập trực tuyến từ trợ giảng học tập. Tài khoản được cấp sau khi hoàn thành đăng ký tư vấn lộ trình.
             </p>
           </div>
           <div className="flex gap-4 w-full md:w-auto flex-shrink-0">

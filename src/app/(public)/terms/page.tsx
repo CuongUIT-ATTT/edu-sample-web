@@ -24,7 +24,7 @@ export default function TermsPage() {
 
           <h3 className="font-body-strong text-sm font-bold text-ink mt-2">2. Sử dụng tài liệu ôn tập</h3>
           <p>
-            Tài liệu VIP được phát hành thuộc bản quyền trí tuệ của **Thầy Hùng Cường**. Học viên không được tự ý chia sẻ công khai, bán lại hoặc sử dụng thương mại ngoài khuôn khổ lớp học.
+            Tài liệu VIP được phát hành thuộc bản quyền trí tuệ của **EduWeb**. Học viên không được tự ý chia sẻ công khai, bán lại hoặc sử dụng thương mại ngoài khuôn khổ lớp học.
           </p>
 
           <h3 className="font-body-strong text-sm font-bold text-ink mt-2">3. Thanh toán học phí</h3>

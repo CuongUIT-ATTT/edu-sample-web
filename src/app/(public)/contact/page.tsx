@@ -29,7 +29,7 @@ export default function ContactPage() {
             Đồng Hành Cùng Bạn 24/7
           </h1>
           <p className="font-lead text-ink-muted-80 text-sm max-w-[600px] leading-relaxed mt-1">
-            Gửi thắc mắc của bạn về lịch học, học phí hoặc đăng ký kiểm tra năng lực đầu vào. Ban tư vấn của Thầy Hùng Cường sẽ phản hồi bạn trong 4 giờ làm việc.
+            Gửi thắc mắc của bạn về lịch học, học phí hoặc đăng ký kiểm tra năng lực đầu vào. Ban tư vấn của EduWeb sẽ phản hồi bạn trong 4 giờ làm việc.
           </p>
         </div>
 
@@ -118,7 +118,7 @@ export default function ContactPage() {
                   <div>
                     <h3 className="font-tagline text-xl font-bold text-ink">Yêu cầu đã được gửi!</h3>
                     <p className="text-xs text-ink-muted-80 mt-2 max-w-[360px]">
-                      Cảm ơn <strong>{name}</strong> đã liên hệ. Đội ngũ tư vấn tuyển sinh của Thầy Hùng Cường sẽ gọi điện thoại hoặc gửi email tư vấn chi tiết cho bạn sớm nhất.
+                      Cảm ơn <strong>{name}</strong> đã liên hệ. Đội ngũ tư vấn tuyển sinh của EduWeb sẽ gọi điện thoại hoặc gửi email tư vấn chi tiết cho bạn sớm nhất.
                     </p>
                   </div>
                   <button

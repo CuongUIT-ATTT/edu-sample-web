@@ -21,7 +21,7 @@ export default async function ParentDashboardPage() {
   let className = "Lớp VIP";
   let gpaString = "8.6 / 10";
   let attendanceRate = "98.2%";
-  let formTeacherName = "Thầy Hùng Cường";
+  let formTeacherName = "Thầy Nguyễn Văn Bình";
   let formTeacherPhone = "1900 1234";
   let rankingTitle = "Thần Phản Ứng Luyện Thi ⚡";
 

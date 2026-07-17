@@ -104,12 +104,13 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     correctAnswer: string;
     score: number;
     explanation?: string;
+    imageUrl?: string;
   }[]>([
-    { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "" }
+    { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "", imageUrl: "" }
   ]);
 
   const handleAddQuestion = () => {
-    setQuestions([...questions, { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "" }]);
+    setQuestions([...questions, { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "", imageUrl: "" }]);
   };
 
   const handleRemoveQuestion = (idx: number) => {
@@ -120,6 +121,12 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const handleExplanationChange = (qIdx: number, val: string) => {
     const next = [...questions];
     next[qIdx].explanation = val;
+    setQuestions(next);
+  };
+
+  const handleImageUrlChange = (qIdx: number, val: string) => {
+    const next = [...questions];
+    next[qIdx].imageUrl = val;
     setQuestions(next);
   };
 
@@ -205,7 +212,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         options: ["$\\frac{x^3}{3}+C$", "$2x+C$", "$x^3+C$", "$\\frac{x^2}{2}+C$"],
         correctAnswer: "0",
         score: 1.0,
-        explanation: "Áp dụng công thức nguyên hàm cơ bản: $\\int x^n dx = \\frac{x^{n+1}}{n+1} + C$ với $n=2$."
+        explanation: "Áp dụng công thức nguyên hàm cơ bản: $\\int x^n dx = \\frac{x^{n+1}}{n+1} + C$ với $n=2$.",
+        imageUrl: "https://images.unsplash.com/photo-1543508282-6319a3e2621d?auto=format&fit=crop&w=400&q=80"
       },
       {
         questionText: "Đồ thị hàm số bậc hai $y = ax^2 + bx + c$ ($a \\neq 0$) là một đường Parabol.",
@@ -218,7 +226,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         ],
         correctAnswer: "T,T,T,F",
         score: 2.0,
-        explanation: "Phát biểu 4 sai vì bề lõm quay lên trên khi $a > 0$, quay xuống dưới khi $a < 0$."
+        explanation: "Phát biểu 4 sai vì bề lõm quay lên trên khi $a > 0$, quay xuống dưới khi $a < 0$.",
+        imageUrl: ""
       },
       {
         questionText: "Phương trình $\\log_2(x) = 3$ có nghiệm là bao nhiêu?",
@@ -226,7 +235,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         options: [],
         correctAnswer: "8",
         score: 1.0,
-        explanation: "Ta có: $\\log_2(x) = 3 \\Leftrightarrow x = 2^3 = 8$."
+        explanation: "Ta có: $\\log_2(x) = 3 \\Leftrightarrow x = 2^3 = 8$.",
+        imageUrl: ""
       }
     ];
 
@@ -339,7 +349,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
           options,
           correctAnswer,
           score: parseFloat(q.score) || 1.0,
-          explanation: q.explanation || q.explain || ""
+          explanation: q.explanation || q.explain || "",
+          imageUrl: q.imageUrl || q.image || ""
         };
       });
 
@@ -532,7 +543,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setIsPublic(false);
     setShowOnList(true);
     setAnswerVisibility("IMMEDIATELY");
-    setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "" }]);
+    setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "", imageUrl: "" }]);
     setModalMode("CREATE");
     setEditingQuizId(null);
   };
@@ -559,9 +570,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         correctAnswer: qn.correctAnswer,
         score: qn.score,
         explanation: qn.explanation || "",
+        imageUrl: qn.imageUrl || "",
       })));
     } else {
-      setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "" }]);
+      setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "", imageUrl: "" }]);
     }
     setIsCreateOpen(true);
   };
@@ -1158,6 +1170,22 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                           required
                         />
                       </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 mt-2">
+                      <label className="text-[10px] font-semibold text-ink-muted-80">Đường dẫn ảnh câu hỏi (Tùy chọn)</label>
+                      <input
+                        type="text"
+                        value={q.imageUrl || ""}
+                        onChange={(e) => handleImageUrlChange(qIdx, e.target.value)}
+                        placeholder="Ví dụ: https://example.com/hinh1.png"
+                        className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full"
+                      />
+                      {q.imageUrl && q.imageUrl.trim() && (
+                        <div className="mt-1 border border-hairline rounded p-1 max-w-[150px] bg-canvas self-start">
+                          <img src={q.imageUrl} alt="Xem trước" className="max-h-24 w-auto rounded object-contain mx-auto" />
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-col gap-1.5 mt-2">

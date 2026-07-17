@@ -58,7 +58,7 @@ async function main() {
   const teacherUser2 = await prisma.user.create({
     data: {
       email: "giangvien2@eduweb.vn",
-      name: "Thầy Hùng Cường",
+      name: "Thầy Minh Trí",
       passwordHash,
       role: "TEACHER",
     },
@@ -337,6 +337,7 @@ async function main() {
   });
 
   // 10. Create Quiz & Questions
+  // 10. Create Quiz & Questions
   const quizMath = await prisma.quiz.create({
     data: {
       title: "Khảo sát đầu năm môn Toán Lớp 10",
@@ -357,6 +358,7 @@ async function main() {
       correctAnswer: "0",
       score: 5.0,
       quizId: quizMath.id,
+      imageUrl: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=600&q=80",
     },
   });
 
@@ -401,6 +403,45 @@ async function main() {
       submittedAt: new Date(Date.now() - 2 * 3600 * 1000), // 2 hours ago
     },
   });
+
+  // 12. Seed 10+ extra students and submissions to make stats rich and real
+  const studentNames = [
+    "Phạm Minh Hoàng", "Đỗ Thu Trang", "Vũ Quốc Bảo", "Hoàng Thùy Chi",
+    "Ngô Đức Anh", "Bùi Thị Mai", "Dương Tấn Đạt", "Lý Thanh Thảo",
+    "Phan Cao Sơn", "Tạ Minh Hằng"
+  ];
+
+  for (let i = 0; i < studentNames.length; i++) {
+    const email = `hocvien_extra${i + 1}@eduweb.vn`;
+    const name = studentNames[i];
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name,
+        passwordHash,
+        role: "STUDENT",
+      },
+    });
+
+    const studentProf = await prisma.studentProfile.create({
+      data: {
+        userId: user.id,
+        parentId: parentProfile.id
+      },
+    });
+
+    // Create a random quiz submission
+    const score = parseFloat((5 + Math.random() * 5).toFixed(1)); // random score between 5.0 and 10.0
+    await prisma.quizSubmission.create({
+      data: {
+        quizId: quizMath.id,
+        studentId: studentProf.id,
+        score,
+        answers: JSON.stringify({}),
+        submittedAt: new Date(Date.now() - (i + 1) * 3600 * 1000), // i hours ago
+      },
+    });
+  }
 
   console.log("Database seeding completed successfully!");
 }

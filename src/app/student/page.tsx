@@ -157,7 +157,7 @@ export default async function StudentDashboardPage() {
             id: "1",
             time: "08:00 - 09:30",
             subjectName: "Toán học nâng cao",
-            teacherName: "Thầy Hùng Cường",
+            teacherName: "Thầy Nguyễn Văn Bình",
             room: "Room 302",
             status: "Đã điểm danh - Có mặt",
           },

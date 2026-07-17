@@ -89,7 +89,7 @@ export default async function LeaderboardPage() {
             Bảng Xếp Hạng Học Viên Xuất Sắc
           </h1>
           <p className="font-lead text-ink-muted-80 text-sm max-w-[550px] leading-relaxed mt-1">
-            Vinh danh những học viên có điểm thi thử và kết quả luyện đề xuất sắc nhất toàn hệ thống EduWeb của Thầy Hùng Cường.
+            Vinh danh những học viên có điểm thi thử và kết quả luyện đề xuất sắc nhất toàn hệ thống EduWeb.
           </p>
         </div>
 
@@ -166,7 +166,7 @@ export default async function LeaderboardPage() {
           <div className="flex flex-col gap-1 text-center sm:text-left">
             <h4 className="font-body-strong text-sm font-bold text-ink">Chưa có tên trên bảng xếp hạng?</h4>
             <p className="text-xs text-ink-muted-80 font-body">
-              Luyện đề thi thử ngay hôm nay để cọ xát năng lực và ghi tên mình trên Bảng Vàng danh vọng của Thầy Hùng Cường!
+              Luyện đề thi thử ngay hôm nay để cọ xát năng lực và ghi tên mình trên Bảng Vàng danh vọng của EduWeb!
             </p>
           </div>
           <Link 

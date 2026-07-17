@@ -14,6 +14,7 @@ interface Question {
   options: string[];
   correctAnswer: string;
   score: number;
+  imageUrl?: string | null;
 }
 
 interface Quiz {
@@ -288,6 +289,12 @@ export default function SingleQuizPlayer({ quiz, sessionUser }: SingleQuizPlayer
                   Câu {qIndex + 1}: <MathRenderer text={q.questionText} />
                 </h3>
                 
+                {q.imageUrl && q.imageUrl.trim() && (
+                  <div className="my-1 border border-hairline rounded overflow-hidden max-w-full md:max-w-md bg-canvas">
+                    <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="max-h-64 w-auto object-contain rounded" />
+                  </div>
+                )}
+                
                 {q.type === "TRUE_FALSE" ? (
                   <div className="flex flex-col gap-3 border border-hairline rounded-lg p-4 bg-surface-pearl/50">
                     <div className="grid grid-cols-12 text-[10px] font-bold text-ink-muted-48 uppercase border-b border-divider pb-2 mb-2">
@@ -499,6 +506,12 @@ export default function SingleQuizPlayer({ quiz, sessionUser }: SingleQuizPlayer
                       {isCorrect ? `Đúng (${scoreEarned.toFixed(2)}đ)` : scoreEarned > 0 ? `Đúng một phần${subCorrectText} (${scoreEarned.toFixed(2)}đ)` : `Sai (0đ)`}
                     </span>
                   </div>
+                  
+                  {q.imageUrl && q.imageUrl.trim() && (
+                    <div className="my-1 border border-hairline rounded overflow-hidden max-w-full md:max-w-md bg-canvas">
+                      <img src={q.imageUrl} alt={`Hình minh họa câu ${qIndex + 1}`} className="max-h-64 w-auto object-contain rounded" />
+                    </div>
+                  )}
 
                   {/* MCQ options review */}
                   {q.type === "MULTIPLE_CHOICE" && (

@@ -53,7 +53,7 @@ export default function LearningPathsPage() {
             Đường Lên Thủ Khoa Thiết Kế Khoa Học
           </h1>
           <p className="font-lead text-ink-muted-80 text-sm max-w-[600px] leading-relaxed mt-1">
-            Mỗi học viên khi bước vào EduWeb của Thầy Hùng Cường đều được định hướng lộ trình ôn luyện rõ ràng từng giai đoạn để đạt kết quả đỗ đại học cao nhất.
+            Mỗi học viên khi bước vào hệ thống EduWeb đều được định hướng lộ trình ôn luyện rõ ràng từng giai đoạn để đạt kết quả đỗ đại học cao nhất.
           </p>
         </div>
 
