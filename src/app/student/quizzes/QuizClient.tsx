@@ -40,6 +40,8 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [cheatWarnings, setCheatWarnings] = useState(0);
   const [isCheatedLocked, setIsCheatedLocked] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const forceSubmitRef = useRef<(() => void) | null>(null);
 
   // Update forceSubmitRef with latest handleSubmit closure
