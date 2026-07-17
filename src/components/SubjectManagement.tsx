@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { BookOpen, Plus, Trash2, Tag, CheckCircle, AlertCircle } from "lucide-react";
-import { createSubject, deleteSubject } from "@/actions/subjects";
+import { BookOpen, Plus, Trash2, Edit3, X, CheckCircle, AlertCircle } from "lucide-react";
+import { createSubject, deleteSubject, updateSubject } from "@/actions/subjects";
 
 interface SubjectItem {
   id: string;
@@ -21,6 +21,12 @@ export default function SubjectManagement({ subjects }: SubjectManagementProps) 
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Edit modal states
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<SubjectItem | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCode, setEditCode] = useState("");
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSuccessMsg(null);
@@ -32,7 +38,34 @@ export default function SubjectManagement({ subjects }: SubjectManagementProps) 
     if (res.success) {
       setSuccessMsg(res.message || "Thành công");
       e.currentTarget.reset();
-      // Reload page to reflect new subject
+      window.location.reload();
+    } else {
+      setErrorMsg(res.error || "Có lỗi xảy ra");
+    }
+  };
+
+  const openEditModal = (sub: SubjectItem) => {
+    setEditingSubject(sub);
+    setEditName(sub.name);
+    setEditCode(sub.code);
+    setIsEditOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingSubject) return;
+    setSuccessMsg(null);
+    setErrorMsg(null);
+
+    const formData = new FormData();
+    formData.append("name", editName);
+    formData.append("code", editCode);
+
+    const res = await updateSubject(editingSubject.id, formData);
+    if (res.success) {
+      setSuccessMsg(res.message || "Thành công");
+      setIsEditOpen(false);
+      setEditingSubject(null);
       window.location.reload();
     } else {
       setErrorMsg(res.error || "Có lỗi xảy ra");
@@ -88,9 +121,9 @@ export default function SubjectManagement({ subjects }: SubjectManagementProps) 
 
           <table className="w-full">
             <thead>
-              <tr className="border-b border-hairline bg-surface-pearl">
-                <th className="text-left px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Tên môn học</th>
-                <th className="text-left px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Mã môn học</th>
+              <tr className="border-b border-hairline bg-surface-pearl text-left">
+                <th className="px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Tên môn học</th>
+                <th className="px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Mã môn học</th>
                 <th className="text-center px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Số ca học liên kết</th>
                 <th className="text-center px-6 py-3 text-[11px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Hành động</th>
               </tr>
@@ -105,14 +138,23 @@ export default function SubjectManagement({ subjects }: SubjectManagementProps) 
                       {sub._count.schedules} ca học
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-center">
-                    <button
-                      onClick={() => handleDelete(sub.id, sub.name)}
-                      className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
-                      title="Xoá môn học"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                  <td className="px-6 py-4">
+                    <div className="flex justify-center gap-2">
+                      <button
+                        onClick={() => openEditModal(sub)}
+                        className="text-blue-500 hover:bg-blue-50 p-2 rounded-full transition-colors"
+                        title="Sửa môn học"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(sub.id, sub.name)}
+                        className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
+                        title="Xoá môn học"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -161,6 +203,73 @@ export default function SubjectManagement({ subjects }: SubjectManagementProps) 
           </form>
         </div>
       </div>
+
+      {/* Edit Subject Modal */}
+      {isEditOpen && editingSubject && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-canvas border border-hairline rounded-lg w-[400px] max-w-full shadow-product flex flex-col overflow-hidden animate-fade-in">
+            <div className="px-6 py-4 border-b border-divider flex items-center justify-between bg-surface-pearl">
+              <h3 className="font-tagline text-base font-semibold text-ink flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-primary" />
+                Chỉnh sửa môn học
+              </h3>
+              <button 
+                onClick={() => {
+                  setEditingSubject(null);
+                  setIsEditOpen(false);
+                }} 
+                className="text-ink-muted-48 hover:text-ink"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="p-6 flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-caption-strong text-ink-muted-80">Tên môn học</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Toán học, Vật lý, Hóa học..."
+                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-caption-strong text-ink-muted-80">Mã môn học</label>
+                <input
+                  type="text"
+                  value={editCode}
+                  onChange={(e) => setEditCode(e.target.value)}
+                  placeholder="TOAN10, LY11, HOA12..."
+                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full uppercase"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingSubject(null);
+                    setIsEditOpen(false);
+                  }}
+                  className="border border-divider-soft hover:bg-surface-pearl text-xs px-4 py-2 rounded-pill font-semibold"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="bg-primary hover:bg-primary-focus text-white text-xs px-5 py-2 rounded-pill font-semibold shadow-sm"
+                >
+                  Lưu thay đổi
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

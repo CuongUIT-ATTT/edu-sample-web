@@ -48,6 +48,52 @@ export async function createSubject(formData: FormData) {
   }
 }
 
+export async function updateSubject(subjectId: string, formData: FormData) {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "ADMIN") {
+      return { success: false, error: "Chỉ Quản trị viên mới được sửa môn học." };
+    }
+
+    const name = formData.get("name") as string;
+    const code = formData.get("code") as string;
+
+    if (!name || !code) {
+      return { success: false, error: "Vui lòng điền tên môn và mã môn học." };
+    }
+
+    // Check if unique code or name exists for other subjects
+    const existingCode = await db.subject.findFirst({
+      where: {
+        id: { not: subjectId },
+        OR: [
+          { code: { equals: code, mode: "insensitive" } },
+          { name: { equals: name, mode: "insensitive" } },
+        ],
+      },
+    });
+
+    if (existingCode) {
+      return { success: false, error: "Tên môn hoặc mã môn học này đã tồn tại ở môn học khác." };
+    }
+
+    await db.subject.update({
+      where: { id: subjectId },
+      data: {
+        name,
+        code: code.toUpperCase(),
+      },
+    });
+
+    revalidatePath("/admin/subjects");
+    revalidatePath("/admin/schedules");
+    return { success: true, message: "Cập nhật môn học thành công." };
+  } catch (error) {
+    console.error("Error updating subject:", error);
+    return { success: false, error: "Đã xảy ra lỗi hệ thống khi cập nhật môn học." };
+  }
+}
+
 export async function deleteSubject(subjectId: string) {
   try {
     const session = await getSession();
