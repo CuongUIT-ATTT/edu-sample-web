@@ -136,24 +136,16 @@ export async function deleteDocument(id: string) {
       try {
         const urlParts = existing.fileUrl.split("/upload/");
         if (urlParts.length > 1) {
-          const pathWithId = urlParts[1].replace(/^v\d+\//, ""); 
-          const publicId = pathWithId;
-          
-          // Detect resource type from url: e.g. res.cloudinary.com/.../raw/upload/ vs /image/upload/
-          let resType = "raw";
-          if (existing.fileUrl.includes("/image/upload/")) {
-            resType = "image";
-          }
-          
-          // Remove extension only if it is stored as 'image' type (since images in Cloudinary don't use extensions in public_id)
-          let finalPublicId = publicId;
-          if (resType === "image") {
-            finalPublicId = publicId.replace(/\.[^.]+$/, "");
-          }
+          // Extract path after /upload/, remove version prefix (v\d+/)
+          const pathWithId = urlParts[1].replace(/^v\d+\//, "");
+          // For raw resources, public_id includes the full path and filename (without extension)
+          // URL structure: /upload/v1234/eduweb_documents/timestamp-filename.ext
+          // We need: eduweb_documents/timestamp-filename
+          const publicId = pathWithId.replace(/\.[^.]+$/, "");
 
-          console.log(`Deleting Cloudinary file: id=${finalPublicId}, type=${resType}`);
-          await cloudinary.uploader.destroy(finalPublicId, {
-            resource_type: resType
+          console.log(`Deleting Cloudinary file: id=${publicId}, type=raw`);
+          await cloudinary.uploader.destroy(publicId, {
+            resource_type: "raw"
           });
         }
       } catch (cloudinaryError) {

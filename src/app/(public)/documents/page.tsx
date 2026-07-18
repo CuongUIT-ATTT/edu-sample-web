@@ -83,7 +83,7 @@ export default async function DocumentsPage() {
 
                     <div className="flex-shrink-0">
                       <a
-                        href={doc.fileUrl}
+                        href={doc.fileUrl.includes("res.cloudinary.com") ? doc.fileUrl.replace("/upload/", "/upload/fl_attachment/") : doc.fileUrl}
                         download={doc.fileName}
                         target="_blank"
                         rel="noopener noreferrer"

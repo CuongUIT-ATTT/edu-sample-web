@@ -368,7 +368,7 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
                   )}
                 </div>
                 <a
-                  href={doc.fileUrl}
+                  href={doc.fileUrl.includes("res.cloudinary.com") ? doc.fileUrl.replace("/upload/", "/upload/fl_attachment/") : doc.fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="h-8 w-8 rounded-full bg-blue-50 text-primary hover:bg-blue-100 flex items-center justify-center border border-blue-200 transition-colors"
