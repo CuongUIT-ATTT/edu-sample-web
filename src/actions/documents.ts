@@ -132,23 +132,33 @@ export async function deleteDocument(id: string) {
     }
 
     // If it's a Cloudinary link, try to extract public_id and delete the file
-    // Example: https://res.cloudinary.com/k5p3v8aa/raw/upload/v1234/eduweb_documents/12345-name.pdf
     if (existing.fileUrl.includes("res.cloudinary.com")) {
       try {
-        // Extract part after /upload/ (skip version, e.g., 'v1234/')
         const urlParts = existing.fileUrl.split("/upload/");
         if (urlParts.length > 1) {
-          // Remove version identifier if present (e.g. v1784368801329/)
           const pathWithId = urlParts[1].replace(/^v\d+\//, ""); 
-          // Extract public_id (for raw resource type we keep extension in public_id)
           const publicId = pathWithId;
           
-          await cloudinary.uploader.destroy(publicId, {
-            resource_type: "raw"
+          // PDF files uploaded via resource_type: "auto" are categorized as "image" by Cloudinary.
+          // Word, Excel, PowerPoint are categorized as "raw".
+          // We can also extract the type from the URL itself (e.g. /image/upload/ vs /raw/upload/)
+          let resType = "raw";
+          if (existing.fileUrl.includes("/image/upload/") || existing.fileType.toLowerCase() === "pdf") {
+            resType = "image";
+          }
+          
+          // Remove file extension from public_id if it's stored as an image (Cloudinary strips extensions for images)
+          let finalPublicId = publicId;
+          if (resType === "image") {
+            finalPublicId = publicId.replace(/\.[^.]+$/, "");
+          }
+
+          await cloudinary.uploader.destroy(finalPublicId, {
+            resource_type: resType
           });
         }
       } catch (cloudinaryError) {
-        console.error("Failed to delete raw file from Cloudinary:", cloudinaryError);
+        console.error("Failed to delete file from Cloudinary:", cloudinaryError);
       }
     }
 

@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       (resolve, reject) => {
         cloudinary.uploader.upload_stream(
           {
-            resource_type: "raw",
+            resource_type: "auto",
             folder: "eduweb_documents",
             public_id: `${Date.now()}-${file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "_")}.${fileExtension}`,
           },
