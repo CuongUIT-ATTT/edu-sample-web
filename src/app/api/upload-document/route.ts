@@ -1,20 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { v2 as cloudinary } from "cloudinary";
+
+// Configure Cloudinary with environment variables
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export async function POST(req: NextRequest) {
   try {
+    if (!process.env.CLOUDINARY_CLOUD_NAME) {
+      return NextResponse.json(
+        { error: "Cloudinary credentials chưa được cấu hình" },
+        { status: 500 }
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
     if (!file) {
-      return NextResponse.json({ error: "Không tìm thấy file" }, { status: 400 });
+      return NextResponse.json({ error: "Không tìm thấy tệp" }, { status: 400 });
     }
 
-    const fileExtension = file.name.split(".").pop()?.toLowerCase();
-    if (fileExtension !== "pdf" && fileExtension !== "docx") {
+    const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
+    const allowedExtensions = ["pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt"];
+    if (!allowedExtensions.includes(fileExtension)) {
       return NextResponse.json(
-        { error: "Hệ thống chỉ hỗ trợ tài liệu định dạng PDF và DOCX" },
+        { error: "Định dạng tệp không được hỗ trợ (chỉ hỗ trợ PDF, Word, Excel, PowerPoint)" },
         { status: 400 }
       );
     }
@@ -27,32 +41,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Convert file to buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "documents");
-    await mkdir(uploadDir, { recursive: true });
+    // Upload file to Cloudinary as raw resource (for documents)
+    const uploadPromise = new Promise<{ secure_url: string; public_id: string }>(
+      (resolve, reject) => {
+        cloudinary.uploader.upload_stream(
+          {
+            resource_type: "raw",
+            folder: "eduweb_documents",
+            public_id: `${Date.now()}-${file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "_")}`,
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result as any);
+          }
+        ).end(buffer);
+      }
+    );
 
-    // Use timestamp prefix to prevent collisions
-    const safeName = file.name.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9._-]/g, "");
-    const uniqueName = `${Date.now()}-${safeName}`;
-    const filePath = path.join(uploadDir, uniqueName);
-    await writeFile(filePath, buffer);
+    const uploadResult = await uploadPromise;
 
-    const fileUrl = `/uploads/documents/${uniqueName}`;
     const fileSizeStr =
       file.size > 1024 * 1024
         ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
         : `${(file.size / 1024).toFixed(0)} KB`;
 
     return NextResponse.json({
-      url: fileUrl,
+      url: uploadResult.secure_url,
       fileName: file.name,
       fileSize: fileSizeStr,
       fileType: fileExtension,
     });
   } catch (err) {
-    console.error("Upload document error:", err);
-    return NextResponse.json({ error: "Lỗi server khi tải tài liệu lên" }, { status: 500 });
+    console.error("Cloudinary document upload error:", err);
+    return NextResponse.json({ error: "Lỗi hệ thống khi tải tài liệu lên Cloudinary" }, { status: 500 });
   }
 }

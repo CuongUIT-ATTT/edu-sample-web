@@ -75,9 +75,10 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Doc | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [togglingPublish, setTogglingPublish] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const emptyForm = {
@@ -128,9 +129,15 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/upload-document", { method: "POST", body: fd });
+      
+      const res = await fetch("/api/upload-document", {
+        method: "POST",
+        body: fd,
+      });
+      
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload thất bại");
+      if (!res.ok) throw new Error(data.error || "Tải lên Cloudinary thất bại");
+      
       setForm((prev) => ({
         ...prev,
         fileUrl: data.url,
@@ -139,9 +146,10 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
         fileSize: data.fileSize,
         title: prev.title || file.name.replace(/\.[^.]+$/, "").replace(/_/g, " "),
       }));
-      showToast("Tải tệp lên thành công!", "success");
+      
+      showToast("Tải lên Cloudinary thành công!", "success");
     } catch (err: unknown) {
-      showToast((err instanceof Error ? err.message : "Lỗi tải file"), "error");
+      showToast(err instanceof Error ? err.message : "Lỗi tải tệp lên", "error");
     } finally {
       setUploading(false);
     }
@@ -178,7 +186,7 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
       return;
     }
     if (!form.fileUrl.trim()) {
-      showToast("Vui lòng tải lên tệp hoặc nhập đường dẫn (URL) tài liệu", "warning");
+      showToast("Vui lòng nhập đường dẫn (URL) tài liệu", "warning");
       return;
     }
 
@@ -394,51 +402,44 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
             {/* Modal body */}
             <div className="flex flex-col gap-5 p-6 overflow-y-auto">
               
-              {/* Optional Upload Zone */}
-              <div
-                className="border-2 border-dashed border-hairline rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-blue-50/30 transition-all"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.docx"
-                  className="hidden"
-                  onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
-                />
-                {uploading ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    <p className="text-xs text-ink-muted-80">Đang tải lên...</p>
-                  </div>
-                ) : form.fileUrl && form.fileUrl.startsWith("/uploads/") ? (
-                  <div className="flex flex-col items-center gap-1">
-                    <FileText className="h-8 w-8 text-primary mb-1" />
-                    <p className="text-xs font-semibold text-ink">{form.fileName}</p>
-                    <p className="text-[10px] text-ink-muted-48">{form.fileSize} • {form.fileType?.toUpperCase()} • Click để thay đổi</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <Upload className="h-8 w-8 text-ink-muted-48 mb-1" />
-                    <p className="text-xs font-semibold text-ink">Kéo thả hoặc Click để tải lên file trực tiếp</p>
-                    <p className="text-[10px] text-ink-muted-48">PDF hoặc DOCX (Tự động chuyển thành link nội bộ)</p>
-                  </div>
-                )}
-              </div>
-
-              {/* URL input — primary field */}
+              {/* URL and File Upload Row */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-ink flex items-center gap-1.5">
                   <Link2 className="h-3.5 w-3.5 text-primary" />
-                  Hoặc nhập/sử dụng Đường dẫn tài liệu (URL) *
+                  Đường dẫn tài liệu (URL) hoặc Tải tệp lên *
                 </label>
-                <input
-                  type="url"
-                  value={form.fileUrl}
-                  onChange={(e) => handleUrlChange(e.target.value)}
-                  placeholder="https://drive.google.com/... hoặc link tệp vừa upload"
-                  className="bg-canvas border border-hairline rounded-lg px-3 py-2.5 text-xs text-ink outline-none focus:border-primary-focus font-mono w-full"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={form.fileUrl}
+                    onChange={(e) => handleUrlChange(e.target.value)}
+                    placeholder="https://drive.google.com/... hoặc bấm Tải lên"
+                    className="bg-canvas border border-hairline rounded-lg px-3 py-2 text-xs text-ink outline-none focus:border-primary-focus font-mono flex-1 h-9"
+                  />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt"
+                    className="hidden"
+                    onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="bg-slate-100 hover:bg-slate-200 border border-hairline text-ink text-xs px-3 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-60 h-9 shrink-0 font-medium"
+                  >
+                    {uploading ? (
+                      <span className="h-3.5 w-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                    Tải tệp lên
+                  </button>
+                </div>
+                <p className="text-[10px] text-ink-muted-48">
+                  Hỗ trợ dán liên kết Drive/Dropbox hoặc tải trực tiếp tài liệu của bạn (PDF, Word, Excel, PowerPoint) lên đám mây Cloudinary của trường.
+                </p>
               </div>
 
               {/* Title */}
