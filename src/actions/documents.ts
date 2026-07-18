@@ -3,8 +3,6 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { unlink } from "fs/promises";
-import path from "path";
 
 export interface DocumentInput {
   title: string;
@@ -14,11 +12,13 @@ export interface DocumentInput {
   fileType: string;
   fileSize?: string;
   category: string;
+  published?: boolean;
 }
 
-export async function getDocuments() {
+export async function getDocuments(onlyPublished = false) {
   try {
     const docs = await db.document.findMany({
+      where: onlyPublished ? { published: true } : undefined,
       orderBy: { createdAt: "desc" },
     });
     return { success: true, data: docs };
@@ -44,6 +44,7 @@ export async function createDocument(input: DocumentInput) {
         fileType: input.fileType,
         fileSize: input.fileSize || null,
         category: input.category.trim() || "Chung",
+        published: input.published ?? false,
       },
     });
 
@@ -74,6 +75,7 @@ export async function updateDocument(id: string, input: Partial<DocumentInput>) 
         ...(input.fileType !== undefined && { fileType: input.fileType }),
         ...(input.fileSize !== undefined && { fileSize: input.fileSize || null }),
         ...(input.category !== undefined && { category: input.category.trim() || "Chung" }),
+        ...(input.published !== undefined && { published: input.published }),
       },
     });
 
@@ -87,6 +89,28 @@ export async function updateDocument(id: string, input: Partial<DocumentInput>) 
   }
 }
 
+export async function toggleDocumentPublish(id: string, published: boolean) {
+  try {
+    const session = await getSession();
+    if (!session || (session.role !== "ADMIN" && session.role !== "TEACHER")) {
+      return { success: false, error: "Không có quyền thực hiện hành động này." };
+    }
+
+    const doc = await db.document.update({
+      where: { id },
+      data: { published },
+    });
+
+    revalidatePath("/admin/documents");
+    revalidatePath("/teacher/documents");
+    revalidatePath("/documents");
+    return { success: true, data: doc };
+  } catch (err) {
+    console.error("toggleDocumentPublish error:", err);
+    return { success: false, error: "Thay đổi trạng thái hiển thị thất bại." };
+  }
+}
+
 export async function deleteDocument(id: string) {
   try {
     const session = await getSession();
@@ -97,16 +121,6 @@ export async function deleteDocument(id: string) {
     const existing = await db.document.findUnique({ where: { id } });
     if (!existing) {
       return { success: false, error: "Tài liệu không tồn tại." };
-    }
-
-    // Try to remove the actual file if it was a local upload
-    if (existing.fileUrl.startsWith("/uploads/documents/")) {
-      try {
-        const filePath = path.join(process.cwd(), "public", existing.fileUrl);
-        await unlink(filePath);
-      } catch {
-        // File may not exist on disk — ignore
-      }
     }
 
     await db.document.delete({ where: { id } });

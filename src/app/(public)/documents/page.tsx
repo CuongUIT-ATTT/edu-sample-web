@@ -11,6 +11,7 @@ export const metadata = {
 
 export default async function DocumentsPage() {
   const documents = await db.document.findMany({
+    where: { published: true },
     orderBy: { createdAt: "desc" },
   });
 

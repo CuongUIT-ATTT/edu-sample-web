@@ -280,6 +280,7 @@ model Document {
   fileType    String   // 'pdf' or 'docx'
   fileSize    String?
   category    String   @default("Chung")
+  published   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
