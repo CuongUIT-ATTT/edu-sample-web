@@ -1,6 +1,6 @@
 import React from "react";
 import { db } from "@/lib/db";
-import { FileText, Download, Search } from "lucide-react";
+import { FileText, Download, Search, ExternalLink } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -81,19 +81,33 @@ export default async function DocumentsPage() {
                       </div>
                     </div>
 
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 flex items-center gap-2">
+                      {/* View button */}
                       <a
                         href={
                           doc.fileUrl.includes("res.cloudinary.com")
                             ? doc.fileType.toLowerCase() === "pdf"
                               ? `https://docs.google.com/viewer?url=${encodeURIComponent(doc.fileUrl)}`
-                              : doc.fileUrl.replace("/upload/", "/upload/fl_attachment/")
+                              : doc.fileUrl
                             : doc.fileUrl
                         }
                         target="_blank"
                         rel="noopener noreferrer"
                         className="h-9 w-9 rounded-full bg-blue-50 text-primary hover:bg-blue-100 flex items-center justify-center border border-blue-200 transition-colors shadow-sm"
-                        title={doc.fileType.toLowerCase() === "pdf" ? "Xem PDF" : "Tải tài liệu miễn phí"}
+                        title={doc.fileType.toLowerCase() === "pdf" ? "Xem PDF" : "Mở tài liệu"}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                      {/* Download button: forces real file download */}
+                      <a
+                        href={doc.fileUrl.includes("res.cloudinary.com")
+                          ? doc.fileUrl.replace("/upload/", "/upload/fl_attachment/")
+                          : doc.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download
+                        className="h-9 w-9 rounded-full bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center border border-green-200 transition-colors shadow-sm"
+                        title="Tải về máy"
                       >
                         <Download className="h-4 w-4" />
                       </a>

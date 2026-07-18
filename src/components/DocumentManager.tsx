@@ -14,6 +14,7 @@ import {
   Eye,
   EyeOff,
   Upload,
+  ExternalLink,
 } from "lucide-react";
 import {
   createDocument,
@@ -381,15 +382,31 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
                     <span className="text-[10px] text-ink-muted-48">{doc.fileSize}</span>
                   )}
                 </div>
-                <a
-                  href={getDocumentViewUrl(doc.fileUrl, doc.fileType)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="h-8 w-8 rounded-full bg-blue-50 text-primary hover:bg-blue-100 flex items-center justify-center border border-blue-200 transition-colors"
-                  title={doc.fileType.toLowerCase() === "pdf" ? "Xem PDF" : "Tải tài liệu"}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </a>
+                <div className="flex items-center gap-1.5">
+                  {/* View button: Google Docs Viewer for PDF, direct link for others */}
+                  <a
+                    href={getDocumentViewUrl(doc.fileUrl, doc.fileType)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-8 w-8 rounded-full bg-blue-50 text-primary hover:bg-blue-100 flex items-center justify-center border border-blue-200 transition-colors"
+                    title={doc.fileType.toLowerCase() === "pdf" ? "Xem PDF" : "Mở tài liệu"}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                  {/* Download button: always forces a real file download */}
+                  <a
+                    href={doc.fileUrl.includes("res.cloudinary.com")
+                      ? doc.fileUrl.replace("/upload/", "/upload/fl_attachment/")
+                      : doc.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                    className="h-8 w-8 rounded-full bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center border border-green-200 transition-colors"
+                    title="Tải về máy"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </a>
+                </div>
               </div>
             </div>
           ))}

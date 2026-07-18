@@ -138,15 +138,19 @@ export async function deleteDocument(id: string) {
         if (urlParts.length > 1) {
           // Extract path after /upload/, remove version prefix (v\d+/)
           const pathWithId = urlParts[1].replace(/^v\d+\//, "");
-          // For raw resources, public_id includes the full path and filename (without extension)
-          // URL structure: /upload/v1234/eduweb_documents/timestamp-filename.ext
-          // We need: eduweb_documents/timestamp-filename
-          const publicId = pathWithId.replace(/\.[^.]+$/, "");
+          // For Cloudinary raw resources: public_id includes the extension (e.g. eduweb_documents/file.pdf)
+          // Try deleting with extension first (new uploads), then without (legacy)
+          const publicIdWithExt = pathWithId;
+          const publicIdNoExt = pathWithId.replace(/\.[^.]+$/, "");
 
-          console.log(`Deleting Cloudinary file: id=${publicId}, type=raw`);
-          await cloudinary.uploader.destroy(publicId, {
-            resource_type: "raw"
-          });
+          console.log(`Deleting Cloudinary file: id=${publicIdWithExt}, type=raw`);
+          const result = await cloudinary.uploader.destroy(publicIdWithExt, { resource_type: "raw" });
+
+          // If not found with extension, try without (old uploads stored without extension)
+          if (result.result === "not found") {
+            console.log(`Retrying delete without extension: id=${publicIdNoExt}`);
+            await cloudinary.uploader.destroy(publicIdNoExt, { resource_type: "raw" });
+          }
         }
       } catch (cloudinaryError) {
         console.error("Failed to delete file from Cloudinary:", cloudinaryError);

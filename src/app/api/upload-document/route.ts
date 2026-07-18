@@ -52,9 +52,12 @@ export async function POST(req: NextRequest) {
     // Upload file to Cloudinary as raw resource (for documents)
     const uploadPromise = new Promise<{ secure_url: string; public_id: string }>(
       (resolve, reject) => {
-        // Store without extension in public_id to match deletion logic
-        const fileNameWithoutExt = file.name.replace(/\.[^.]+$/, "").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9._-]/g, "");
-        const publicId = `eduweb_documents/${Date.now()}-${fileNameWithoutExt}`;
+        // IMPORTANT: For Cloudinary raw resources, public_id MUST include the extension
+        // so Cloudinary can serve the correct Content-Type header on download.
+        const safeName = file.name
+          .replace(/\s+/g, "_")
+          .replace(/[^a-zA-Z0-9._-]/g, "");
+        const publicId = `eduweb_documents/${Date.now()}-${safeName}`;
 
         cloudinary.uploader.upload_stream(
           {
