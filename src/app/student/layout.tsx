@@ -5,12 +5,13 @@ import Link from "next/link";
 import LogoutButton from "@/components/LogoutButton";
 import {
   Calendar,
-  LogOut,
   CheckSquare,
   TrendingUp,
   LayoutDashboard,
   Settings,
   Menu,
+  Trophy,
+  FileText,
 } from "lucide-react";
 
 export default function StudentDashboardLayout({
@@ -79,6 +80,22 @@ export default function StudentDashboardLayout({
             >
               <CheckSquare className="h-4 w-4 flex-shrink-0" />
               <span className="hidden md:inline">Bài tập &amp; Đề thi</span>
+            </Link>
+            <Link
+              href="/student/leaderboard"
+              onClick={closeSidebar}
+              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+            >
+              <Trophy className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden md:inline">Bảng xếp hạng</span>
+            </Link>
+            <Link
+              href="/documents"
+              onClick={closeSidebar}
+              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+            >
+              <FileText className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden md:inline">Kho tài liệu</span>
             </Link>
           </nav>
         </div>
@@ -158,6 +175,22 @@ export default function StudentDashboardLayout({
                 >
                   <CheckSquare className="h-4 w-4 flex-shrink-0" />
                   <span>Bài tập &amp; Đề thi</span>
+                </Link>
+                <Link
+                  href="/student/leaderboard"
+                  onClick={closeSidebar}
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
+                >
+                  <Trophy className="h-4 w-4 flex-shrink-0" />
+                  <span>Bảng xếp hạng</span>
+                </Link>
+                <Link
+                  href="/documents"
+                  onClick={closeSidebar}
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
+                >
+                  <FileText className="h-4 w-4 flex-shrink-0" />
+                  <span>Kho tài liệu</span>
                 </Link>
               </nav>
             </div>

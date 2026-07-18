@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { Search, GraduationCap } from "lucide-react";
+import { GraduationCap } from "lucide-react";
 
 export default function PublicLayout({
   children,
@@ -18,17 +18,11 @@ export default function PublicLayout({
           </Link>
           
           <div className="hidden md:flex items-center gap-8 text-xs font-semibold">
-            <Link href="/courses" className="text-body-muted hover:text-white transition-colors">Khóa học</Link>
             <Link href="/quizzes" className="text-body-muted hover:text-white transition-colors">Thi thử online</Link>
-            <Link href="/learning-paths" className="text-body-muted hover:text-white transition-colors">Lộ trình học tập</Link>
             <Link href="/documents" className="text-body-muted hover:text-white transition-colors">Kho tài liệu</Link>
-            <Link href="/leaderboard" className="text-body-muted hover:text-white transition-colors">Bảng xếp hạng</Link>
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="text-body-muted hover:text-white transition-colors apple-active-scale">
-              <Search className="h-4 w-4" />
-            </button>
             <Link 
               href="/login" 
               className="bg-ink hover:bg-ink-muted-80 text-white text-[11px] px-3.5 py-1.5 rounded-sm apple-active-scale font-semibold transition-all"
@@ -46,7 +40,6 @@ export default function PublicLayout({
             EduWeb Portal
           </Link>
           <div className="hidden md:flex items-center gap-6 font-caption">
-            <Link href="/courses" className="text-ink-muted-80 hover:text-primary transition-colors font-semibold">Tất cả khóa học</Link>
             <Link href="/admission" className="text-ink-muted-80 hover:text-primary transition-colors font-semibold">Đăng ký tư vấn lộ trình</Link>
             <Link 
               href="/login" 
@@ -66,23 +59,16 @@ export default function PublicLayout({
       {/* Apple Style Footer */}
       <footer className="bg-canvas-parchment text-ink-muted-80 border-t border-hairline py-16 px-6 font-fine-print">
         <div className="max-w-[980px] w-full mx-auto flex flex-col gap-8">
-          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 md:grid-cols-3 gap-8">
             <div className="flex flex-col gap-3">
-              <h4 className="font-caption-strong text-ink font-bold">Khóa học & Luyện đề</h4>
-              <Link href="/courses" className="hover:underline font-dense-link leading-relaxed block text-xs">Luyện thi tốt nghiệp THPT</Link>
-              <Link href="/quizzes" className="hover:underline font-dense-link leading-relaxed block text-xs">Ngân hàng đề thi thử</Link>
-              <Link href="/learning-paths" className="hover:underline font-dense-link leading-relaxed block text-xs">Lộ trình bứt phá điểm 8+, 9+</Link>
-            </div>
-            <div className="flex flex-col gap-3">
-              <h4 className="font-caption-strong text-ink font-bold">Tuyển sinh & Học phí</h4>
-              <Link href="/admission" className="hover:underline font-dense-link leading-relaxed block text-xs">Đăng ký nhập học trực tuyến</Link>
-              <Link href="/admission/fees" className="hover:underline font-dense-link leading-relaxed block text-xs">Học phí & Quỹ học bổng</Link>
-            </div>
-            <div className="flex flex-col gap-3">
-              <h4 className="font-caption-strong text-ink font-bold">Giới thiệu & Hỗ trợ</h4>
-              <Link href="/about" className="hover:underline font-dense-link leading-relaxed block text-xs">Về EduWeb</Link>
-              <Link href="/contact" className="hover:underline font-dense-link leading-relaxed block text-xs">Liên hệ trực tiếp ban tuyển sinh</Link>
+              <h4 className="font-caption-strong text-ink font-bold">Luyện đề & Thi thử</h4>
+              <Link href="/quizzes" className="hover:underline font-dense-link leading-relaxed block text-xs">Ngân hàng đề thi thử công khai</Link>
               <Link href="/documents" className="hover:underline font-dense-link leading-relaxed block text-xs">Kho tài liệu miễn phí</Link>
+            </div>
+            <div className="flex flex-col gap-3">
+              <h4 className="font-caption-strong text-ink font-bold">Tuyển sinh</h4>
+              <Link href="/admission" className="hover:underline font-dense-link leading-relaxed block text-xs">Đăng ký nhập học trực tuyến</Link>
+              <Link href="/contact" className="hover:underline font-dense-link leading-relaxed block text-xs">Liên hệ trực tiếp ban tuyển sinh</Link>
             </div>
             <div className="flex flex-col gap-3">
               <h4 className="font-caption-strong text-ink font-bold">Cộng đồng ôn thi</h4>
@@ -97,7 +83,6 @@ export default function PublicLayout({
             <div className="flex gap-4">
               <Link href="/privacy" className="hover:underline">Chính sách bảo mật</Link>
               <Link href="/terms" className="hover:underline">Điều khoản sử dụng</Link>
-              <Link href="/sitemap.xml" className="hover:underline">Sơ đồ trang XML</Link>
             </div>
           </div>
         </div>

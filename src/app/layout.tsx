@@ -15,6 +15,7 @@ export const metadata: Metadata = {
 };
 
 import ToastContainer from "@/components/Toast";
+import DisclaimerModal from "@/components/DisclaimerModal";
 
 export default function RootLayout({
   children,
@@ -29,6 +30,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-canvas text-ink font-sans">
         {children}
         <ToastContainer />
+        <DisclaimerModal />
       </body>
     </html>
   );

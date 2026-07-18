@@ -271,3 +271,16 @@ model Room {
   createdAt DateTime @default(now())
 }
 
+model Document {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  fileUrl     String
+  fileName    String
+  fileType    String   // 'pdf' or 'docx'
+  fileSize    String?
+  category    String   @default("Chung")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

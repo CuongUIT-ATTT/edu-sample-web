@@ -13,6 +13,7 @@ import {
   Settings,
   HelpCircle,
   Menu,
+  FileText,
 } from "lucide-react";
 
 export default function TeacherDashboardLayout({
@@ -89,6 +90,14 @@ export default function TeacherDashboardLayout({
             >
               <HelpCircle className="h-4 w-4 flex-shrink-0" />
               <span className="hidden md:inline">Quản lý bài test</span>
+            </Link>
+            <Link
+              href="/teacher/documents"
+              onClick={closeSidebar}
+              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+            >
+              <FileText className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden md:inline">Tài liệu học tập</span>
             </Link>
           </nav>
         </div>
@@ -175,6 +184,14 @@ export default function TeacherDashboardLayout({
                 >
                   <HelpCircle className="h-4 w-4 flex-shrink-0" />
                   <span>Quản lý bài test</span>
+                </Link>
+                <Link
+                  href="/teacher/documents"
+                  onClick={closeSidebar}
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
+                >
+                  <FileText className="h-4 w-4 flex-shrink-0" />
+                  <span>Tài liệu học tập</span>
                 </Link>
               </nav>
             </div>

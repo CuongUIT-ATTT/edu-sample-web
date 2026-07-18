@@ -31,9 +31,10 @@ interface Quiz {
 interface SingleQuizPlayerProps {
   quiz: Quiz;
   sessionUser: { name: string; role: string } | null;
+  skipRules?: boolean;
 }
 
-export default function SingleQuizPlayer({ quiz, sessionUser }: SingleQuizPlayerProps) {
+export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false }: SingleQuizPlayerProps) {
   const [guestName, setGuestName] = useState(sessionUser?.name || "");
   const [showNameModal, setShowNameModal] = useState(!sessionUser);
   const [quizStarted, setQuizStarted] = useState(!!sessionUser);
@@ -122,6 +123,19 @@ export default function SingleQuizPlayer({ quiz, sessionUser }: SingleQuizPlayer
 
   const [showRules, setShowRules] = useState(false);
   const [agreed, setAgreed] = useState(false);
+
+  const handleStartQuizDirect = () => {
+    if (!guestName.trim()) {
+      showToast("Vui lòng nhập Họ tên để bắt đầu làm bài thi thử.", "warning");
+      return;
+    }
+    setTimeLeft(quiz.duration * 60);
+    setAnswers({});
+    setQuizResult(null);
+    setShowReview(false);
+    setQuizStarted(true);
+    setShowRules(false);
+  };
 
   const handleStartQuiz = () => {
     if (!guestName.trim()) {
@@ -455,7 +469,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser }: SingleQuizPlayer
             </div>
 
             <button
-              onClick={() => setShowRules(true)}
+              onClick={() => skipRules ? handleStartQuizDirect() : setShowRules(true)}
               className="bg-primary hover:bg-primary-focus text-white px-6 py-3 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm w-full mt-4 flex items-center justify-center gap-1.5"
             >
               Tiếp tục <Play className="h-3.5 w-3.5 fill-current" />
