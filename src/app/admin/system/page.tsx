@@ -1,9 +1,10 @@
-import React from "react";
+import React, { Suspense } from "react";
 import {
   ShieldAlert, Server, Key, Activity, UserPlus,
   BookOpen, FileText, ClipboardList, LogIn, Users,
 } from "lucide-react";
 import { db } from "@/lib/db";
+import SystemActivityFilter from "./SystemActivityFilter";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,70 @@ type ActivityEntry = {
   timestamp: Date;
 };
 
-export default async function AdminSystemPage() {
+/** Build a Prisma date range filter from URL search params */
+function buildDateFilter(
+  period: string | null,
+  from: string | null,
+  to: string | null
+): { gte?: Date; lte?: Date } | undefined {
+  const now = new Date();
+
+  if (period === "today") {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+    return { gte: start, lte: end };
+  }
+
+  if (period === "week") {
+    const start = new Date(now);
+    const day = start.getDay(); // 0 = Sunday
+    const diff = (day === 0 ? -6 : 1 - day); // Monday as week start
+    start.setDate(start.getDate() + diff);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+    return { gte: start, lte: end };
+  }
+
+  if (period === "month") {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+    return { gte: start, lte: end };
+  }
+
+  if (from || to) {
+    const filter: { gte?: Date; lte?: Date } = {};
+    if (from) {
+      const d = new Date(from);
+      d.setHours(0, 0, 0, 0);
+      filter.gte = d;
+    }
+    if (to) {
+      const d = new Date(to);
+      d.setHours(23, 59, 59, 999);
+      filter.lte = d;
+    }
+    return filter;
+  }
+
+  return undefined;
+}
+
+export default async function AdminSystemPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+}) {
+  const params = await searchParams;
+  const period = params.period || null;
+  const from = params.from || null;
+  const to = params.to || null;
+
+  const dateFilter = buildDateFilter(period, from, to);
+
   let dbStatus = "ONLINE";
   let usersCount = 0;
   let teachersCount = 0;
@@ -49,31 +113,35 @@ export default async function AdminSystemPage() {
     teachersCount = await db.teacherProfile.count();
     studentsCount = await db.studentProfile.count();
 
-    // Gather activities from multiple sources
+    // Gather activities with optional date filter
     const [recentUsers, recentQuizSubs, recentHomeworkSubs, recentDocs] = await Promise.all([
       db.user.findMany({
+        where: dateFilter ? { createdAt: dateFilter } : undefined,
         orderBy: { createdAt: "desc" },
-        take: 15,
+        take: 30,
       }),
       db.quizSubmission.findMany({
+        where: dateFilter ? { submittedAt: dateFilter } : undefined,
         orderBy: { submittedAt: "desc" },
-        take: 15,
+        take: 30,
         include: {
           quiz: true,
           student: { include: { user: true } },
         },
       }),
       db.homeworkSubmission.findMany({
+        where: dateFilter ? { submittedAt: dateFilter } : undefined,
         orderBy: { submittedAt: "desc" },
-        take: 15,
+        take: 30,
         include: {
           schedule: { include: { class: true, subject: true } },
           student: { include: { user: true } },
         },
       }),
       db.document.findMany({
+        where: dateFilter ? { createdAt: dateFilter } : undefined,
         orderBy: { createdAt: "desc" },
-        take: 10,
+        take: 20,
       }),
     ]);
 
@@ -119,14 +187,13 @@ export default async function AdminSystemPage() {
         id: `doc-${d.id}`,
         type: "document",
         title: `Đăng tài liệu: ${d.title}`,
-        actor: `Admin`,
+        actor: "Admin",
         timestamp: d.createdAt,
       });
     });
 
-    // Sort all by timestamp desc
     activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-    activities = activities.slice(0, 40);
+    activities = activities.slice(0, 60);
   } catch (e) {
     dbStatus = "OFFLINE";
     console.error(e);
@@ -160,8 +227,16 @@ export default async function AdminSystemPage() {
     },
   };
 
+  // Period label for display
+  const periodLabel =
+    period === "today" ? "Hôm nay" :
+    period === "week" ? "Tuần này" :
+    period === "month" ? "Tháng này" :
+    (from || to) ? `${from || "..."} → ${to || "..."}` :
+    "Toàn bộ";
+
   return (
-    <div className="flex flex-col gap-8 max-w-5xl">
+    <div className="flex flex-col gap-6 max-w-5xl">
       {/* Header */}
       <div>
         <h1 className="font-tagline text-2xl font-semibold text-ink">Hoạt động hệ thống</h1>
@@ -180,7 +255,7 @@ export default async function AdminSystemPage() {
             </span>
           </div>
           <p className="text-xs text-ink-muted-48 font-semibold uppercase tracking-wide">Database</p>
-          <p className="text-lg font-bold text-ink">Neon PostgreSQL</p>
+          <p className="text-sm font-bold text-ink">Neon PostgreSQL</p>
         </div>
 
         <div className="bg-canvas border border-hairline rounded-lg p-4 flex flex-col gap-2">
@@ -223,17 +298,33 @@ export default async function AdminSystemPage() {
         </div>
       </div>
 
+      {/* Filter */}
+      <Suspense fallback={<div className="h-24 bg-canvas border border-hairline rounded-lg animate-pulse" />}>
+        <SystemActivityFilter />
+      </Suspense>
+
       {/* Activity Timeline */}
       <div className="bg-canvas border border-hairline rounded-lg p-6">
         <div className="flex items-center justify-between mb-5 border-b border-divider-soft pb-4">
           <h3 className="font-body-strong text-lg font-semibold text-ink">
-            Nhật ký hoạt động gần đây
+            Nhật ký hoạt động
           </h3>
-          <span className="text-xs text-ink-muted-48">{activities.length} sự kiện</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-ink-muted-48 bg-surface-pearl border border-hairline px-3 py-1 rounded-full">
+              {periodLabel}
+            </span>
+            <span className="text-xs text-ink-muted-48">{activities.length} sự kiện</span>
+          </div>
         </div>
 
         {activities.length === 0 ? (
-          <p className="text-sm text-ink-muted-48 text-center py-8">Chưa có hoạt động nào.</p>
+          <div className="text-center py-12 flex flex-col items-center gap-3">
+            <div className="h-12 w-12 rounded-full bg-surface-pearl flex items-center justify-center">
+              <Activity className="h-6 w-6 text-ink-muted-48" />
+            </div>
+            <p className="text-sm text-ink-muted-80 font-medium">Không có hoạt động nào trong khoảng thời gian này</p>
+            <p className="text-xs text-ink-muted-48">Thử chọn khoảng thời gian khác</p>
+          </div>
         ) : (
           <div className="flex flex-col gap-0">
             {activities.map((act, idx) => {
@@ -243,7 +334,6 @@ export default async function AdminSystemPage() {
                   key={act.id}
                   className="flex gap-4 pb-4 pt-4 border-b border-divider-soft last:border-0 first:pt-0"
                 >
-                  {/* Timeline dot & line */}
                   <div className="flex flex-col items-center pt-0.5 flex-shrink-0">
                     <div className={`h-8 w-8 rounded-full border flex items-center justify-center ${cfg.color}`}>
                       {cfg.icon}
@@ -253,7 +343,6 @@ export default async function AdminSystemPage() {
                     )}
                   </div>
 
-                  {/* Content */}
                   <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-semibold text-ink leading-snug">{act.title}</p>
