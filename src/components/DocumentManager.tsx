@@ -69,6 +69,20 @@ function guessFileName(url: string): string {
   }
 }
 
+/**
+ * Returns the best URL to open a document:
+ * - PDF from Cloudinary → Google Docs Viewer (inline rendering)
+ * - Other Cloudinary files → fl_attachment (force download)
+ * - External links → unchanged
+ */
+function getDocumentViewUrl(fileUrl: string, fileType: string): string {
+  if (!fileUrl.includes("res.cloudinary.com")) return fileUrl;
+  if (fileType.toLowerCase() === "pdf") {
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}`;
+  }
+  return fileUrl.replace("/upload/", "/upload/fl_attachment/");
+}
+
 export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
   const [docs, setDocs] = useState<Doc[]>(initialDocs);
   const [search, setSearch] = useState("");
@@ -368,11 +382,11 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
                   )}
                 </div>
                 <a
-                  href={doc.fileUrl.includes("res.cloudinary.com") ? doc.fileUrl.replace("/upload/", "/upload/fl_attachment/") : doc.fileUrl}
+                  href={getDocumentViewUrl(doc.fileUrl, doc.fileType)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="h-8 w-8 rounded-full bg-blue-50 text-primary hover:bg-blue-100 flex items-center justify-center border border-blue-200 transition-colors"
-                  title="Mở tài liệu"
+                  title={doc.fileType.toLowerCase() === "pdf" ? "Xem PDF" : "Tải tài liệu"}
                 >
                   <Download className="h-3.5 w-3.5" />
                 </a>

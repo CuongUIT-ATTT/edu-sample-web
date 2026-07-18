@@ -83,12 +83,17 @@ export default async function DocumentsPage() {
 
                     <div className="flex-shrink-0">
                       <a
-                        href={doc.fileUrl.includes("res.cloudinary.com") ? doc.fileUrl.replace("/upload/", "/upload/fl_attachment/") : doc.fileUrl}
-                        download={doc.fileName}
+                        href={
+                          doc.fileUrl.includes("res.cloudinary.com")
+                            ? doc.fileType.toLowerCase() === "pdf"
+                              ? `https://docs.google.com/viewer?url=${encodeURIComponent(doc.fileUrl)}`
+                              : doc.fileUrl.replace("/upload/", "/upload/fl_attachment/")
+                            : doc.fileUrl
+                        }
                         target="_blank"
                         rel="noopener noreferrer"
                         className="h-9 w-9 rounded-full bg-blue-50 text-primary hover:bg-blue-100 flex items-center justify-center border border-blue-200 transition-colors shadow-sm"
-                        title="Tải tài liệu miễn phí"
+                        title={doc.fileType.toLowerCase() === "pdf" ? "Xem PDF" : "Tải tài liệu miễn phí"}
                       >
                         <Download className="h-4 w-4" />
                       </a>
