@@ -52,11 +52,13 @@ export async function POST(req: NextRequest) {
     // Upload file to Cloudinary as raw resource (for documents)
     const uploadPromise = new Promise<{ secure_url: string; public_id: string }>(
       (resolve, reject) => {
+        // Keep the extension in public_id for raw resource types so Cloudinary serves the correct MIME type / headers!
+        const publicId = `eduweb_documents/${Date.now()}-${file.name.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9.-]/g, "")}`;
+        
         cloudinary.uploader.upload_stream(
           {
-            resource_type: "auto",
-            folder: "eduweb_documents",
-            public_id: `${Date.now()}-${file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "_")}.${fileExtension}`,
+            resource_type: "raw",
+            public_id: publicId,
           },
           (error, result) => {
             if (error) reject(error);

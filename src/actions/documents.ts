@@ -139,20 +139,19 @@ export async function deleteDocument(id: string) {
           const pathWithId = urlParts[1].replace(/^v\d+\//, ""); 
           const publicId = pathWithId;
           
-          // PDF files uploaded via resource_type: "auto" are categorized as "image" by Cloudinary.
-          // Word, Excel, PowerPoint are categorized as "raw".
-          // We can also extract the type from the URL itself (e.g. /image/upload/ vs /raw/upload/)
+          // Detect resource type from url: e.g. res.cloudinary.com/.../raw/upload/ vs /image/upload/
           let resType = "raw";
-          if (existing.fileUrl.includes("/image/upload/") || existing.fileType.toLowerCase() === "pdf") {
+          if (existing.fileUrl.includes("/image/upload/")) {
             resType = "image";
           }
           
-          // Remove file extension from public_id if it's stored as an image (Cloudinary strips extensions for images)
+          // Remove extension only if it is stored as 'image' type (since images in Cloudinary don't use extensions in public_id)
           let finalPublicId = publicId;
           if (resType === "image") {
             finalPublicId = publicId.replace(/\.[^.]+$/, "");
           }
 
+          console.log(`Deleting Cloudinary file: id=${finalPublicId}, type=${resType}`);
           await cloudinary.uploader.destroy(finalPublicId, {
             resource_type: resType
           });
