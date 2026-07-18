@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
           {
             resource_type: "raw",
             folder: "eduweb_documents",
-            public_id: `${Date.now()}-${file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "_")}`,
+            public_id: `${Date.now()}-${file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]/g, "_")}.${fileExtension}`,
           },
           (error, result) => {
             if (error) reject(error);
