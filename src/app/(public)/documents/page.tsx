@@ -87,7 +87,7 @@ export default async function DocumentsPage() {
                         href={
                           doc.fileUrl.includes("res.cloudinary.com")
                             ? doc.fileType.toLowerCase() === "pdf"
-                              ? `https://docs.google.com/viewer?url=${encodeURIComponent(doc.fileUrl)}`
+                              ? `/api/documents/proxy?url=${encodeURIComponent(doc.fileUrl)}`
                               : doc.fileUrl
                             : doc.fileUrl
                         }

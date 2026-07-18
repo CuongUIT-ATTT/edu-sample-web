@@ -72,16 +72,16 @@ function guessFileName(url: string): string {
 
 /**
  * Returns the best URL to open a document:
- * - PDF from Cloudinary → Google Docs Viewer (inline rendering)
- * - Other Cloudinary files → fl_attachment (force download)
+ * - PDF from Cloudinary → Internal proxy route (inline rendering with proper headers)
+ * - Other Cloudinary files → direct URL (browser will handle)
  * - External links → unchanged
  */
 function getDocumentViewUrl(fileUrl: string, fileType: string): string {
   if (!fileUrl.includes("res.cloudinary.com")) return fileUrl;
   if (fileType.toLowerCase() === "pdf") {
-    return `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}`;
+    return `/api/documents/proxy?url=${encodeURIComponent(fileUrl)}`;
   }
-  return fileUrl.replace("/upload/", "/upload/fl_attachment/");
+  return fileUrl;
 }
 
 export default function DocumentManager({ initialDocs }: DocumentManagerProps) {

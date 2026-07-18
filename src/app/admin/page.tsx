@@ -30,7 +30,7 @@ export default async function AdminDashboardPage() {
   let teachersCount = 0;
   let studentsCount = 0;
   let classesCount = 0;
-  let schedulesCount = 0;
+  let todaySchedulesCount = 0;
   let dbClassesList: { id: string; name: string; studentsCount: number }[] = [];
   let displayActivities: { title: string; actor: string; timestamp: Date }[] = [];
 
@@ -38,7 +38,22 @@ export default async function AdminDashboardPage() {
     teachersCount = await db.teacherProfile.count();
     studentsCount = await db.studentProfile.count();
     classesCount = await db.class.count();
-    schedulesCount = await db.schedule.count();
+
+    // Count schedules for today only
+    const jsDay = new Date().getDay(); // 0=Sun, 1=Mon...
+    const todayDow = jsDay === 0 ? 7 : jsDay; // Convert to Prisma dayOfWeek (1=Mon, 7=Sun)
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    todaySchedulesCount = await db.schedule.count({
+      where: {
+        OR: [
+          { dayOfWeek: todayDow },
+          { date: { gte: todayStart, lte: todayEnd } },
+        ],
+      },
+    });
 
     const classes = await db.class.findMany({
       include: {
@@ -128,7 +143,7 @@ export default async function AdminDashboardPage() {
   const totalTeachers = teachersCount || 28;
   const totalStudents = studentsCount || 452;
   const totalClasses = classesCount || 16;
-  const totalSchedules = schedulesCount || 64;
+  const totalSchedulesToday = todaySchedulesCount;
 
   const displayClasses =
     dbClassesList.length > 0
@@ -228,7 +243,7 @@ export default async function AdminDashboardPage() {
               Lịch dạy hôm nay
             </p>
             <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-orange-600 transition-colors">
-              {totalSchedules} Ca
+              {totalSchedulesToday} Ca
             </h3>
           </div>
         </Link>

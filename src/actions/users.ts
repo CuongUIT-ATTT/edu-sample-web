@@ -11,8 +11,8 @@ interface CreateUserInput {
   name: string;
   role: Role;
   password?: string;
-  classId?: string; // for Student
-  parentId?: string; // for Student
+  classIds?: string[]; // for Student - supports multiple classes
+  parentId?: string;  // for Student
 }
 
 export async function createUser(input: CreateUserInput) {
@@ -22,7 +22,7 @@ export async function createUser(input: CreateUserInput) {
       return { success: false, error: "Chỉ Quản trị viên mới được tạo tài khoản." };
     }
 
-    const { email, name, role, password, classId, parentId } = input;
+    const { email, name, role, password, classIds, parentId } = input;
 
     if (!email || !name || !role) {
       return { success: false, error: "Vui lòng nhập đầy đủ email, tên và vai trò." };
@@ -62,7 +62,9 @@ export async function createUser(input: CreateUserInput) {
           data: {
             userId: newUser.id,
             parentId: parentId || null,
-            classes: classId ? { connect: { id: classId } } : undefined,
+            classes: classIds && classIds.length > 0
+              ? { connect: classIds.map((id) => ({ id })) }
+              : undefined,
           },
         });
       } else if (role === "PARENT") {
@@ -89,7 +91,7 @@ export async function updateUser(userId: string, input: Partial<CreateUserInput>
       return { success: false, error: "Chỉ Quản trị viên mới được chỉnh sửa tài khoản." };
     }
 
-    const { email, name, role, password, classId, parentId } = input;
+    const { email, name, role, password, classIds, parentId } = input;
 
     const user = await db.user.findUnique({
       where: { id: userId },
@@ -141,7 +143,9 @@ export async function updateUser(userId: string, input: Partial<CreateUserInput>
             data: {
               userId,
               parentId: parentId || null,
-              classes: classId ? { connect: { id: classId } } : undefined,
+              classes: classIds && classIds.length > 0
+                ? { connect: classIds.map((id) => ({ id })) }
+                : undefined,
             },
           });
         }
@@ -153,11 +157,15 @@ export async function updateUser(userId: string, input: Partial<CreateUserInput>
           create: {
             userId,
             parentId: parentId || null,
-            classes: classId ? { connect: { id: classId } } : undefined,
+            classes: classIds && classIds.length > 0
+              ? { connect: classIds.map((id) => ({ id })) }
+              : undefined,
           },
           update: {
             parentId: parentId || null,
-            classes: classId ? { set: [{ id: classId }] } : { set: [] },
+            classes: classIds && classIds.length > 0
+              ? { set: classIds.map((id) => ({ id })) }
+              : { set: [] },
           },
         });
       }
@@ -251,19 +259,22 @@ export async function importUsers(users: CreateUserInput[]) {
           } else if (u.role === "TEACHER") {
             await tx.teacherProfile.create({ data: { userId: newUser.id } });
           } else if (u.role === "STUDENT") {
-            // Find class ID by class name if classId is passed as name
-            let targetClassId: string | null = null;
-            if (u.classId) {
-              const cls = await tx.class.findFirst({
-                where: { name: { equals: u.classId, mode: "insensitive" } },
-              });
-              if (cls) targetClassId = cls.id;
+            // Find class ID by class name if classIds are passed as names
+            const connectClasses: { id: string }[] = [];
+            if (u.classIds && u.classIds.length > 0) {
+              for (const classRef of u.classIds) {
+                const cls = await tx.class.findFirst({
+                  where: { name: { equals: classRef, mode: "insensitive" } },
+                });
+                if (cls) connectClasses.push({ id: cls.id });
+                else connectClasses.push({ id: classRef }); // treat as direct ID fallback
+              }
             }
             await tx.studentProfile.create({
               data: {
                 userId: newUser.id,
                 parentId: u.parentId || null,
-                classes: targetClassId ? { connect: { id: targetClassId } } : undefined,
+                classes: connectClasses.length > 0 ? { connect: connectClasses } : undefined,
               },
             });
           } else if (u.role === "PARENT") {

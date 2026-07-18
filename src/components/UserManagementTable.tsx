@@ -53,7 +53,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
   const [formEmail, setFormEmail] = useState("");
   const [formRole, setFormRole] = useState<"ADMIN" | "TEACHER" | "STUDENT" | "PARENT">("STUDENT");
   const [formPassword, setFormPassword] = useState("");
-  const [formClassId, setFormClassId] = useState("");
+  const [formClassIds, setFormClassIds] = useState<string[]>([]);
   const [formParentId, setFormParentId] = useState("");
 
   const downloadUserCsvTemplate = () => {
@@ -147,7 +147,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
     setFormEmail("");
     setFormRole("STUDENT");
     setFormPassword("");
-    setFormClassId("");
+    setFormClassIds([]);
     setFormParentId("");
     setIsCreateOpen(true);
   };
@@ -157,10 +157,9 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
     setFormName(u.name);
     setFormEmail(u.email);
     setFormRole(u.role);
-    setFormPassword(""); // Leave empty if no password change
-    // Prefill student details if available
-    setFormClassId(u.studentProfile?.classes?.[0]?.id || "");
-    // Parent profile is loaded separately or via state if matching
+    setFormPassword("");
+    // Prefill all classes if available
+    setFormClassIds(u.studentProfile?.classes?.map((c: any) => c.id) || []);
     setIsCreateOpen(false);
   };
 
@@ -171,7 +170,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
       email: formEmail,
       role: formRole,
       password: formPassword || undefined,
-      classId: formRole === "STUDENT" ? formClassId || undefined : undefined,
+      classIds: formRole === "STUDENT" ? formClassIds : undefined,
       parentId: formRole === "STUDENT" ? formParentId || undefined : undefined,
     });
 
@@ -192,7 +191,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
       email: formEmail,
       role: formRole,
       password: formPassword || undefined,
-      classId: formRole === "STUDENT" ? formClassId || undefined : undefined,
+      classIds: formRole === "STUDENT" ? formClassIds : undefined,
       parentId: formRole === "STUDENT" ? formParentId || undefined : undefined,
     });
 
@@ -532,17 +531,45 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
                   <p className="text-[10px] font-caption-strong text-ink-muted-48 uppercase tracking-wider">Cấu hình riêng cho Học viên</p>
                   
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-caption-strong text-ink-muted-80">Lớp học</label>
-                    <select
-                      value={formClassId}
-                      onChange={(e) => setFormClassId(e.target.value)}
-                      className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                    >
-                      <option value="">— Chọn lớp —</option>
-                      {classes.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                    <label className="text-xs font-caption-strong text-ink-muted-80">Lớp học <span className="text-ink-muted-48">(chọn nhiều)</span></label>
+                    <div className="border border-hairline rounded-lg overflow-y-auto max-h-36 divide-y divide-hairline">
+                      {classes.length === 0 ? (
+                        <p className="text-xs text-ink-muted-48 p-3">Chưa có lớp nào.</p>
+                      ) : (
+                        classes.map((c) => (
+                          <label
+                            key={c.id}
+                            className="flex items-center gap-3 px-3 py-2 hover:bg-surface-pearl cursor-pointer text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={formClassIds.includes(c.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setFormClassIds((prev) => [...prev, c.id]);
+                                } else {
+                                  setFormClassIds((prev) => prev.filter((id) => id !== c.id));
+                                }
+                              }}
+                              className="h-4 w-4 accent-primary rounded"
+                            />
+                            <span className="text-ink">{c.name}</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                    {formClassIds.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {formClassIds.map((id) => {
+                          const cls = classes.find((c) => c.id === id);
+                          return cls ? (
+                            <span key={id} className="text-[10px] bg-blue-50 text-primary border border-blue-200 px-2 py-0.5 rounded-full font-semibold">
+                              {cls.name}
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-col gap-1.5">
