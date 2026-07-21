@@ -34,7 +34,9 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
   const [quizStarted, setQuizStarted] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [showNameModal, setShowNameModal] = useState(false);
+  const [showRules, setShowRules] = useState(false);
   const [tempSelectedQuiz, setTempSelectedQuiz] = useState<Quiz | null>(null);
+  const [rulesAccepted, setRulesAccepted] = useState(false);
   
   const [quizResult, setQuizResult] = useState<{
     score: number;
@@ -120,7 +122,8 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
 
   const handleOpenNamePrompt = (quiz: Quiz) => {
     setTempSelectedQuiz(quiz);
-    setShowNameModal(true);
+    setShowRules(true);
+    setRulesAccepted(false);
   };
 
   const handleStartQuiz = () => {
@@ -128,8 +131,12 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
       showToast("Vui lòng nhập Họ tên để bắt đầu làm bài thi thử.", "warning");
       return;
     }
+    if (!rulesAccepted) {
+      showToast("Vui lòng đọc kỹ nội quy và tích vào ô cam kết trước khi bắt đầu.", "warning");
+      return;
+    }
     if (!tempSelectedQuiz) return;
-    
+
     setSelectedQuiz(tempSelectedQuiz);
     setTimeLeft(tempSelectedQuiz.duration * 60);
     setAnswers({});
@@ -137,6 +144,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
     setShowReview(false);
     setQuizStarted(true);
     setShowNameModal(false);
+    setShowRules(false);
   };
 
   const handleSelectOption = (questionId: string, optionIndex: number) => {
@@ -668,33 +676,72 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
 
       </div>
 
-      {/* Guest Name Modal */}
-      {showNameModal && tempSelectedQuiz && (
+      {/* Rules & Name Modal */}
+      {showRules && tempSelectedQuiz && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-lg w-[400px] max-w-full shadow-product flex flex-col overflow-hidden animate-fade-in p-6">
-            <h3 className="font-tagline text-base font-semibold text-ink mb-2">Nhập Họ Tên Thí Sinh</h3>
-            <p className="text-xs text-ink-muted-80 mb-4">
-              Vui lòng cung cấp Họ tên để lưu thông tin bài thi thử công khai cho đề: <strong>{tempSelectedQuiz.title}</strong>
-            </p>
-            <input
-              type="text"
-              placeholder="Ví dụ: Nguyễn Văn A..."
-              value={guestName}
-              onChange={(e) => setGuestName(e.target.value)}
-              className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-xs text-ink outline-none focus:border-primary-focus w-full mb-4"
-            />
-            <div className="flex gap-2 justify-end">
+          <div className="bg-canvas border border-hairline rounded-xl w-[520px] max-w-full max-h-[90vh] shadow-product flex flex-col overflow-hidden animate-fade-in">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-divider-soft">
+              <h3 className="font-tagline text-sm font-bold text-ink">Quy chế phòng thi thử</h3>
+              <p className="text-[11px] text-ink-muted-80 mt-1">
+                Đề thi: <strong>{tempSelectedQuiz.title}</strong> • {tempSelectedQuiz.duration} phút • {tempSelectedQuiz.questions.length} câu hỏi
+              </p>
+            </div>
+
+            {/* Rules content */}
+            <div className="flex flex-col gap-4 p-6 overflow-y-auto flex-1 text-xs text-ink-muted-80 font-body leading-relaxed">
+              <div className="flex flex-col gap-2">
+                <h4 className="font-bold text-ink flex items-center gap-1">⏰ Thời gian & Cấu trúc</h4>
+                <ul className="list-disc list-inside space-y-1 text-ink-muted-80">
+                  <li>Thời gian làm bài: <strong>{tempSelectedQuiz.duration} phút</strong>. Hết giờ sẽ tự động nộp bài.</li>
+                  <li>Đề thi gồm <strong>{tempSelectedQuiz.questions.length} câu hỏi</strong>, điểm đạt: <strong>{tempSelectedQuiz.passingScore.toFixed(1)}đ</strong></li>
+                </ul>
+              </div>
+              <div className="flex flex-col gap-2">
+                <h4 className="font-bold text-ink flex items-center gap-1">🛡️ Phòng chống gian lận</h4>
+                <ul className="list-disc list-inside space-y-1 text-ink-muted-80">
+                  <li>Không được chuyển tab hoặc rời khỏi màn hình làm bài.</li>
+                  <li>Hệ thống ghi nhận và cảnh báo tự động khi vi phạm.</li>
+                  <li>Sau 3 lần cảnh báo, bài thi sẽ bị khóa và tự động nộp.</li>
+                </ul>
+              </div>
+              <div className="flex flex-col gap-2">
+                <h4 className="font-bold text-ink flex items-center gap-1">📋 Nhập Họ Tên Thí Sinh *</h4>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Nguyễn Văn A..."
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-xs text-ink outline-none focus:border-primary-focus w-full"
+                />
+              </div>
+              <div className="flex items-start gap-2 border-t border-divider-soft pt-3">
+                <input
+                  type="checkbox"
+                  checked={rulesAccepted}
+                  onChange={(e) => setRulesAccepted(e.target.checked)}
+                  className="h-4 w-4 mt-0.5 text-primary focus:ring-primary border-hairline rounded"
+                />
+                <label className="text-xs text-ink font-medium leading-relaxed">
+                  Tôi đã đọc kỹ nội quy và cam kết tuân thủ khi làm bài thi thử.
+                </label>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-3 justify-end px-6 py-4 border-t border-divider-soft bg-surface-pearl">
               <button
-                onClick={() => setShowNameModal(false)}
-                className="border border-divider-soft hover:bg-surface-pearl text-ink-muted-80 text-xs px-4 py-2 rounded-pill font-semibold"
+                onClick={() => { setShowRules(false); setTempSelectedQuiz(null); setRulesAccepted(false); }}
+                className="border border-divider-soft hover:bg-canvas text-ink-muted-80 text-xs px-4 py-2.5 rounded-pill font-semibold transition-colors"
               >
                 Hủy
               </button>
               <button
                 onClick={handleStartQuiz}
-                className="bg-primary hover:bg-primary-focus text-white text-xs px-5 py-2 rounded-pill font-semibold"
+                disabled={!rulesAccepted || !guestName.trim()}
+                className="bg-primary hover:bg-primary-focus text-white text-xs px-6 py-2.5 rounded-pill font-semibold flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Bắt đầu làm bài
+                <Play className="h-3.5 w-3.5 fill-current" /> Vào làm bài (Tính giờ)
               </button>
             </div>
           </div>
