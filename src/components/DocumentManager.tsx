@@ -391,14 +391,14 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
-                  {/* Download button: always forces a real file download */}
+                  {/* Download button: signed URL redirect for fast CDN download */}
                   <a
                     href={doc.fileUrl.includes("res.cloudinary.com")
-                      ? doc.fileUrl.replace("/upload/", "/upload/fl_attachment/")
+                      ? `/api/documents/download?url=${encodeURIComponent(doc.fileUrl)}&name=${encodeURIComponent(doc.fileName || "download")}`
                       : doc.fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    download={doc.fileName || undefined}
+                    download
                     className="h-8 w-8 rounded-full bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center border border-green-200 transition-colors"
                     title="Tải về máy"
                   >

@@ -96,10 +96,10 @@ export default async function DocumentsPage() {
                       >
                         <ExternalLink className="h-4 w-4" />
                       </a>
-                      {/* Download button: forces real file download */}
+                      {/* Download button: signed URL redirect for fast CDN download */}
                       <a
                         href={doc.fileUrl.includes("res.cloudinary.com")
-                          ? doc.fileUrl.replace("/upload/", "/upload/fl_attachment/")
+                          ? `/api/documents/download?url=${encodeURIComponent(doc.fileUrl)}&name=${encodeURIComponent(doc.fileName || "download")}`
                           : doc.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
