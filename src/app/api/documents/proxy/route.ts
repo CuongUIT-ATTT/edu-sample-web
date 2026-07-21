@@ -33,8 +33,24 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Sign the URL with Cloudinary auth to access raw files
-    const signedUrl = cloudinary.url(targetUrl, { type: "authenticated", secure: true });
+    // Parse public_id and resource_type from Cloudinary URL
+    // URL format: https://res.cloudinary.com/{cloud}/{resource_type}/upload/v{version}/{public_id_with_ext}
+    const urlParts = targetUrl.split("/upload/");
+    const pathAfterUpload = urlParts[1] || "";
+    const publicId = pathAfterUpload.replace(/^v\d+\//, "").replace(/\.[^.]+$/, "");
+
+    // Detect resource_type from URL path
+    let resourceType = "raw";
+    if (targetUrl.includes("/image/upload/")) resourceType = "image";
+    else if (targetUrl.includes("/video/upload/")) resourceType = "video";
+
+    // Generate a signed URL that Cloudinary will accept
+    const signedUrl = cloudinary.url(publicId, {
+      type: "authenticated",
+      resource_type: resourceType,
+      secure: true,
+      sign_url: true,
+    });
 
     const upstream = await fetch(signedUrl, {
       headers: { "User-Agent": "EduWeb-Proxy/1.0" },
