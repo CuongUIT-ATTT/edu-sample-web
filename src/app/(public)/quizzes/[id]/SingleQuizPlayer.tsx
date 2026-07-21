@@ -468,8 +468,23 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
               </div>
             </div>
 
+            {/* Name input for guests (when skipRules and no session) */}
+            {skipRules && !sessionUser && (
+              <div className="flex flex-col gap-1.5 border-t border-divider-soft pt-4">
+                <label className="text-xs font-semibold text-ink">Họ Tên Thí Sinh *</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Nguyễn Văn A..."
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-xs text-ink outline-none focus:border-primary-focus w-full"
+                  required
+                />
+              </div>
+            )}
+
             <button
-              onClick={() => skipRules ? handleStartQuizDirect() : setShowRules(true)}
+              onClick={() => setShowRules(true)}
               className="bg-primary hover:bg-primary-focus text-white px-6 py-3 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm w-full mt-4 flex items-center justify-center gap-1.5"
             >
               Tiếp tục <Play className="h-3.5 w-3.5 fill-current" />
