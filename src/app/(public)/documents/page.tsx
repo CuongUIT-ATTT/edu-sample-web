@@ -82,19 +82,17 @@ export default async function DocumentsPage() {
                     </div>
 
                     <div className="flex-shrink-0 flex items-center gap-2">
-                      {/* View button */}
+                      {/* View button - route ALL Cloudinary files through proxy */}
                       <a
                         href={
                           doc.fileUrl.includes("res.cloudinary.com")
-                            ? doc.fileType.toLowerCase() === "pdf"
-                              ? `/api/documents/proxy?url=${encodeURIComponent(doc.fileUrl)}`
-                              : doc.fileUrl
+                            ? `/api/documents/proxy?url=${encodeURIComponent(doc.fileUrl)}`
                             : doc.fileUrl
                         }
                         target="_blank"
                         rel="noopener noreferrer"
                         className="h-9 w-9 rounded-full bg-blue-50 text-primary hover:bg-blue-100 flex items-center justify-center border border-blue-200 transition-colors shadow-sm"
-                        title={doc.fileType.toLowerCase() === "pdf" ? "Xem PDF" : "Mở tài liệu"}
+                        title="Mở tài liệu"
                       >
                         <ExternalLink className="h-4 w-4" />
                       </a>

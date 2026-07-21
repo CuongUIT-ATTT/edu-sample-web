@@ -78,10 +78,8 @@ function guessFileName(url: string): string {
  */
 function getDocumentViewUrl(fileUrl: string, fileType: string): string {
   if (!fileUrl.includes("res.cloudinary.com")) return fileUrl;
-  if (fileType.toLowerCase() === "pdf") {
-    return `/api/documents/proxy?url=${encodeURIComponent(fileUrl)}`;
-  }
-  return fileUrl;
+  // Route ALL Cloudinary files through proxy for correct Content-Type
+  return `/api/documents/proxy?url=${encodeURIComponent(fileUrl)}`;
 }
 
 export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
@@ -400,7 +398,7 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
                       : doc.fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    download
+                    download={doc.fileName || undefined}
                     className="h-8 w-8 rounded-full bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center border border-green-200 transition-colors"
                     title="Tải về máy"
                   >

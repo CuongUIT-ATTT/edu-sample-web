@@ -36,9 +36,21 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Determine Content-Type from extension if upstream doesn't provide it
+    const MIME_MAP: Record<string, string> = {
+      ".pdf": "application/pdf",
+      ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ".doc": "application/msword",
+      ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ".xls": "application/vnd.ms-excel",
+      ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      ".ppt": "application/vnd.ms-powerpoint",
+    };
+    const ext = targetUrl.toLowerCase().split(".").pop() || "";
     const contentType =
       upstream.headers.get("content-type") ||
-      (targetUrl.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream");
+      MIME_MAP[`.${ext}`] ||
+      "application/octet-stream";
 
     const body = await upstream.arrayBuffer();
 
