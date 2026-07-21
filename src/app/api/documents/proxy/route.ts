@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { v2 as cloudinary } from "cloudinary";
+
+// Configure Cloudinary for URL signing
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 /**
- * Public PDF proxy: fetches a Cloudinary raw file server-side and
- * re-serves it with proper Content-Type headers so browsers can display it inline.
+ * Document proxy: signs Cloudinary URLs server-side and re-serves
+ * with proper Content-Type headers so browsers can display files inline.
  * Usage: /api/documents/proxy?url=ENCODED_CLOUDINARY_URL
  */
 export async function GET(req: NextRequest) {
@@ -25,7 +33,10 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const upstream = await fetch(targetUrl, {
+    // Sign the URL with Cloudinary auth to access raw files
+    const signedUrl = cloudinary.url(targetUrl, { type: "authenticated", secure: true });
+
+    const upstream = await fetch(signedUrl, {
       headers: { "User-Agent": "EduWeb-Proxy/1.0" },
     });
 
