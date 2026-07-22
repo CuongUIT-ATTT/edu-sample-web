@@ -76,10 +76,9 @@ function guessFileName(url: string): string {
  * - Other Cloudinary files → direct URL (browser will handle)
  * - External links → unchanged
  */
-function getDocumentViewUrl(fileUrl: string, fileType: string): string {
-  if (!fileUrl.includes("res.cloudinary.com")) return fileUrl;
-  // Route ALL Cloudinary files through proxy for correct Content-Type
-  return `/api/documents/proxy?url=${encodeURIComponent(fileUrl)}`;
+function getDocumentViewUrl(fileUrl: string): string {
+  // R2 files are served publicly — no proxy needed
+  return fileUrl;
 }
 
 export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
@@ -383,7 +382,7 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
                 <div className="flex items-center gap-1.5">
                   {/* View button: Google Docs Viewer for PDF, direct link for others */}
                   <a
-                    href={getDocumentViewUrl(doc.fileUrl, doc.fileType)}
+                    href={getDocumentViewUrl(doc.fileUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="h-8 w-8 rounded-full bg-blue-50 text-primary hover:bg-blue-100 flex items-center justify-center border border-blue-200 transition-colors"

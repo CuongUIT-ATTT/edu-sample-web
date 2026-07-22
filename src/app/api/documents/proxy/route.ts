@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "crypto";
 
 const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME!;
 const API_KEY = process.env.CLOUDINARY_API_KEY!;
 const API_SECRET = process.env.CLOUDINARY_API_SECRET!;
-const AUTH = Buffer.from(`${API_KEY}:${API_SECRET}`).toString("base64");
 
 export async function GET(req: NextRequest) {
   const rawUrl = req.nextUrl.searchParams.get("url");
@@ -26,30 +26,24 @@ export async function GET(req: NextRequest) {
     // Try direct fetch first (for public uploads / newer files with access_type:"public")
     let upstream = await fetch(targetUrl, { headers: { "User-Agent": "EduWeb-Proxy/1.0" } });
 
-    // If 401, redirect to Cloudinary's own signed URL via admin API
+    // If 401, build signed Cloudinary CDN URL with proper authentication
     if (upstream.status === 401) {
       const urlObj = new URL(targetUrl);
       const pathParts = urlObj.pathname.split("/");
       const resourceType = pathParts[2] || "raw";
+      // For raw resources, public_id includes extension
       const publicId = pathParts.slice(5).join("/");
 
-      const metaUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/resources/${resourceType}/upload/${encodeURIComponent(publicId)}`;
-      const metaRes = await fetch(metaUrl, {
-        headers: { "Authorization": `Basic ${AUTH}` },
-      });
+      // Cloudinary authenticated URL: append query params with signature
+      const timestamp = Math.floor(Date.now() / 1000);
+      const signature = createHash("sha1")
+        .update(`public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`)
+        .digest("hex");
 
-      if (metaRes.ok) {
-        const meta = await metaRes.json();
-        if (meta?.secure_url) {
-          // Generate a time-limited signed URL and redirect
-          const timestamp = Math.floor(Date.now() / 1000);
-          const toSign = `public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`;
-          const { createHash } = require("crypto");
-          const signature = createHash("sha1").update(toSign).digest("hex");
-          const signedUrl = `https://res.cloudinary.com/${CLOUD_NAME}/${resourceType}/upload/${publicId}?api_key=${API_KEY}&timestamp=${timestamp}&signature=${signature}`;
-          return NextResponse.redirect(signedUrl, 302);
-        }
-      }
+      const authUrl = `https://res.cloudinary.com/${CLOUD_NAME}/${resourceType}/upload/${publicId}?api_key=${API_KEY}&timestamp=${timestamp}&signature=${signature}`;
+      console.log("[proxy] Auth URL:", authUrl);
+
+      upstream = await fetch(authUrl, { headers: { "User-Agent": "EduWeb-Proxy/1.0" } });
     }
 
     if (!upstream.ok) {

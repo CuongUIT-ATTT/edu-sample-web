@@ -1,26 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { v2 as cloudinary } from "cloudinary";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { R2, BUCKET, PUBLIC_URL } from "@/lib/r2";
 
 export async function POST(req: NextRequest) {
   try {
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.CLOUDINARY_API_KEY;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
-
-    if (!cloudName || !apiKey || !apiSecret) {
-      return NextResponse.json(
-        { error: "Cấu hình lưu trữ Cloudinary chưa được cài đặt đầy đủ biến môi trường trên Vercel." },
-        { status: 500 }
-      );
-    }
-
-    // Configure Cloudinary inside handler to prevent build/init crashes when envs are missing
-    cloudinary.config({
-      cloud_name: cloudName,
-      api_key: apiKey,
-      api_secret: apiSecret,
-    });
-
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
@@ -37,57 +20,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Max 20MB
     if (file.size > 20 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "Kích thước tệp tối đa là 20MB" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Kích thước tệp tối đa là 20MB" }, { status: 400 });
     }
 
-    // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Upload file to Cloudinary as raw resource (for documents)
-    const uploadPromise = new Promise<{ secure_url: string; public_id: string }>(
-      (resolve, reject) => {
-        // IMPORTANT: For Cloudinary raw resources, public_id MUST include the extension
-        // so Cloudinary can serve the correct Content-Type header on download.
-        const safeName = file.name
-          .replace(/\s+/g, "_")
-          .replace(/[^a-zA-Z0-9._-]/g, "");
-        const publicId = `eduweb_documents/${Date.now()}-${safeName}`;
+    const safeName = file.name.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9._-]/g, "");
+    const key = `eduweb_documents/${Date.now()}-${safeName}`;
 
-        cloudinary.uploader.upload_stream(
-          {
-            resource_type: "raw",
-            access_type: "public",
-            public_id: publicId,
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result as any);
-          }
-        ).end(buffer);
-      }
-    );
+    await R2.send(new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: file.type || "application/octet-stream",
+    }));
 
-    const uploadResult = await uploadPromise;
-
+    const fileUrl = `${PUBLIC_URL}/${key}`;
     const fileSizeStr =
       file.size > 1024 * 1024
         ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
         : `${(file.size / 1024).toFixed(0)} KB`;
 
     return NextResponse.json({
-      url: uploadResult.secure_url,
+      url: fileUrl,
       fileName: file.name,
       fileSize: fileSizeStr,
       fileType: fileExtension,
     });
   } catch (err) {
-    console.error("Cloudinary document upload error:", err);
-    return NextResponse.json({ error: "Lỗi hệ thống khi tải tài liệu lên Cloudinary" }, { status: 500 });
+    console.error("R2 upload error:", err);
+    return NextResponse.json({ error: "Lỗi hệ thống khi tải tài liệu lên Cloudflare R2" }, { status: 500 });
   }
 }

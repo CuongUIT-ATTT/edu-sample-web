@@ -82,13 +82,9 @@ export default async function DocumentsPage() {
                     </div>
 
                     <div className="flex-shrink-0 flex items-center gap-2">
-                      {/* View button - route ALL Cloudinary files through proxy */}
+                      {/* View button - R2 files are publicly accessible */}
                       <a
-                        href={
-                          doc.fileUrl.includes("res.cloudinary.com")
-                            ? `/api/documents/proxy?url=${encodeURIComponent(doc.fileUrl)}`
-                            : doc.fileUrl
-                        }
+                        href={doc.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="h-9 w-9 rounded-full bg-blue-50 text-primary hover:bg-blue-100 flex items-center justify-center border border-blue-200 transition-colors shadow-sm"
@@ -96,14 +92,12 @@ export default async function DocumentsPage() {
                       >
                         <ExternalLink className="h-4 w-4" />
                       </a>
-                      {/* Download button: signed URL redirect for fast CDN download */}
+                      {/* Download button - R2 files are publicly accessible */}
                       <a
-                        href={doc.fileUrl.includes("res.cloudinary.com")
-                          ? `/api/documents/download?url=${encodeURIComponent(doc.fileUrl)}&name=${encodeURIComponent(doc.fileName || "download")}`
-                          : doc.fileUrl}
+                        href={doc.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        download
+                        download={doc.fileName || undefined}
                         className="h-9 w-9 rounded-full bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center border border-green-200 transition-colors shadow-sm"
                         title="Tải về máy"
                       >

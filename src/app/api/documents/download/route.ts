@@ -38,11 +38,10 @@ export async function GET(req: NextRequest) {
 
     // Generate signed URL with fl_attachment for download
     const timestamp = Math.floor(Date.now() / 1000);
-    const flags = `fl_attachment:${fileName}`;
-    const toSign = `flags=${flags}&public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`;
+    const toSign = `public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`;
     const signature = createHash("sha1").update(toSign).digest("hex");
 
-    const signedUrl = `https://res.cloudinary.com/${CLOUD_NAME}/${resourceType}/upload/${flags}?public_id=${encodeURIComponent(publicId)}&api_key=${API_KEY}&timestamp=${timestamp}&signature=${signature}`;
+    const signedUrl = `https://res.cloudinary.com/${CLOUD_NAME}/${resourceType}/upload?public_id=${encodeURIComponent(publicId)}&api_key=${API_KEY}&timestamp=${timestamp}&signature=${signature}&fl_attachment=${encodeURIComponent(fileName)}`;
 
     // 302 redirect to CDN — no bandwidth through our server
     return Response.redirect(signedUrl, 302);
