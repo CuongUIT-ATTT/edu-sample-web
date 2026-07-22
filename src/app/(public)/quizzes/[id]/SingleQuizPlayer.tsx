@@ -46,6 +46,36 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
     passed: boolean;
     correctAnswers?: { id: string; correctAnswer: string; explanation: string | null }[] | null;
   } | null>(null);
+
+  // Anti-screenshot: block print, PrtSc, right-click, and common dev shortcuts
+  useEffect(() => {
+    if (!quizStarted || quizResult) return;
+
+    const preventScreenshot = (e: KeyboardEvent) => {
+      if (e.key === "PrintScreen") {
+        e.preventDefault();
+        showToast("Không được phép chụp ảnh màn hình trong khi làm bài!", "warning");
+      }
+      if ((e.ctrlKey || e.metaKey) && ["p", "c", "u", "s"].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+        if (e.key.toLowerCase() === "p") {
+          showToast("Không được phép chụp ảnh màn hình trong khi làm bài!", "warning");
+        }
+      }
+    };
+
+    const preventContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    document.addEventListener("keydown", preventScreenshot);
+    document.addEventListener("contextmenu", preventContextMenu);
+
+    return () => {
+      document.removeEventListener("keydown", preventScreenshot);
+      document.removeEventListener("contextmenu", preventContextMenu);
+    };
+  }, [quizStarted, quizResult]);
   const [showReview, setShowReview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [cheatWarnings, setCheatWarnings] = useState(0);
@@ -611,7 +641,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
           </div>
 
           {/* Questions Stack */}
-          <div className="flex flex-col gap-6 mt-4 relative">
+          <div className="flex flex-col gap-6 mt-4 relative select-none [-webkit-user-select:none] [-webkit-touch-callout:none]" style={{ userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}>
             {isCheatedLocked && (
               <div className="absolute inset-0 bg-slate-900/85 backdrop-blur-sm z-40 flex flex-col items-center justify-center p-8 rounded-lg text-white text-center min-h-[300px]">
                 <span className="text-4xl mb-4">🔒</span>
