@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash } from "crypto";
 
 const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME!;
 const API_KEY = process.env.CLOUDINARY_API_KEY!;
 const API_SECRET = process.env.CLOUDINARY_API_SECRET!;
+const AUTH = Buffer.from(`${API_KEY}:${API_SECRET}`).toString("base64");
 
-/**
- * Document proxy: signs Cloudinary URLs server-side and re-serves
- * with proper Content-Type headers so browsers can display files inline.
- */
 export async function GET(req: NextRequest) {
   const rawUrl = req.nextUrl.searchParams.get("url");
-
   if (!rawUrl) {
     return NextResponse.json({ error: "Missing url parameter" }, { status: 400 });
   }
@@ -28,26 +23,34 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Build a signed Cloudinary URL manually for authenticated raw files
-    const urlObj = new URL(targetUrl);
-    const pathParts = urlObj.pathname.split("/");
-    // e.g. /k5p3v8aa/raw/upload/v1784643478/eduweb_documents/file.pdf
-    const resourceType = pathParts[2] || "raw";
-    const publicIdWithExt = pathParts.slice(5).join("/");
-    const publicId = publicIdWithExt.replace(/\.[^.]+$/, "");
+    // Try direct fetch first (for public uploads / newer files with access_type:"public")
+    let upstream = await fetch(targetUrl, { headers: { "User-Agent": "EduWeb-Proxy/1.0" } });
 
-    // Generate timestamp and SHA1 signature
-    // Flags must be included in the signature string
-    const timestamp = Math.floor(Date.now() / 1000);
-    const flags = "fl_inline";
-    const toSign = `flags=${flags}&public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`;
-    const signature = createHash("sha1").update(toSign).digest("hex");
+    // If 401, redirect to Cloudinary's own signed URL via admin API
+    if (upstream.status === 401) {
+      const urlObj = new URL(targetUrl);
+      const pathParts = urlObj.pathname.split("/");
+      const resourceType = pathParts[2] || "raw";
+      const publicId = pathParts.slice(5).join("/");
 
-    const signedUrl = `https://res.cloudinary.com/${CLOUD_NAME}/${resourceType}/upload/fl_inline?public_id=${encodeURIComponent(publicId)}&api_key=${API_KEY}&timestamp=${timestamp}&signature=${signature}`;
+      const metaUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/resources/${resourceType}/upload/${encodeURIComponent(publicId)}`;
+      const metaRes = await fetch(metaUrl, {
+        headers: { "Authorization": `Basic ${AUTH}` },
+      });
 
-    const upstream = await fetch(signedUrl, {
-      headers: { "User-Agent": "EduWeb-Proxy/1.0" },
-    });
+      if (metaRes.ok) {
+        const meta = await metaRes.json();
+        if (meta?.secure_url) {
+          // Generate a time-limited signed URL and redirect
+          const timestamp = Math.floor(Date.now() / 1000);
+          const toSign = `public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`;
+          const { createHash } = require("crypto");
+          const signature = createHash("sha1").update(toSign).digest("hex");
+          const signedUrl = `https://res.cloudinary.com/${CLOUD_NAME}/${resourceType}/upload/${publicId}?api_key=${API_KEY}&timestamp=${timestamp}&signature=${signature}`;
+          return NextResponse.redirect(signedUrl, 302);
+        }
+      }
+    }
 
     if (!upstream.ok) {
       return NextResponse.json(
@@ -56,7 +59,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Determine Content-Type from extension if upstream doesn't provide it
+    // Determine Content-Type from extension
     const MIME_MAP: Record<string, string> = {
       ".pdf": "application/pdf",
       ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -66,10 +69,10 @@ export async function GET(req: NextRequest) {
       ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       ".ppt": "application/vnd.ms-powerpoint",
     };
-    const ext = targetUrl.toLowerCase().split(".").pop() || "";
+    const ext = "." + (targetUrl.toLowerCase().split(".").pop() || "");
     const contentType =
       upstream.headers.get("content-type") ||
-      MIME_MAP[`.${ext}`] ||
+      MIME_MAP[ext] ||
       "application/octet-stream";
 
     const body = await upstream.arrayBuffer();
@@ -78,14 +81,13 @@ export async function GET(req: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        // inline = display in browser; attachment = force download
         "Content-Disposition": "inline",
         "Cache-Control": "public, max-age=3600",
         "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (err) {
-    console.error("Document proxy error:", err);
+    console.error("[proxy] Error:", err);
     return NextResponse.json({ error: "Failed to fetch document" }, { status: 502 });
   }
 }

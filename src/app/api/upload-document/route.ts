@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
         cloudinary.uploader.upload_stream(
           {
             resource_type: "raw",
+            access_type: "public",
             public_id: publicId,
           },
           (error, result) => {
