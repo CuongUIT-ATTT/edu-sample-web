@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     const pathParts = urlObj.pathname.split("/");
     // e.g. /k5p3v8aa/raw/upload/v1784643478/eduweb_documents/file.pdf
     const resourceType = pathParts[2] || "raw";
-    const publicIdWithExt = pathParts.slice(4).join("/");
+    const publicIdWithExt = pathParts.slice(5).join("/");
     const publicId = publicIdWithExt.replace(/\.[^.]+$/, "");
 
     // Generate timestamp and SHA1 signature

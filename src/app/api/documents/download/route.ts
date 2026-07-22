@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     const urlObj = new URL(targetUrl);
     const pathParts = urlObj.pathname.split("/");
     const resourceType = pathParts[2] || "raw";
-    const publicIdWithExt = pathParts.slice(4).join("/");
+    const publicIdWithExt = pathParts.slice(5).join("/");
     const publicId = publicIdWithExt.replace(/\.[^.]+$/, "");
 
     // Generate signed URL with fl_attachment for download
