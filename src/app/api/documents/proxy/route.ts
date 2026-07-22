@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { v2 as cloudinary } from "cloudinary";
+import { createHash } from "crypto";
 
-// Configure Cloudinary for URL signing
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME!;
+const API_KEY = process.env.CLOUDINARY_API_KEY!;
+const API_SECRET = process.env.CLOUDINARY_API_SECRET!;
 
 /**
  * Document proxy: signs Cloudinary URLs server-side and re-serves
  * with proper Content-Type headers so browsers can display files inline.
- * Usage: /api/documents/proxy?url=ENCODED_CLOUDINARY_URL
  */
 export async function GET(req: NextRequest) {
   const rawUrl = req.nextUrl.searchParams.get("url");
@@ -20,7 +16,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing url parameter" }, { status: 400 });
   }
 
-  // Only allow Cloudinary URLs for security
   let targetUrl: string;
   try {
     targetUrl = decodeURIComponent(rawUrl);
@@ -33,24 +28,22 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Parse public_id and resource_type from Cloudinary URL
-    // URL format: https://res.cloudinary.com/{cloud}/{resource_type}/upload/v{version}/{public_id_with_ext}
-    const urlParts = targetUrl.split("/upload/");
-    const pathAfterUpload = urlParts[1] || "";
-    const publicId = pathAfterUpload.replace(/^v\d+\//, "").replace(/\.[^.]+$/, "");
+    // Build a signed Cloudinary URL manually for authenticated raw files
+    const urlObj = new URL(targetUrl);
+    const pathParts = urlObj.pathname.split("/");
+    // e.g. /k5p3v8aa/raw/upload/v1784643478/eduweb_documents/file.pdf
+    const resourceType = pathParts[2] || "raw";
+    const publicIdWithExt = pathParts.slice(4).join("/");
+    const publicId = publicIdWithExt.replace(/\.[^.]+$/, "");
 
-    // Detect resource_type from URL path
-    let resourceType = "raw";
-    if (targetUrl.includes("/image/upload/")) resourceType = "image";
-    else if (targetUrl.includes("/video/upload/")) resourceType = "video";
+    // Generate timestamp and SHA1 signature
+    // Flags must be included in the signature string
+    const timestamp = Math.floor(Date.now() / 1000);
+    const flags = "fl_inline";
+    const toSign = `flags=${flags}&public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`;
+    const signature = createHash("sha1").update(toSign).digest("hex");
 
-    // Generate a signed URL that Cloudinary will accept
-    const signedUrl = cloudinary.url(publicId, {
-      type: "authenticated",
-      resource_type: resourceType,
-      secure: true,
-      sign_url: true,
-    });
+    const signedUrl = `https://res.cloudinary.com/${CLOUD_NAME}/${resourceType}/upload/fl_inline?public_id=${encodeURIComponent(publicId)}&api_key=${API_KEY}&timestamp=${timestamp}&signature=${signature}`;
 
     const upstream = await fetch(signedUrl, {
       headers: { "User-Agent": "EduWeb-Proxy/1.0" },
