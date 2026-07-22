@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { v2 as cloudinary } from "cloudinary";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { R2, BUCKET } from "@/lib/r2";
 
 // Configure Cloudinary for Server Actions deletion
 cloudinary.config({
@@ -136,17 +138,13 @@ export async function deleteDocument(id: string) {
       try {
         const urlParts = existing.fileUrl.split("/upload/");
         if (urlParts.length > 1) {
-          // Extract path after /upload/, remove version prefix (v\d+/)
           const pathWithId = urlParts[1].replace(/^v\d+\//, "");
-          // For Cloudinary raw resources: public_id includes the extension (e.g. eduweb_documents/file.pdf)
-          // Try deleting with extension first (new uploads), then without (legacy)
           const publicIdWithExt = pathWithId;
           const publicIdNoExt = pathWithId.replace(/\.[^.]+$/, "");
 
           console.log(`Deleting Cloudinary file: id=${publicIdWithExt}, type=raw`);
           const result = await cloudinary.uploader.destroy(publicIdWithExt, { resource_type: "raw" });
 
-          // If not found with extension, try without (old uploads stored without extension)
           if (result.result === "not found") {
             console.log(`Retrying delete without extension: id=${publicIdNoExt}`);
             await cloudinary.uploader.destroy(publicIdNoExt, { resource_type: "raw" });
@@ -154,6 +152,30 @@ export async function deleteDocument(id: string) {
         }
       } catch (cloudinaryError) {
         console.error("Failed to delete file from Cloudinary:", cloudinaryError);
+      }
+    }
+
+    // If it's an R2 link, delete from Cloudflare R2
+    if (existing.fileUrl.includes("r2.dev")) {
+      try {
+        const urlObj = new URL(existing.fileUrl);
+        const key = urlObj.pathname.replace(/^\//, "");
+        console.log(`Deleting R2 file: key=${key}`);
+        await R2.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+      } catch (r2Error) {
+        console.error("Failed to delete file from R2:", r2Error);
+      }
+    }
+
+    // If it's an R2 link, delete from Cloudflare R2
+    if (existing.fileUrl.includes("r2.dev")) {
+      try {
+        const urlObj = new URL(existing.fileUrl);
+        const key = urlObj.pathname.replace(/^\//, "");
+        console.log(`Deleting R2 file: key=${key}`);
+        await R2.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+      } catch (r2Error) {
+        console.error("Failed to delete file from R2:", r2Error);
       }
     }
 
