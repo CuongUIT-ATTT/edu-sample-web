@@ -148,7 +148,7 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
       });
       
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Tải lên Cloudinary thất bại");
+      if (!res.ok) throw new Error(data.error || "Tải file lên thất bại");
       
       setForm((prev) => ({
         ...prev,
@@ -159,7 +159,7 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
         title: prev.title || file.name.replace(/\.[^.]+$/, "").replace(/_/g, " "),
       }));
       
-      showToast("Tải lên Cloudinary thành công!", "success");
+      showToast("Tải file lên thành công!", "success");
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : "Lỗi tải tệp lên", "error");
     } finally {
@@ -466,7 +466,7 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
                   </button>
                 </div>
                 <p className="text-[10px] text-ink-muted-48">
-                  Hỗ trợ dán liên kết Drive/Dropbox hoặc tải trực tiếp tài liệu của bạn (PDF, Word, Excel, PowerPoint) lên đám mây Cloudinary của trường.
+                  Hỗ trợ dán liên kết Drive/Dropbox hoặc tải trực tiếp tài liệu của bạn (PDF, Word, Excel, PowerPoint).
                 </p>
               </div>
 
