@@ -1,0 +1,38 @@
+[
+  {
+    "questionText": "Dac diem cua do thi nuoc ta hien nay la",
+    "type": "MULTIPLE_CHOICE",
+    "options": ["phan bo dong deu ca nuoc.", "deu co quy mo rat lon.", "gan voi cong nghiep hoa.", "Ti le dan thanh thi cao."],
+    "correctAnswer": "2",
+    "score": 0.25,
+    "explanation": "Do thi nuoc ta hien nay gan lien voi qua trinh cong nghiep hoa.",
+    "imageUrl": ""
+  },
+  {
+    "questionText": "Trong phong thi nghiem, etyl axetat duoc dieu che theo cac buoc:\n- Buoc 1: Cho 1 ml ancol etylic, 1 ml axit axetic nguyen chat va 1 giot axit sunfuric dac vao ong nghiem.\n- Buoc 2: Lac deu, dong thoi dun cach thuy 5-6 phut trong noi nuoc nong 65–70°C.\n- Buoc 3: Lam lanh roi rot them vao ong nghiem 2 ml dung dich NaCl bao hoa.\nCho cac phat bieu sau:\n(a) Co the thay dung dich axit sunfuric dac bang dung dich axit sunfuric loang.\n(b) Co the tien hanh thi nghiem bang cach dun soi hon hop.\n(c) De kiem soat nhiet do trong qua trinh dun nong co the dung nhiet ke.\n(d) Dung dich NaCl bao hoa duoc them vao ong nghiem de phan ung dat hieu suat cao hon.\nSo phat bieu sai la",
+    "type": "MULTIPLE_CHOICE",
+    "options": ["1", "2", "3", "4"],
+    "correctAnswer": "1",
+    "score": 0.25,
+    "explanation": "Phat bieu (a) sai: H2SO4 dac moi co tac dung hut nuoc lam tang hieu suat. (b) sai: dun soi lam that thoat chat dau. (d) sai: NaCl bao hoa de tach ester khoi nuoc, khong tang hieu suat phan ung. Chi (c) dung.",
+    "imageUrl": ""
+  },
+  {
+    "questionText": "Trong phong thi nghiem, nguoi ta thuc hien thi nghiem sau:\nDoan van dan mieu ta thi nghiem / thong tin...\n\n(a) Menh de thu nhat.\n(b) Menh de thu hai.\n(c) Menh de thu ba.\n(d) Menh de thu bon.",
+    "type": "TRUE_FALSE",
+    "options": ["a) Menh de thu nhat.", "b) Menh de thu hai.", "c) Menh de thu ba.", "d) Menh de thu bon."],
+    "correctAnswer": "T,F,T,F",
+    "score": 1.0,
+    "explanation": "a) Dung vi... b) Sai vi... c) Dung vi... d) Sai vi...",
+    "imageUrl": ""
+  },
+  {
+    "questionText": "Tinh nhiet do trung binh nam dua vao du lieu nhiet do 12 thang duoi day. Ket qua lam tron den 1 so thap phan.",
+    "type": "SHORT_ANSWER",
+    "options": [],
+    "correctAnswer": "22.6",
+    "score": 0.5,
+    "explanation": "Nhiet do TB nam = tong 12 thang / 12 = 270.6 / 12 = 22.6 do C.",
+    "imageUrl": ""
+  }
+]

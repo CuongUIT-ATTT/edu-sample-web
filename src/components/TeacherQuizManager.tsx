@@ -99,6 +99,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [importMethod, setImportMethod] = useState<"MANUAL" | "PASTE_TEXT" | "CSV" | "JSON">("MANUAL");
   const [rawPastedText, setRawPastedText] = useState("");
   const [jsonText, setJsonText] = useState("");
+  const [importingImages, setImportingImages] = useState(false);
 
   // Questions array state supporting Section I, II, III
   const [questions, setQuestions] = useState<{
@@ -231,37 +232,41 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   };
 
   const downloadJsonTemplate = () => {
+    // Tiny 1x1 red pixel PNG — example of base64 image in imageUrl.
+    // Users can paste any base64 data:image/... string here; the system auto-uploads it to Cloudinary.
+    const exampleBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==";
+
     const template = [
       {
         questionText: "Nguyên hàm của hàm số $f(x)=x^2$ là?",
         type: "MULTIPLE_CHOICE",
         options: ["$\\frac{x^3}{3}+C$", "$2x+C$", "$x^3+C$", "$\\frac{x^2}{2}+C$"],
         correctAnswer: "0",
-        score: 1.0,
+        score: 0.25,
         explanation: "Áp dụng công thức nguyên hàm cơ bản: $\\int x^n dx = \\frac{x^{n+1}}{n+1} + C$ với $n=2$.",
         imageUrl: ""
       },
       {
-        questionText: "Trong phòng thí nghiệm, etyl axetat được điều chế theo các bước:\n- Bước 1: Cho 1 ml ancol etylic, 1 ml axit axetic nguyên chất và 1 giọt axit sunfuric đặc vào ống nghiệm.\n- Bước 2: Lắc đều, đồng thời đun cách thủy 5-6 phút trong nồi nước nóng 65–70°C.\n- Bước 3: Làm lạnh rồi rót thêm vào ống nghiệm 2 ml dung dịch NaCl bão hòa.\nCho các phát biểu sau:\n(a) Có thể thay dung dịch axit sunfuric đặc bằng dung dịch axit sunfuric loãng.\n(b) Có thể tiến hành thí nghiệm bằng cách đun sôi hỗn hợp.\n(c) Để kiểm soát nhiệt độ trong quá trình đun nóng có thể dùng nhiệt kế.\n(d) Dung dịch NaCl bão hòa được thêm vào ống nghiệm để phản ứng đạt hiệu suất cao hơn.\nSố phát biểu sai là",
+        questionText: "Dựa vào hình vẽ, xác định diện tích hình chữ nhật ABCD có cạnh a = 5cm, b = 3cm.",
         type: "MULTIPLE_CHOICE",
-        options: ["1", "2", "3", "4"],
-        correctAnswer: "1",
+        options: ["15 cm²", "16 cm²", "8 cm²", "10 cm²"],
+        correctAnswer: "0",
         score: 0.25,
-        explanation: "Phát biểu (a) sai: H₂SO₄ đặc mới có tác dụng hút nước. Phát biểu (b) sai: đun sôi làm thất thoát chất. Phát biểu (d) sai: NaCl bão hòa để tách ester khỏi nước, không tăng hiệu suất.",
-        imageUrl: ""
+        explanation: "Diện tích hình chữ nhật = a × b = 5 × 3 = 15 cm².",
+        imageUrl: exampleBase64
       },
       {
-        questionText: "Đồ thị hàm số bậc hai $y = ax^2 + bx + c$ ($a \\neq 0$) là một đường Parabol.",
+        questionText: "Đồ thị hàm số bậc hai $y = ax^2 + bx + c$ ($a \\neq 0$) là một đường Parabol.\n\n(a) Đồ thị cắt trục tung tại điểm $(0; c)$.\n(b) Trục đối xứng của Parabol là đường thẳng $x = -\\frac{b}{2a}$.\n(c) Tọa độ đỉnh của Parabol là $I(-\\frac{b}{2a}; -\\frac{\\Delta}{4a})$.\n(d) Parabol luôn quay bề lõm lên trên với mọi giá trị $a$.",
         type: "TRUE_FALSE",
         options: [
-          "Đồ thị cắt trục tung tại điểm $(0; c)$",
-          "Trục đối xứng của Parabol là đường thẳng $x = -\\frac{b}{2a}$",
-          "Tọa độ đỉnh của Parabol là $I(-\\frac{b}{2a}; -\\frac{\\Delta}{4a})$",
-          "Parabol luôn quay bề lõm lên trên với mọi giá trị $a$"
+          "(a) Đồ thị cắt trục tung tại điểm $(0; c)$.",
+          "(b) Trục đối xứng của Parabol là đường thẳng $x = -\\frac{b}{2a}$.",
+          "(c) Tọa độ đỉnh của Parabol là $I(-\\frac{b}{2a}; -\\frac{\\Delta}{4a})$.",
+          "(d) Parabol luôn quay bề lõm lên trên với mọi giá trị $a$."
         ],
         correctAnswer: "T,T,T,F",
-        score: 2.0,
-        explanation: "Phát biểu 4 sai vì bề lõm quay lên trên khi $a > 0$, quay xuống dưới khi $a < 0$.",
+        score: 1.0,
+        explanation: "(a) Đúng — tại x=0, y=c. (b) Đúng — trục đối xứng của parabol. (c) Đúng — công thức tọa độ đỉnh. (d) Sai — bề lõm quay lên khi a>0, quay xuống khi a<0.",
         imageUrl: ""
       },
       {
@@ -269,7 +274,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         type: "SHORT_ANSWER",
         options: [],
         correctAnswer: "8",
-        score: 1.0,
+        score: 0.5,
         explanation: "Ta có: $\\log_2(x) = 3 \\Leftrightarrow x = 2^3 = 8$.",
         imageUrl: ""
       }
@@ -345,7 +350,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     reader.readAsText(file, "UTF-8");
   };
 
-  const handleImportJson = () => {
+  const handleImportJson = async () => {
     if (!jsonText.trim()) {
       showToast("Vui lòng dán văn bản JSON vào ô.", "warning");
       return;
@@ -356,12 +361,12 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         showToast("JSON không hợp lệ. Vui lòng cung cấp một mảng các câu hỏi.", "error");
         return;
       }
-      
+
       const formattedQuestions = parsed.map((q: any) => {
         const type = ["MULTIPLE_CHOICE", "TRUE_FALSE", "SHORT_ANSWER"].includes(q.type) ? q.type : "MULTIPLE_CHOICE";
         let options = Array.isArray(q.options) ? [...q.options] : [];
         let correctAnswer = (q.correctAnswer !== undefined ? q.correctAnswer : q.answer !== undefined ? q.answer : "").toString().trim();
-        
+
         if (type === "MULTIPLE_CHOICE") {
           while (options.length < 4) options.push("");
           options = options.slice(0, 4);
@@ -388,6 +393,43 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
           imageUrl: q.imageUrl || q.image || ""
         };
       });
+
+      // Auto-upload images: collect all base64 data URLs or external URLs
+      const needsUpload = formattedQuestions
+        .filter((q) => q.imageUrl && (q.imageUrl.startsWith("data:image/") || q.imageUrl.startsWith("http://") || q.imageUrl.startsWith("https://")))
+        .map((q) => q.imageUrl);
+
+      if (needsUpload.length > 0) {
+        setImportingImages(true);
+        showToast(`Đang tải ${needsUpload.length} ảnh lên server...`, "info");
+        try {
+          const res = await fetch("/api/upload-images", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ images: needsUpload }),
+          });
+          const data = await res.json();
+          if (data.success && Array.isArray(data.results)) {
+            let uploaded = 0;
+            for (const result of data.results) {
+              if (result.url) {
+                // Find the question with matching imageUrl and replace it
+                const src = needsUpload[result.index];
+                const target = formattedQuestions.find((q) => q.imageUrl === src);
+                if (target) target.imageUrl = result.url;
+                uploaded++;
+              }
+            }
+            showToast(`Đã upload thành công ${uploaded}/${needsUpload.length} ảnh!`, uploaded === needsUpload.length ? "success" : "warning");
+          } else {
+            showToast("Upload ảnh thất bại. Ảnh sẽ giữ nguyên gốc.", "error");
+          }
+        } catch {
+          showToast("Lỗi khi upload ảnh. Ảnh sẽ giữ nguyên gốc.", "error");
+        } finally {
+          setImportingImages(false);
+        }
+      }
 
       setQuestions(formattedQuestions);
       showToast(`Đã tải thành công ${formattedQuestions.length} câu hỏi từ JSON!`, "success");
@@ -1251,9 +1293,14 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   <button
                     type="button"
                     onClick={handleImportJson}
-                    className="bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold px-4 py-2 rounded-pill shadow-sm self-end"
+                    disabled={importingImages}
+                    className="bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold px-4 py-2 rounded-pill shadow-sm self-end disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
                   >
-                    Import từ JSON
+                    {importingImages ? (
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải ảnh...</>
+                    ) : (
+                      "Import từ JSON"
+                    )}
                   </button>
                 </div>
               )}
@@ -1261,6 +1308,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               {/* Formula & formatting instructions */}
               <div className="bg-blue-50 border border-blue-200 rounded p-4 text-[11px] text-ink-muted-80 font-body leading-relaxed flex flex-col gap-2">
                 <span className="font-semibold text-ink block">💡 Hướng dẫn định dạng câu hỏi:</span>
+                <span>• <strong>Ảnh minh họa:</strong> đặt base64 data URL (<code className="bg-blue-100 px-1 rounded">"data:image/png;base64,..."</code>) hoặc link ảnh bên ngoài vào trường <code className="bg-blue-100 px-1 rounded">imageUrl</code>. Hệ thống tự động upload lên Cloudinary khi import.</span>
                 <span>• <strong>Công thức Toán học:</strong> nhập trong cặp dấu <code className="bg-blue-100 px-1 rounded">$...$</code> — ví dụ: <code className="bg-blue-100 px-1 rounded">$x^2 + 1$</code></span>
                 <span>• <strong>Câu hỏi nhiều bước / dài:</strong> dùng <code className="bg-blue-100 px-1 rounded">\n</code> trong chuỗi JSON để xuống dòng. Hệ thống sẽ tự nhận diện và định dạng đẹp:<br />
                   — <code className="bg-blue-100 px-1 rounded">- Bước 1: ...</code> → hiển thị như bước có mũi tên<br />
