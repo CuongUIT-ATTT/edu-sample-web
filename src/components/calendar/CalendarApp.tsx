@@ -10,6 +10,7 @@ import MonthView from "./MonthView";
 import AgendaView from "./AgendaView";
 import EventModal, { type EventFormData } from "./EventModal";
 import ScheduleModal from "./ScheduleModal";
+import SessionDetailModal from "./SessionDetailModal";
 import { getCalendars, getEvents, getSchedulesForCalendar, createEvent, updateEvent, deleteEvent, createCalendar, deleteCalendar, type ScheduleEventDisplay } from "@/actions/calendar";
 import { createRecurrenceRule } from "@/lib/recurrence";
 import { showToast } from "@/components/Toast";
@@ -80,6 +81,8 @@ export default function CalendarApp({
   const [initialStart, setInitialStart] = useState<Date | undefined>();
   const [initialEnd, setInitialEnd] = useState<Date | undefined>();
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [sessionDetailOpen, setSessionDetailOpen] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState<CalendarEvent | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const calendarsRef = useRef<CalendarItem[]>([]);
@@ -219,13 +222,8 @@ export default function CalendarApp({
 
   const handleEventClick = (event: CalendarEvent) => {
     if (event.isSchedule) {
-      // Schedule events: show read-only info, don't open edit modal
-      showToast(
-        `${event.scheduleMeta?.subjectName} — ${event.scheduleMeta?.className}\n` +
-        `${event.scheduleMeta?.teacherName} | ${event.scheduleMeta?.room ?? "Chưa có phòng"}\n` +
-        `${event.scheduleMeta?.startTime} - ${event.scheduleMeta?.endTime}`,
-        "info"
-      );
+      setSelectedSchedule(event);
+      setSessionDetailOpen(true);
       return;
     }
     setEditingEvent(event);
@@ -348,6 +346,14 @@ export default function CalendarApp({
         subjects={subjects}
         teachers={teachers}
         rooms={rooms}
+      />
+
+      <SessionDetailModal
+        isOpen={sessionDetailOpen}
+        onClose={() => { setSessionDetailOpen(false); setSelectedSchedule(null); }}
+        schedule={selectedSchedule as never}
+        role={role}
+        onUpdate={() => { loadCountRef.current = 0; setEvents([]); }}
       />
     </div>
   );
