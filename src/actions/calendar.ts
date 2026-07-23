@@ -303,3 +303,162 @@ export async function deleteEvent(
 
   return db.event.delete({ where: { id } });
 }
+
+// ─── Schedule → Calendar Event Conversion ───────────────────────────
+
+export interface ScheduleEventDisplay {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  start: Date;
+  end: Date;
+  isAllDay: boolean;
+  timezone: string;
+  color: string;
+  status: string;
+  calendarId: string;
+  ownerId: string;
+  recurrenceRule: string | null;
+  recurrenceId: string;
+  isException: boolean;
+  isRecurrenceInstance: boolean;
+  isSchedule: boolean;
+  originalEventId: string;
+  reminders: Array<{ id: string; method: string; minutesBefore: number }>;
+  participants: Array<{
+    id: string;
+    userId: string;
+    responseStatus: string;
+    role: string;
+    user: { id: string; name: string; email: string };
+  }>;
+  scheduleMeta?: {
+    scheduleId: string;
+    className: string;
+    subjectName: string;
+    teacherName: string;
+    room: string | null;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    materials: string | null;
+    homework: string | null;
+    homeworkQuizId: string | null;
+    homeworkQuizTitle: string | null;
+  };
+}
+
+function timeStringToDate(date: Date, timeStr: string): Date {
+  const [h, m] = timeStr.split(":").map(Number);
+  const result = new Date(date);
+  result.setHours(h, m, 0, 0);
+  return result;
+}
+
+function getNextDayOfWeek(fromDate: Date, dayOfWeek: number): Date {
+  // dayOfWeek: 1=Mon ... 7=Sun
+  const date = new Date(fromDate);
+  const currentDay = date.getDay(); // 0=Sun ... 6=Sat
+  const currentIso = currentDay === 0 ? 7 : currentDay; // convert to 1=Mon ... 7=Sun
+  const diff = dayOfWeek - currentIso;
+  if (diff >= 0) {
+    date.setDate(date.getDate() + diff);
+  } else {
+    date.setDate(date.getDate() + diff + 7);
+  }
+  return date;
+}
+
+/**
+ * Fetch schedules and convert to CalendarEvent-compatible objects.
+ * Admin sees all, Teacher sees all but only editable for own, Student sees class schedules.
+ */
+export async function getSchedulesForCalendar(
+  userId: string,
+  role: string,
+  teacherProfileId: string | null,
+  studentClassIds: string[],
+  from: Date,
+  to: Date
+): Promise<ScheduleEventDisplay[]> {
+  let schedules;
+
+  if (role === "STUDENT" && studentClassIds.length > 0) {
+    schedules = await db.schedule.findMany({
+      where: { classId: { in: studentClassIds } },
+      include: {
+        class: true,
+        subject: true,
+        teacher: { include: { user: true } },
+        homeworkQuiz: { select: { id: true, title: true } },
+      },
+      orderBy: { dayOfWeek: "asc" },
+    });
+  } else {
+    schedules = await db.schedule.findMany({
+      include: {
+        class: true,
+        subject: true,
+        teacher: { include: { user: true } },
+        homeworkQuiz: { select: { id: true, title: true } },
+      },
+      orderBy: { dayOfWeek: "asc" },
+    });
+  }
+
+  const events: ScheduleEventDisplay[] = [];
+
+  for (const schedule of schedules) {
+    // Find all occurrences of this schedule in the [from, to] range
+    const firstOccurrence = getNextDayOfWeek(from, schedule.dayOfWeek);
+    const occurrence = new Date(firstOccurrence);
+
+    while (occurrence <= to) {
+      const start = timeStringToDate(occurrence, schedule.startTime);
+      const end = timeStringToDate(occurrence, schedule.endTime);
+
+      events.push({
+        id: `schedule-${schedule.id}-${occurrence.toISOString().slice(0, 10)}`,
+        title: schedule.subject.name,
+        description: schedule.materials ?? null,
+        location: schedule.room ?? null,
+        start,
+        end,
+        isAllDay: false,
+        timezone: "Asia/Ho_Chi_Minh",
+        color: "#34A853", // Green for schedules
+        status: "CONFIRMED",
+        calendarId: "schedule",
+        ownerId: schedule.teacherId,
+        recurrenceRule: null,
+        recurrenceId: `schedule-${schedule.id}-${occurrence.toISOString()}`,
+        isException: false,
+        isRecurrenceInstance: true,
+        isSchedule: true,
+        originalEventId: schedule.id,
+        reminders: [],
+        participants: [],
+        scheduleMeta: {
+          scheduleId: schedule.id,
+          className: schedule.class.name,
+          subjectName: schedule.subject.name,
+          teacherName: schedule.teacher.user.name,
+          room: schedule.room,
+          dayOfWeek: schedule.dayOfWeek,
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          materials: schedule.materials,
+          homework: schedule.homework,
+          homeworkQuizId: schedule.homeworkQuizId,
+          homeworkQuizTitle: schedule.homeworkQuiz?.title ?? null,
+        },
+      });
+
+      // Move to next week
+      occurrence.setDate(occurrence.getDate() + 7);
+    }
+  }
+
+  return events;
+}

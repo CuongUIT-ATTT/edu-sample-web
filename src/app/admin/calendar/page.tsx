@@ -9,7 +9,7 @@ export default async function AdminCalendarPage() {
 
   return (
     <div className="h-[calc(100vh-60px)]">
-      <CalendarApp userId={user.userId} userName={user.name} />
+      <CalendarApp userId={user.userId} userName={user.name} role={user.role} />
     </div>
   );
 }

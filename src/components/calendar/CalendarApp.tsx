@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from "date-fns";
 import CalendarHeader from "./CalendarHeader";
 import CalendarSidebar from "./CalendarSidebar";
@@ -9,7 +9,7 @@ import WeekView from "./WeekView";
 import MonthView from "./MonthView";
 import AgendaView from "./AgendaView";
 import EventModal, { type EventFormData } from "./EventModal";
-import { getCalendars, getEvents, createEvent, updateEvent, deleteEvent, createCalendar, deleteCalendar } from "@/actions/calendar";
+import { getCalendars, getEvents, getSchedulesForCalendar, createEvent, updateEvent, deleteEvent, createCalendar, deleteCalendar, type ScheduleEventDisplay } from "@/actions/calendar";
 import { createRecurrenceRule } from "@/lib/recurrence";
 import { showToast } from "@/components/Toast";
 
@@ -33,6 +33,8 @@ export interface CalendarEvent {
   isException: boolean;
   isRecurrenceInstance: boolean;
   originalEventId: string;
+  isSchedule?: boolean;
+  scheduleMeta?: ScheduleEventDisplay["scheduleMeta"];
   reminders: Array<{ id: string; method: string; minutesBefore: number }>;
   participants: Array<{
     id: string;
@@ -54,9 +56,12 @@ interface CalendarItem {
 interface CalendarAppProps {
   userId: string;
   userName: string;
+  role: string;
+  teacherProfileId?: string | null;
+  studentClassIds?: string[];
 }
 
-export default function CalendarApp({ userId, userName }: CalendarAppProps) {
+export default function CalendarApp({ userId, userName, role, teacherProfileId, studentClassIds = [] }: CalendarAppProps) {
   const [currentView, setCurrentView] = useState<ViewType>("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendars, setCalendars] = useState<CalendarItem[]>([]);
@@ -67,21 +72,28 @@ export default function CalendarApp({ userId, userName }: CalendarAppProps) {
   const [initialStart, setInitialStart] = useState<Date | undefined>();
   const [initialEnd, setInitialEnd] = useState<Date | undefined>();
 
-  const loadCalendars = useCallback(async () => {
-    try {
-      const cals = await getCalendars(userId);
-      setCalendars(cals);
-      if (cals.length > 0 && !selectedCalendarId) {
-        setSelectedCalendarId(cals[0].id);
+  const calendarsLoaded = useRef(false);
+  const calendarsRef = useRef<CalendarItem[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const cals = await getCalendars(userId);
+        setCalendars(cals);
+        calendarsRef.current = cals;
+        if (cals.length > 0 && !calendarsLoaded.current) {
+          setSelectedCalendarId(cals[0].id);
+        }
+        calendarsLoaded.current = true;
+      } catch {
+        showToast("Lỗi tải lịch", "error");
       }
-    } catch {
-      showToast("Lỗi tải lịch", "error");
     }
-  }, [userId, selectedCalendarId]);
+    load();
+  }, [userId]);
 
   const loadEvents = useCallback(async () => {
-    const visibleCals = calendars.filter((c) => c.isVisible).map((c) => c.id);
-    if (visibleCals.length === 0) { setEvents([]); return; }
+    const visibleCals = calendarsRef.current.filter((c) => c.isVisible).map((c) => c.id);
 
     let from: Date;
     let to: Date;
@@ -105,14 +117,24 @@ export default function CalendarApp({ userId, userName }: CalendarAppProps) {
     }
 
     try {
-      const rawEvents = await getEvents({ calendarIds: visibleCals, from: from!, to: to! });
-      setEvents(rawEvents.map((e) => ({ ...e, start: new Date(e.start), end: new Date(e.end) })));
+      let allEvents: CalendarEvent[] = [];
+
+      if (visibleCals.length > 0) {
+        const rawEvents = await getEvents({ calendarIds: visibleCals, from: from!, to: to! });
+        allEvents = rawEvents.map((e) => ({ ...e, start: new Date(e.start), end: new Date(e.end) }));
+      }
+
+      const schedules = await getSchedulesForCalendar(
+        userId, role, teacherProfileId ?? null, studentClassIds, from!, to!
+      );
+      allEvents = [...allEvents, ...schedules.map((s) => ({ ...s, start: new Date(s.start), end: new Date(s.end) }))];
+
+      setEvents(allEvents);
     } catch {
       showToast("Lỗi tải sự kiện", "error");
     }
-  }, [calendars, currentView, currentDate]);
+  }, [currentView, currentDate, userId, role, teacherProfileId, studentClassIds]);
 
-  useEffect(() => { loadCalendars(); }, [loadCalendars]);
   useEffect(() => { loadEvents(); }, [loadEvents]);
 
   const handleSaveEvent = async (data: EventFormData) => {
@@ -171,6 +193,16 @@ export default function CalendarApp({ userId, userName }: CalendarAppProps) {
   };
 
   const handleEventClick = (event: CalendarEvent) => {
+    if (event.isSchedule) {
+      // Schedule events: show read-only info, don't open edit modal
+      showToast(
+        `${event.scheduleMeta?.subjectName} — ${event.scheduleMeta?.className}\n` +
+        `${event.scheduleMeta?.teacherName} | ${event.scheduleMeta?.room ?? "Chưa có phòng"}\n` +
+        `${event.scheduleMeta?.startTime} - ${event.scheduleMeta?.endTime}`,
+        "info"
+      );
+      return;
+    }
     setEditingEvent(event);
     setInitialStart(undefined);
     setInitialEnd(undefined);
@@ -201,7 +233,9 @@ export default function CalendarApp({ userId, userName }: CalendarAppProps) {
     try {
       await createCalendar({ name, color }, userId);
       showToast("Đã tạo lịch mới", "success");
-      loadCalendars();
+      calendarsLoaded.current = false;
+      const cals = await getCalendars(userId);
+      setCalendars(cals);
     } catch {
       showToast("Lỗi tạo lịch", "error");
     }
@@ -212,7 +246,9 @@ export default function CalendarApp({ userId, userName }: CalendarAppProps) {
       await deleteCalendar(calId);
       showToast("Đã xóa lịch", "success");
       if (selectedCalendarId === calId) setSelectedCalendarId(undefined);
-      loadCalendars();
+      calendarsLoaded.current = false;
+      const cals = await getCalendars(userId);
+      setCalendars(cals);
     } catch {
       showToast("Lỗi xóa lịch", "error");
     }
