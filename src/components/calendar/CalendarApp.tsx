@@ -80,6 +80,7 @@ export default function CalendarApp({
   const [initialStart, setInitialStart] = useState<Date | undefined>();
   const [initialEnd, setInitialEnd] = useState<Date | undefined>();
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const calendarsRef = useRef<CalendarItem[]>([]);
   const eventsRef = useRef<CalendarEvent[]>([]);
@@ -293,19 +294,29 @@ export default function CalendarApp({
   };
 
   return (
-    <div className="flex h-full">
-      <CalendarSidebar
-        calendars={calendars}
-        selectedDate={currentDate}
-        onDateSelect={(d) => { setCurrentDate(d); setCurrentView("day"); }}
-        onCalendarToggle={handleCalendarToggle}
-        onCreateCalendar={handleCreateCalendar}
-        onDeleteCalendar={handleDeleteCalendar}
-        onCalendarSelect={setSelectedCalendarId}
-        selectedCalendarId={selectedCalendarId}
-      />
+    <div className="flex h-full relative">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/30 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* Sidebar */}
+      <div className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:static inset-y-0 left-0 z-50 transition-transform`}>
+        <CalendarSidebar
+          calendars={calendars}
+          selectedDate={currentDate}
+          onDateSelect={(d) => { setCurrentDate(d); setCurrentView("day"); setSidebarOpen(false); }}
+          onCalendarToggle={handleCalendarToggle}
+          onCreateCalendar={handleCreateCalendar}
+          onDeleteCalendar={handleDeleteCalendar}
+          onCalendarSelect={setSelectedCalendarId}
+          selectedCalendarId={selectedCalendarId}
+        />
+      </div>
+
       <div className="flex-1 flex flex-col min-w-0">
         <CalendarHeader
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           currentView={currentView}
           currentDate={currentDate}
           onViewChange={setCurrentView}

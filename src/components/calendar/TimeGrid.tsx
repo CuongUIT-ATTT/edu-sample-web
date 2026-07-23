@@ -31,14 +31,14 @@ export default function TimeGrid({
   return (
     <div className="flex flex-1 overflow-auto">
       {/* Time labels column */}
-      <div className="w-16 shrink-0 border-r border-hairline">
+      <div className="w-10 md:w-16 shrink-0 border-r border-hairline">
         {HOURS.map((h) => (
           <div
             key={h}
             className="relative border-b border-hairline"
             style={{ height: hourHeight }}
           >
-            <span className="absolute -top-2.5 right-2 text-[10px] text-ink-muted-48 font-medium">
+            <span className="absolute -top-2.5 right-1 md:right-2 text-[8px] md:text-[10px] text-ink-muted-48 font-medium">
               {h === 0 ? "" : `${String(h).padStart(2, "0")}:00`}
             </span>
           </div>

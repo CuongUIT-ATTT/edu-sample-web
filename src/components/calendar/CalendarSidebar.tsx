@@ -52,7 +52,7 @@ export default function CalendarSidebar({
   };
 
   return (
-    <div className="w-64 shrink-0 border-r border-hairline bg-white h-full flex flex-col overflow-hidden">
+    <div className="w-56 md:w-64 shrink-0 border-r border-hairline bg-white h-full flex flex-col overflow-hidden">
       {/* Mini Calendar */}
       <div className="border-b border-hairline">
         <MiniCalendar selectedDate={selectedDate} onDateSelect={onDateSelect} />

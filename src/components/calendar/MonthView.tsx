@@ -56,7 +56,7 @@ export default function MonthView({ date, events, onEventClick, onDateClick }: M
       {/* Day-of-week header */}
       <div className="grid grid-cols-7 border-b border-hairline bg-surface-pearl/50">
         {DAYS_OF_WEEK.map((d) => (
-          <div key={d} className="px-2 py-2 text-[10px] uppercase text-ink-muted-48 font-medium text-center">
+          <div key={d} className="px-0.5 md:px-2 py-1 md:py-2 text-[8px] md:text-[10px] uppercase text-ink-muted-48 font-medium text-center">
             {d}
           </div>
         ))}
@@ -74,27 +74,27 @@ export default function MonthView({ date, events, onEventClick, onDateClick }: M
               return (
                 <div
                   key={day.toISOString()}
-                  className={`min-h-[90px] border-r border-hairline px-1 py-1 cursor-pointer
+                  className={`min-h-[60px] md:min-h-[90px] border-r border-hairline px-0.5 md:px-1 py-0.5 md:py-1 cursor-pointer
                     ${inMonth ? "" : "bg-canvas-parchment/30"}
                     ${today ? "bg-blue-50/50" : ""}
                     hover:bg-surface-pearl/50 transition-colors
                   `}
                   onClick={() => onDateClick?.(day)}
                 >
-                  <div className="flex justify-center mb-1">
+                  <div className="flex justify-center mb-0.5 md:mb-1">
                     <span
-                      className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full
+                      className={`text-[10px] md:text-xs font-medium w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full
                         ${today ? "bg-blue-600 text-white" : inMonth ? "text-ink" : "text-ink-muted-48"}
                       `}
                     >
                       {format(day, "d")}
                     </span>
                   </div>
-                  <div className="space-y-0.5">
-                    {dayEvents.slice(0, 3).map((e) => (
+                  <div className="space-y-0">
+                    {dayEvents.slice(0, 2).map((e) => (
                       <div
                         key={`${e.id}-${e.recurrenceId}`}
-                        className="text-[10px] font-medium px-1 py-0.5 rounded truncate cursor-pointer hover:opacity-80"
+                        className="text-[8px] md:text-[10px] font-medium px-0.5 md:px-1 py-0 rounded truncate cursor-pointer hover:opacity-80"
                         style={{ backgroundColor: e.color + "22", color: e.color }}
                         onClick={(ev) => {
                           ev.stopPropagation();
@@ -104,9 +104,9 @@ export default function MonthView({ date, events, onEventClick, onDateClick }: M
                         {e.isAllDay ? e.title : `${format(e.start, "HH:mm")} ${e.title}`}
                       </div>
                     ))}
-                    {dayEvents.length > 3 && (
-                      <p className="text-[10px] text-ink-muted-48 text-center cursor-pointer hover:text-blue-600">
-                        +{dayEvents.length - 3} xem thêm
+                    {dayEvents.length > 2 && (
+                      <p className="text-[8px] md:text-[10px] text-ink-muted-48 text-center cursor-pointer hover:text-blue-600">
+                        +{dayEvents.length - 2}
                       </p>
                     )}
                   </div>

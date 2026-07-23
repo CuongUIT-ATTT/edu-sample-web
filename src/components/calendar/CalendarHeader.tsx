@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Menu } from "lucide-react";
 import { addMonths, addWeeks, addDays, subMonths, subWeeks, subDays } from "date-fns";
 
 type ViewType = "day" | "week" | "month" | "agenda";
@@ -15,6 +15,7 @@ interface CalendarHeaderProps {
   onToday: () => void;
   onCreateEvent: () => void;
   onCreateSchedule?: () => void;
+  onToggleSidebar?: () => void;
   role?: string;
 }
 
@@ -26,6 +27,7 @@ export default function CalendarHeader({
   onToday,
   onCreateEvent,
   onCreateSchedule,
+  onToggleSidebar,
   role,
 }: CalendarHeaderProps) {
   const handlePrev = () => {
@@ -63,11 +65,18 @@ export default function CalendarHeader({
   ];
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 border-b border-hairline bg-white">
-      <div className="flex items-center gap-3">
+    <div className="flex items-center justify-between px-2 md:px-4 py-1.5 md:py-2 border-b border-hairline bg-white gap-1.5">
+      <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
+        {/* Mobile: hamburger */}
+        {onToggleSidebar && (
+          <button onClick={onToggleSidebar} className="md:hidden p-1.5 rounded-lg hover:bg-surface-pearl">
+            <Menu className="w-5 h-5 text-ink-muted-48" />
+          </button>
+        )}
+
         <button
           onClick={onCreateEvent}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-1 px-2 md:px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs md:text-sm font-medium hover:bg-blue-700 transition-colors shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">Tạo</span>
@@ -76,21 +85,21 @@ export default function CalendarHeader({
         {onCreateSchedule && role !== "STUDENT" && (
           <button
             onClick={onCreateSchedule}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shrink-0"
           >
             <CalendarIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">Đăng ký lịch</span>
+            <span>Đăng ký lịch</span>
           </button>
         )}
 
         <button
           onClick={onToday}
-          className="px-3 py-1.5 text-sm font-medium border border-hairline rounded-lg hover:bg-surface-pearl transition-colors"
+          className="hidden sm:block px-3 py-1.5 text-sm font-medium border border-hairline rounded-lg hover:bg-surface-pearl transition-colors shrink-0"
         >
           Hôm nay
         </button>
 
-        <div className="flex items-center">
+        <div className="flex items-center shrink-0">
           <button onClick={handlePrev} className="p-1 hover:bg-surface-pearl rounded transition-colors">
             <ChevronLeft className="w-5 h-5 text-ink-muted-48" />
           </button>
@@ -99,15 +108,15 @@ export default function CalendarHeader({
           </button>
         </div>
 
-        <h1 className="text-base font-semibold text-ink hidden sm:block">{dateLabel}</h1>
+        <h1 className="text-sm md:text-base font-semibold text-ink truncate min-w-0">{dateLabel}</h1>
       </div>
 
-      <div className="flex items-center bg-surface-pearl rounded-lg p-0.5">
+      <div className="flex items-center bg-surface-pearl rounded-lg p-0.5 shrink-0">
         {views.map((v) => (
           <button
             key={v.key}
             onClick={() => onViewChange(v.key)}
-            className={`px-3 py-1 text-sm rounded-md transition-colors
+            className={`px-1.5 md:px-3 py-1 text-xs md:text-sm rounded-md transition-colors
               ${currentView === v.key
                 ? "bg-white text-ink font-medium shadow-sm"
                 : "text-ink-muted-48 hover:text-ink"
