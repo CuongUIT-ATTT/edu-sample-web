@@ -356,18 +356,20 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
       return;
     }
     try {
-      // Auto-clean common JSON formatting issues before parsing
+      // Try parsing as-is first (handles base64 images correctly)
       let cleaned = jsonText.trim();
-      // Remove leading ":", "[", "]" or "}" artifacts from copy-paste
-      cleaned = cleaned.replace(/^[^{\[{]*[\[{]/, (match) => match.slice(-1));
-      // Remove trailing characters after last "]" or "}"
-      cleaned = cleaned.replace(/[\]}][^\]}]*$/, (match) => match[0]);
-      // Remove trailing commas before ] or }
-      cleaned = cleaned.replace(/,\s*([\]}])/g, "$1");
-      // Remove JavaScript-style comments
-      cleaned = cleaned.replace(/\/\/.*$/gm, "");
-
-      const parsed = JSON.parse(cleaned);
+      let parsed;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch {
+        // Fallback: auto-clean common JSON formatting issues
+        cleaned = cleaned.replace(/^[^{\[{]*[\[{]/, (m) => m.slice(-1));
+        const lastIdx = Math.max(cleaned.lastIndexOf("]"), cleaned.lastIndexOf("}"));
+        if (lastIdx > 0) cleaned = cleaned.substring(0, lastIdx + 1);
+        cleaned = cleaned.replace(/,\s*([\]}])/g, "$1");
+        cleaned = cleaned.replace(/\/\/.*$/gm, "");
+        parsed = JSON.parse(cleaned);
+      }
       if (!Array.isArray(parsed)) {
         showToast("JSON không hợp lệ. Vui lòng cung cấp một mảng các câu hỏi.", "error");
         return;

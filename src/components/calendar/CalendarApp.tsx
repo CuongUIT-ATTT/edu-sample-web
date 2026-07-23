@@ -9,6 +9,7 @@ import WeekView from "./WeekView";
 import MonthView from "./MonthView";
 import AgendaView from "./AgendaView";
 import EventModal, { type EventFormData } from "./EventModal";
+import ScheduleModal from "./ScheduleModal";
 import { getCalendars, getEvents, getSchedulesForCalendar, createEvent, updateEvent, deleteEvent, createCalendar, deleteCalendar, type ScheduleEventDisplay } from "@/actions/calendar";
 import { createRecurrenceRule } from "@/lib/recurrence";
 import { showToast } from "@/components/Toast";
@@ -59,11 +60,18 @@ interface CalendarAppProps {
   role: string;
   teacherProfileId?: string | null;
   studentClassIds?: string[];
+  classes?: { id: string; name: string }[];
+  subjects?: { id: string; name: string; code: string }[];
+  teachers?: { id: string; user: { name: string } }[];
+  rooms?: { id: string; name: string; capacity?: number | null }[];
 }
 
-export default function CalendarApp({ userId, userName, role, teacherProfileId, studentClassIds = [] }: CalendarAppProps) {
+export default function CalendarApp({
+  userId, userName, role, teacherProfileId, studentClassIds = [],
+  classes = [], subjects = [], teachers = [], rooms = [],
+}: CalendarAppProps) {
   const [currentView, setCurrentView] = useState<ViewType>("week");
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const [calendars, setCalendars] = useState<CalendarItem[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedCalendarId, setSelectedCalendarId] = useState<string | undefined>();
@@ -71,20 +79,20 @@ export default function CalendarApp({ userId, userName, role, teacherProfileId, 
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [initialStart, setInitialStart] = useState<Date | undefined>();
   const [initialEnd, setInitialEnd] = useState<Date | undefined>();
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
-  const calendarsLoaded = useRef(false);
   const calendarsRef = useRef<CalendarItem[]>([]);
+  const eventsRef = useRef<CalendarEvent[]>([]);
+  const loadCountRef = useRef(0);
 
+  // Load calendars once
   useEffect(() => {
     async function load() {
       try {
         const cals = await getCalendars(userId);
         setCalendars(cals);
         calendarsRef.current = cals;
-        if (cals.length > 0 && !calendarsLoaded.current) {
-          setSelectedCalendarId(cals[0].id);
-        }
-        calendarsLoaded.current = true;
+        if (cals.length > 0) setSelectedCalendarId(cals[0].id);
       } catch {
         showToast("Lỗi tải lịch", "error");
       }
@@ -92,50 +100,65 @@ export default function CalendarApp({ userId, userName, role, teacherProfileId, 
     load();
   }, [userId]);
 
-  const loadEvents = useCallback(async () => {
-    const visibleCals = calendarsRef.current.filter((c) => c.isVisible).map((c) => c.id);
+  // Load events when view/date changes
+  useEffect(() => {
+    // Guard: prevent double-fire in dev strict mode
+    loadCountRef.current++;
+    if (loadCountRef.current > 10) return;
 
-    let from: Date;
-    let to: Date;
-    switch (currentView) {
-      case "day":
-        from = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-        to = addDays(from, 1);
-        break;
-      case "week":
-        from = startOfWeek(currentDate, { weekStartsOn: 1 });
-        to = endOfWeek(from, { weekStartsOn: 1 });
-        break;
-      case "month":
-        from = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 });
-        to = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 });
-        break;
-      case "agenda":
-        from = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-        to = addDays(from, 90);
-        break;
-    }
+    let cancelled = false;
 
-    try {
-      let allEvents: CalendarEvent[] = [];
+    async function load() {
+      const visibleCals = calendarsRef.current.filter((c) => c.isVisible).map((c) => c.id);
 
-      if (visibleCals.length > 0) {
-        const rawEvents = await getEvents({ calendarIds: visibleCals, from: from!, to: to! });
-        allEvents = rawEvents.map((e) => ({ ...e, start: new Date(e.start), end: new Date(e.end) }));
+      let from: Date;
+      let to: Date;
+      switch (currentView) {
+        case "day":
+          from = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+          to = addDays(from, 1);
+          break;
+        case "week":
+          from = startOfWeek(currentDate, { weekStartsOn: 1 });
+          to = endOfWeek(from, { weekStartsOn: 1 });
+          break;
+        case "month":
+          from = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 });
+          to = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 });
+          break;
+        case "agenda":
+          from = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+          to = addDays(from, 90);
+          break;
       }
 
-      const schedules = await getSchedulesForCalendar(
-        userId, role, teacherProfileId ?? null, studentClassIds, from!, to!
-      );
-      allEvents = [...allEvents, ...schedules.map((s) => ({ ...s, start: new Date(s.start), end: new Date(s.end) }))];
+      try {
+        let allEvents: CalendarEvent[] = [];
 
-      setEvents(allEvents);
-    } catch {
-      showToast("Lỗi tải sự kiện", "error");
+        if (visibleCals.length > 0) {
+          const rawEvents = await getEvents({ calendarIds: visibleCals, from: from!, to: to! });
+          allEvents = rawEvents.map((e) => ({ ...e, start: new Date(e.start), end: new Date(e.end) }));
+        }
+
+        const schedules = await getSchedulesForCalendar(
+          userId, role, teacherProfileId ?? null, studentClassIds, from!, to!
+        );
+        allEvents = [...allEvents, ...schedules.map((s) => ({ ...s, start: new Date(s.start), end: new Date(s.end) }))];
+
+        if (!cancelled) setEvents(allEvents);
+      } catch {
+        if (!cancelled) showToast("Lỗi tải sự kiện", "error");
+      }
     }
-  }, [currentView, currentDate, userId, role, teacherProfileId, studentClassIds]);
 
-  useEffect(() => { loadEvents(); }, [loadEvents]);
+    load();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    currentView,
+    currentDate.toISOString().slice(0, 10),
+    userId, role, teacherProfileId, studentClassIds.join(","),
+  ]);
 
   const handleSaveEvent = async (data: EventFormData) => {
     try {
@@ -173,7 +196,8 @@ export default function CalendarApp({ userId, userName, role, teacherProfileId, 
       setEditingEvent(null);
       setInitialStart(undefined);
       setInitialEnd(undefined);
-      loadEvents();
+      // Force re-mount by changing a key — just reload by toggling currentView
+      setEvents([]);
     } catch {
       showToast("Lỗi lưu sự kiện", "error");
     }
@@ -186,7 +210,7 @@ export default function CalendarApp({ userId, userName, role, teacherProfileId, 
       showToast("Đã xóa sự kiện", "success");
       setModalOpen(false);
       setEditingEvent(null);
-      loadEvents();
+      setCalendars((prev) => [...prev]); // trigger re-fetch
     } catch {
       showToast("Lỗi xóa sự kiện", "error");
     }
@@ -219,7 +243,8 @@ export default function CalendarApp({ userId, userName, role, teacherProfileId, 
   const handleEventDragEnd = async (event: CalendarEvent, newStart: Date, newEnd: Date) => {
     try {
       await updateEvent(event.id, { startTime: newStart, endTime: newEnd }, event.isRecurrenceInstance ? "this" : "all");
-      loadEvents();
+      loadCountRef.current = 0;
+      setEvents([]);
     } catch {
       showToast("Lỗi di chuyển sự kiện", "error");
     }
@@ -233,9 +258,9 @@ export default function CalendarApp({ userId, userName, role, teacherProfileId, 
     try {
       await createCalendar({ name, color }, userId);
       showToast("Đã tạo lịch mới", "success");
-      calendarsLoaded.current = false;
       const cals = await getCalendars(userId);
       setCalendars(cals);
+      calendarsRef.current = cals;
     } catch {
       showToast("Lỗi tạo lịch", "error");
     }
@@ -246,9 +271,9 @@ export default function CalendarApp({ userId, userName, role, teacherProfileId, 
       await deleteCalendar(calId);
       showToast("Đã xóa lịch", "success");
       if (selectedCalendarId === calId) setSelectedCalendarId(undefined);
-      calendarsLoaded.current = false;
       const cals = await getCalendars(userId);
       setCalendars(cals);
+      calendarsRef.current = cals;
     } catch {
       showToast("Lỗi xóa lịch", "error");
     }
@@ -287,6 +312,8 @@ export default function CalendarApp({ userId, userName, role, teacherProfileId, 
           onDateChange={setCurrentDate}
           onToday={() => setCurrentDate(new Date())}
           onCreateEvent={handleCreateEvent}
+          onCreateSchedule={() => setScheduleModalOpen(true)}
+          role={role}
         />
         <div className="flex-1 overflow-hidden">{renderView()}</div>
       </div>
@@ -298,6 +325,18 @@ export default function CalendarApp({ userId, userName, role, teacherProfileId, 
         onClose={() => { setModalOpen(false); setEditingEvent(null); setInitialStart(undefined); setInitialEnd(undefined); }}
         onSave={handleSaveEvent}
         onDelete={editingEvent ? handleDeleteEvent : undefined}
+      />
+
+      <ScheduleModal
+        isOpen={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        onSuccess={() => { loadCountRef.current = 0; setEvents([]); }}
+        role={role}
+        currentTeacherProfileId={teacherProfileId}
+        classes={classes}
+        subjects={subjects}
+        teachers={teachers}
+        rooms={rooms}
       />
     </div>
   );

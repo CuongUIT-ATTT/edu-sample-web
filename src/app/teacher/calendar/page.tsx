@@ -11,6 +11,12 @@ export default async function TeacherCalendarPage() {
     where: { userId: session.userId },
   });
 
+  const [classes, subjects, rooms] = await Promise.all([
+    db.class.findMany({ orderBy: { name: "asc" } }),
+    db.subject.findMany({ orderBy: { name: "asc" } }),
+    db.room.findMany({ orderBy: { name: "asc" } }),
+  ]);
+
   return (
     <div className="h-[calc(100vh-60px)]">
       <CalendarApp
@@ -18,6 +24,9 @@ export default async function TeacherCalendarPage() {
         userName={session.name}
         role={session.role}
         teacherProfileId={teacherProfile?.id ?? null}
+        classes={classes}
+        subjects={subjects}
+        rooms={rooms}
       />
     </div>
   );
