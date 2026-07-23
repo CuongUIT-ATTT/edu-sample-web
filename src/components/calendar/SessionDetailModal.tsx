@@ -8,7 +8,7 @@ import {
 import {
   updateScheduleFiles,
   submitHomework,
-  getScheduleSubmissions,
+  getHomeworkSubmissionsWithStudents,
   getStudentSubmission,
 } from "@/actions/homework";
 import { showToast } from "@/components/Toast";
@@ -42,16 +42,15 @@ interface SessionDetailModalProps {
 }
 
 interface Submission {
-  id: string;
-  fileUrl: string;
-  fileName: string;
-  submittedAt: string | Date;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  submitted: boolean;
+  fileUrl: string | null;
+  fileName: string | null;
+  submittedAt: string | Date | null;
   grade: number | null;
   feedback: string | null;
-  student: {
-    id: string;
-    user: { name: string; email: string };
-  };
 }
 
 const DAYS = ["", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
@@ -83,7 +82,7 @@ export default function SessionDetailModal({
     setLoadingSubmissions(true);
     try {
       if (isTeacherOrAdmin) {
-        const result = await getScheduleSubmissions(scheduleId);
+        const result = await getHomeworkSubmissionsWithStudents(scheduleId);
         if (result.success && result.data) {
           setSubmissions(result.data as Submission[]);
         }
@@ -92,13 +91,15 @@ export default function SessionDetailModal({
         if (result.success && result.data) {
           const d = result.data as Record<string, unknown>;
           setStudentSubmission({
-            id: d.id as string,
+            studentId: "",
+            studentName: "",
+            studentEmail: "",
+            submitted: true,
             fileUrl: d.fileUrl as string,
             fileName: (d.fileName as string) || "Bài nộp",
             submittedAt: d.submittedAt as string | Date,
             grade: d.grade as number | null,
             feedback: d.feedback as string | null,
-            student: { id: "", user: { name: "", email: "" } },
           });
         }
       }
@@ -350,25 +351,42 @@ export default function SessionDetailModal({
               <div className="flex items-center gap-2 mb-2">
                 <Users className="w-4 h-4 text-violet-500" />
                 <span className="text-sm font-semibold text-ink">Danh sách nộp bài</span>
+                <span className="text-[10px] text-ink-muted-48 bg-surface-pearl px-1.5 py-0.5 rounded-full">
+                  {submissions.filter(s => s.submitted).length}/{submissions.length} đã nộp
+                </span>
               </div>
 
               {loadingSubmissions ? (
                 <p className="text-xs text-ink-muted-48">Đang tải...</p>
               ) : submissions.length === 0 ? (
-                <p className="text-xs text-ink-muted-48">Chưa có học viên nào nộp bài</p>
+                <p className="text-xs text-ink-muted-48">Lớp này chưa có học viên</p>
               ) : (
-                <div className="space-y-1.5 max-h-40 overflow-auto">
+                <div className="space-y-1 max-h-48 overflow-auto">
                   {submissions.map((sub) => (
-                    <div key={sub.id} className="flex items-center justify-between text-xs p-2 bg-surface-pearl rounded">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                        <span className="font-medium text-ink">{sub.student.user.name}</span>
-                        <span className="text-ink-muted-48">({sub.fileName})</span>
-                      </div>
-                      <a href={sub.fileUrl} target="_blank" rel="noopener noreferrer"
-                        className="text-blue-500 hover:underline">
-                        Xem
-                      </a>
+                    <div key={sub.studentId} className="flex items-center justify-between text-xs p-2 rounded">
+                      {sub.submitted ? (
+                        <>
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            <span className="font-medium text-ink truncate">{sub.studentName}</span>
+                            <span className="text-ink-muted-48 shrink-0">
+                              {sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
+                            </span>
+                          </div>
+                          {sub.fileUrl && (
+                            <a href={sub.fileUrl} target="_blank" rel="noopener noreferrer"
+                              className="text-blue-500 hover:underline shrink-0 ml-2">
+                              Xem
+                            </a>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <XCircle className="w-3.5 h-3.5 text-red-300 shrink-0" />
+                          <span className="font-medium text-ink-muted-48 truncate">{sub.studentName}</span>
+                          <span className="text-[10px] text-red-400 shrink-0">Chưa nộp</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

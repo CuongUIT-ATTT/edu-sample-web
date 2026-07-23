@@ -232,6 +232,66 @@ export async function getStudentSubmission(scheduleId: string) {
   }
 }
 
+/**
+ * Get all students in the class for a schedule, with their submission status.
+ */
+export async function getHomeworkSubmissionsWithStudents(scheduleId: string) {
+  try {
+    const session = await getSession();
+    if (!session || (session.role !== "ADMIN" && session.role !== "TEACHER")) {
+      return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
+    }
+
+    const schedule = await db.schedule.findUnique({
+      where: { id: scheduleId },
+      include: {
+        class: {
+          include: {
+            students: {
+              include: { user: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!schedule) {
+      return { success: false, error: "Không tìm thấy ca học." };
+    }
+
+    const allStudents = schedule.class.students;
+
+    const submissions = await db.homeworkSubmission.findMany({
+      where: { scheduleId },
+    });
+
+    const result = allStudents.map((student) => {
+      const sub = submissions.find((s) => s.studentId === student.id);
+      return {
+        studentId: student.id,
+        studentName: student.user.name,
+        studentEmail: student.user.email,
+        submitted: sub != null,
+        fileUrl: sub?.fileUrl ?? null,
+        fileName: sub?.fileName ?? null,
+        submittedAt: sub?.submittedAt ?? null,
+        grade: sub?.grade ?? null,
+        feedback: sub?.feedback ?? null,
+      };
+    });
+
+    result.sort((a, b) => {
+      if (a.submitted !== b.submitted) return a.submitted ? -1 : 1;
+      return a.studentName.localeCompare(b.studentName);
+    });
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Error getting homework submissions:", error);
+    return { success: false, error: "Lỗi hệ thống khi tải danh sách." };
+  }
+}
+
 export async function getClassSessionQuizSubmissions(scheduleId: string, quizId: string) {
   try {
     const session = await getSession();

@@ -423,6 +423,49 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         return;
       }
 
+      // Detect exam structure (mã đề thi với part_1/part_2/part_3) và tự động chuyển đổi
+      if (parsed[0]?.part_1 || parsed[0]?.part_2 || parsed[0]?.part_3) {
+        const flatQuestions: any[] = [];
+        const letterMap: Record<string, string> = { A: "0", B: "1", C: "2", D: "3" };
+        parsed.forEach((exam: any) => {
+          if (exam.part_1) exam.part_1.forEach((q: any) => {
+            const options = q.options ? [q.options.A || "", q.options.B || "", q.options.C || "", q.options.D || ""] : [];
+            flatQuestions.push({
+              questionText: q.question_text || "",
+              type: "MULTIPLE_CHOICE",
+              options,
+              correctAnswer: letterMap[q.correct_answer?.toUpperCase()] ?? "0",
+              score: 0.25,
+              explanation: q.explanation || "",
+              imageUrl: ""
+            });
+          });
+          if (exam.part_2) exam.part_2.forEach((q: any) => {
+            flatQuestions.push({
+              questionText: q.context || "",
+              type: "TRUE_FALSE",
+              options: q.statements?.map((s: any) => s.statement || "") || [],
+              correctAnswer: q.statements?.map((s: any) => s.is_correct ? "T" : "F").join(",") || "",
+              score: 1.0,
+              explanation: q.explanation || "",
+              imageUrl: ""
+            });
+          });
+          if (exam.part_3) exam.part_3.forEach((q: any) => {
+            flatQuestions.push({
+              questionText: q.question_text || "",
+              type: "SHORT_ANSWER",
+              options: [],
+              correctAnswer: String(q.answer ?? ""),
+              score: 0.5,
+              explanation: q.explanation || "",
+              imageUrl: ""
+            });
+          });
+        });
+        parsed = flatQuestions;
+      }
+
       const formattedQuestions = parsed.map((q: any) => {
         const type = ["MULTIPLE_CHOICE", "TRUE_FALSE", "SHORT_ANSWER"].includes(q.type) ? q.type : "MULTIPLE_CHOICE";
         let options = Array.isArray(q.options) ? [...q.options] : [];
