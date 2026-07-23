@@ -18,7 +18,7 @@ export default async function TeacherCalendarPage() {
   ]);
 
   return (
-    <div className="h-[calc(100vh-60px)]">
+    <div className="h-full p-4 md:p-8">
       <CalendarApp
         userId={session.userId}
         userName={session.name}
