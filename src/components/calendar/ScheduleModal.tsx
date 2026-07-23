@@ -43,9 +43,21 @@ export default function ScheduleModal({
   const [subjectId, setSubjectId] = useState("");
   const [teacherId, setTeacherId] = useState(currentTeacherProfileId ?? "");
   const [dayOfWeek, setDayOfWeek] = useState(1);
-  const [startDate, setStartDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+
+  // Helper: compute nearest future date for a given dayOfWeek (1=Mon..7=Sun)
+  function computeNearestDate(dow: number): string {
+    const today = new Date();
+    const currentDow = today.getDay() === 0 ? 7 : today.getDay();
+    let diff = dow - currentDow;
+    if (diff <= 0) diff += 7;
+    const target = new Date(today.getFullYear(), today.getMonth(), today.getDate() + diff);
+    const y = target.getFullYear();
+    const m = String(target.getMonth() + 1).padStart(2, "0");
+    const d = String(target.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  const [startDate, setStartDate] = useState(() => computeNearestDate(1));
   const [startTime, setStartTime] = useState("07:00");
   const [endTime, setEndTime] = useState("08:00");
   const [selectedRoom, setSelectedRoom] = useState("");
@@ -55,13 +67,34 @@ export default function ScheduleModal({
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Auto-sync startDate when dayOfWeek changes by user
+
   if (!isOpen) return null;
 
   const isTeacher = role === "TEACHER";
 
+  // Auto-adjust startDate when dayOfWeek changes to match the nearest future date
+  const handleDayOfWeekChange = (newDow: number) => {
+    setDayOfWeek(newDow);
+    setStartDate(computeNearestDate(newDow));
+  };
+
+  // Check if selected date matches dayOfWeek
+  const dateMatchesDay = (() => {
+    if (!startDate) return true;
+    const d = new Date(startDate);
+    const dow = d.getDay() === 0 ? 7 : d.getDay();
+    return dow === dayOfWeek;
+  })();
+
   const handleSubmit = async () => {
     if (!classId || !subjectId || !selectedRoom || !startDate) {
       showToast("Vui lòng nhập đầy đủ thông tin", "warning");
+      return;
+    }
+
+    if (!dateMatchesDay) {
+      showToast("Ngày bắt đầu không khớp với thứ đã chọn. Vui lòng chọn lại.", "warning");
       return;
     }
 
@@ -178,7 +211,7 @@ export default function ScheduleModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-ink-muted-80 block mb-1">Thứ *</label>
-              <select value={dayOfWeek} onChange={(e) => setDayOfWeek(Number(e.target.value))}
+              <select value={dayOfWeek} onChange={(e) => handleDayOfWeekChange(Number(e.target.value))}
                 className="w-full text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500">
                 {DAYS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
@@ -186,7 +219,10 @@ export default function ScheduleModal({
             <div>
               <label className="text-xs font-medium text-ink-muted-80 block mb-1">Ngày bắt đầu *</label>
               <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                className="w-full text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500" />
+                className={`w-full text-sm border rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 ${!dateMatchesDay ? "border-red-400 bg-red-50" : "border-hairline"}`} />
+              {!dateMatchesDay && (
+                <p className="text-[10px] text-red-500 mt-1">Ngày không khớp với thứ đã chọn</p>
+              )}
             </div>
           </div>
 
