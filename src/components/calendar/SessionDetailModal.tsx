@@ -345,7 +345,7 @@ export default function SessionDetailModal({
           </div>
 
           {/* Submissions tracking (teacher/admin only) */}
-          {isTeacherOrAdmin && meta.homework && (
+          {isTeacherOrAdmin && (
             <div className="border border-hairline rounded-lg p-3">
               <div className="flex items-center gap-2 mb-2">
                 <Users className="w-4 h-4 text-violet-500" />
