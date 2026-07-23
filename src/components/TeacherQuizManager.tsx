@@ -290,6 +290,21 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     document.body.removeChild(link);
   };
 
+  const downloadImageJsonTemplate = () => {
+    const imageTemplate = {
+      "question_1": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "question_5": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    };
+
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(imageTemplate, null, 2))}`;
+    const link = document.createElement("a");
+    link.setAttribute("href", jsonString);
+    link.setAttribute("download", "mau_anh_de_thi.json");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1321,13 +1336,22 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     <span className="text-xs font-bold text-ink flex items-center gap-1.5">
                       <FileText className="h-4 w-4 text-orange-600" /> Nhập danh sách câu hỏi bằng mã JSON
                     </span>
-                    <button
-                      type="button"
-                      onClick={downloadJsonTemplate}
-                      className="text-xs text-primary hover:underline font-semibold"
-                    >
-                      Tải file JSON mẫu (.json)
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={downloadJsonTemplate}
+                        className="text-xs text-primary hover:underline font-semibold"
+                      >
+                        Tải JSON mẫu đề thi
+                      </button>
+                      <button
+                        type="button"
+                        onClick={downloadImageJsonTemplate}
+                        className="text-xs text-amber-600 hover:underline font-semibold"
+                      >
+                        Tải JSON mẫu ảnh base64
+                      </button>
+                    </div>
                   </div>
                   <textarea
                     rows={8}
