@@ -366,7 +366,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     reader.readAsText(file, "UTF-8");
   };
 
-  const handleMergeImages = () => {
+  const handleMergeImages = async () => {
     if (!imageJsonText.trim()) {
       showToast("Vui lòng dán JSON ảnh base64 vào ô.", "warning");
       return;
@@ -381,20 +381,58 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         showToast("JSON ảnh phải là đối tượng {\"question_1\": \"base64...\", ...}", "error");
         return;
       }
+
+      // Thu thập ảnh cần upload (base64 hoặc HTTP URL)
+      const imageEntries: [number, string][] = [];
+      for (const [key, value] of Object.entries(imageData)) {
+        const match = key.match(/^question_(\d+)$/);
+        if (match && typeof value === "string" && (value.startsWith("data:image/") || value.startsWith("http"))) {
+          imageEntries.push([parseInt(match[1]), value]);
+        }
+      }
+
+      if (imageEntries.length === 0) {
+        showToast("Không tìm thấy ảnh hợp lệ. Format: {\"question_1\": \"data:image/...\"}", "warning");
+        return;
+      }
+
+      showToast(`Đang upload ${imageEntries.length} ảnh lên Cloudinary...`, "info");
+      setImportingImages(true);
+
+      // Upload tất cả base64 lên Cloudinary
+      const urls = imageEntries.map(([, src]) => src);
+      const res = await fetch("/api/upload-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: urls }),
+      });
+      const data = await res.json();
+
+      if (!data.success || !Array.isArray(data.results)) {
+        showToast("Upload ảnh thất bại.", "error");
+        return;
+      }
+
+      // Map URL thật vào câu hỏi
       let mergedCount = 0;
-      setQuestions((prev) =>
-        prev.map((q, idx) => {
-          const key = `question_${idx + 1}`;
-          if (imageData[key]) {
+      setQuestions((prev) => {
+        const next = [...prev];
+        for (let i = 0; i < imageEntries.length; i++) {
+          const [qNum] = imageEntries[i];
+          const result = data.results[i];
+          if (result?.url && qNum >= 1 && qNum <= next.length) {
+            next[qNum - 1] = { ...next[qNum - 1], imageUrl: result.url };
             mergedCount++;
-            return { ...q, imageUrl: imageData[key] };
           }
-          return q;
-        })
-      );
-      showToast(`Đã gắn ${mergedCount} ảnh vào câu hỏi!`, "success");
+        }
+        return next;
+      });
+
+      showToast(`Đã gắn ${mergedCount}/${imageEntries.length} ảnh vào câu hỏi!`, mergedCount === imageEntries.length ? "success" : "warning");
     } catch {
       showToast("Lỗi parse JSON ảnh. Vui lòng kiểm tra lại.", "error");
+    } finally {
+      setImportingImages(false);
     }
   };
 
