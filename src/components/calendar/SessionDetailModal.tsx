@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   X, ExternalLink, BookOpen, GraduationCap, Upload,
-  CheckCircle, XCircle, Clock, Users,
+  CheckCircle, XCircle, Clock, Users, Trash2,
 } from "lucide-react";
 import {
   updateScheduleFiles,
@@ -11,6 +11,7 @@ import {
   getHomeworkSubmissionsWithStudents,
   getStudentSubmission,
 } from "@/actions/homework";
+import { deleteSchedule } from "@/actions/schedules";
 import { showToast } from "@/components/Toast";
 
 interface ScheduleBlock {
@@ -74,6 +75,8 @@ export default function SessionDetailModal({
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [studentSubmission, setStudentSubmission] = useState<Submission | null>(null);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const isTeacherOrAdmin = role === "ADMIN" || role === "TEACHER";
   const isStudent = role === "STUDENT";
@@ -204,6 +207,25 @@ export default function SessionDetailModal({
     return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   };
 
+  const handleDeleteSchedule = async (deleteMode: "ONLY_THIS" | "ALL_FUTURE") => {
+    setDeleting(true);
+    try {
+      const result = await deleteSchedule(meta.scheduleId, deleteMode);
+      if (result.success) {
+        showToast("Đã xóa lịch học!", "success");
+        setShowDeleteConfirm(false);
+        onUpdate();
+        onClose();
+      } else {
+        showToast(result.error || "Lỗi xóa lịch học", "error");
+      }
+    } catch {
+      showToast("Lỗi server", "error");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -216,10 +238,21 @@ export default function SessionDetailModal({
               {DAYS[meta.dayOfWeek]} {meta.startTime} – {meta.endTime} | {meta.room || "Chưa có phòng"}
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-ink-muted-48 hover:bg-surface-pearl">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            {isTeacherOrAdmin && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                title="Xóa lịch học"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-lg text-ink-muted-48 hover:bg-surface-pearl">
+              <X className="w-4 h-4" />
+            </button>
         </div>
+          </div>
 
         <div className="p-4 space-y-4">
           <div className="flex items-center gap-2 text-xs text-ink-muted-48">
@@ -394,6 +427,44 @@ export default function SessionDetailModal({
             </div>
           )}
         </div>
+
+        {/* Delete confirmation dialog */}
+        {showDeleteConfirm && (
+          <div className="absolute inset-0 bg-white/95 flex items-center justify-center z-50 rounded-xl">
+            <div className="p-6 text-center max-w-sm">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-500" />
+              </div>
+              <h4 className="text-base font-semibold text-ink mb-2">Xóa lịch học</h4>
+              <p className="text-sm text-ink-muted-48 mb-4">
+                "{meta.subjectName}" — {DAYS[meta.dayOfWeek]} {meta.startTime}
+              </p>
+              <div className="space-y-2">
+                <button
+                  onClick={() => handleDeleteSchedule("ONLY_THIS")}
+                  disabled={deleting}
+                  className="w-full px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
+                >
+                  {deleting ? "Đang xóa..." : "Chỉ xóa buổi học này"}
+                </button>
+                <button
+                  onClick={() => handleDeleteSchedule("ALL_FUTURE")}
+                  disabled={deleting}
+                  className="w-full px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50 transition-colors"
+                >
+                  {deleting ? "Đang xóa..." : "Xóa buổi này và các buổi sau"}
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={deleting}
+                  className="w-full px-4 py-2 text-sm font-medium text-ink border border-hairline rounded-lg hover:bg-surface-pearl transition-colors"
+                >
+                  Hủy
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
