@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus } from "lucide-react";
+import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus, Image as ImageIcon } from "lucide-react";
 import { createQuiz, deleteQuiz, updateQuiz, getQuizSubmissions } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
 import { showToast } from "@/components/Toast";
@@ -99,6 +99,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [importMethod, setImportMethod] = useState<"MANUAL" | "PASTE_TEXT" | "CSV" | "JSON">("MANUAL");
   const [rawPastedText, setRawPastedText] = useState("");
   const [jsonText, setJsonText] = useState("");
+  const [imageJsonText, setImageJsonText] = useState("");
   const [importingImages, setImportingImages] = useState(false);
 
   // Questions array state supporting Section I, II, III
@@ -348,6 +349,38 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
       }
     };
     reader.readAsText(file, "UTF-8");
+  };
+
+  const handleMergeImages = () => {
+    if (!imageJsonText.trim()) {
+      showToast("Vui lòng dán JSON ảnh base64 vào ô.", "warning");
+      return;
+    }
+    if (questions.length === 0) {
+      showToast("Chưa có câu hỏi nào. Hãy import JSON đề thi trước.", "warning");
+      return;
+    }
+    try {
+      const imageData = JSON.parse(imageJsonText.trim());
+      if (typeof imageData !== "object" || Array.isArray(imageData)) {
+        showToast("JSON ảnh phải là đối tượng {\"question_1\": \"base64...\", ...}", "error");
+        return;
+      }
+      let mergedCount = 0;
+      setQuestions((prev) =>
+        prev.map((q, idx) => {
+          const key = `question_${idx + 1}`;
+          if (imageData[key]) {
+            mergedCount++;
+            return { ...q, imageUrl: imageData[key] };
+          }
+          return q;
+        })
+      );
+      showToast(`Đã gắn ${mergedCount} ảnh vào câu hỏi!`, "success");
+    } catch {
+      showToast("Lỗi parse JSON ảnh. Vui lòng kiểm tra lại.", "error");
+    }
   };
 
   const handleImportJson = async () => {
@@ -1314,6 +1347,33 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     ) : (
                       "Import từ JSON"
                     )}
+                  </button>
+                </div>
+              )}
+
+              {/* IMAGE JSON MERGE - Phase 2 */}
+              {importMethod === "JSON" && questions.length > 0 && (
+                <div className="border border-dashed border-amber-300 rounded-lg p-4 bg-amber-50/50 flex flex-col gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <ImageIcon className="h-4 w-4 text-amber-600" />
+                    <span className="text-xs font-bold text-ink">Bước 2: Gắn ảnh base64 vào câu hỏi</span>
+                  </div>
+                  <p className="text-[10px] text-ink-muted-80">
+                    Dán JSON chứa ảnh base64 và vị trí câu hỏi. Format: <code className="bg-amber-100 px-1 rounded">{"{"}"question_1": "data:image/png;base64,...", "question_7": "data:image/png;base64,..."{"}"}</code>
+                  </p>
+                  <textarea
+                    rows={4}
+                    value={imageJsonText}
+                    onChange={(e) => setImageJsonText(e.target.value)}
+                    placeholder={"{\"question_7\": \"data:image/png;base64,...\", \"question_3\": \"data:image/jpeg;base64,...\"}"}
+                    className="bg-canvas border border-hairline rounded-lg p-3 text-[10px] outline-none focus:border-primary-focus w-full font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleMergeImages}
+                    className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-4 py-2 rounded-pill shadow-sm self-end"
+                  >
+                    Gắn ảnh vào câu hỏi
                   </button>
                 </div>
               )}
