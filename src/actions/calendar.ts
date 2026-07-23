@@ -346,6 +346,7 @@ export interface ScheduleEventDisplay {
     homework: string | null;
     homeworkQuizId: string | null;
     homeworkQuizTitle: string | null;
+    homeworkDueDate: Date | null;
   };
 }
 
@@ -452,6 +453,7 @@ export async function getSchedulesForCalendar(
           homework: schedule.homework,
           homeworkQuizId: schedule.homeworkQuizId,
           homeworkQuizTitle: schedule.homeworkQuiz?.title ?? null,
+          homeworkDueDate: schedule.homeworkDueDate ?? null,
         },
       });
 
