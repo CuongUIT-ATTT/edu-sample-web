@@ -20,6 +20,29 @@ enum AttendanceStatus {
   EXCUSED
 }
 
+enum EventStatus {
+  CONFIRMED
+  TENTATIVE
+  CANCELLED
+}
+
+enum ParticipantRole {
+  ORGANIZER
+  ATTENDEE
+}
+
+enum ParticipantResponse {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum ReminderMethod {
+  POPUP
+  EMAIL
+  NOTIFICATION
+}
+
 model User {
   id           String          @id @default(uuid())
   email        String          @unique
@@ -33,6 +56,10 @@ model User {
   teacherProfile TeacherProfile?
   studentProfile StudentProfile?
   parentProfile  ParentProfile?
+
+  calendars          Calendar[]
+  ownedEvents        Event[]
+  eventParticipations EventParticipant[]
 }
 
 model AdminProfile {
@@ -283,5 +310,80 @@ model Document {
   published   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ─── Calendar / Events ─────────────────────────────────────────────
+
+model Calendar {
+  id              String   @id @default(uuid())
+  name            String
+  color           String   @default("#4285F4")
+  isVisible       Boolean  @default(true)
+  timezoneDefault String   @default("Asia/Ho_Chi_Minh")
+  ownerId         String
+  owner           User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  events          Event[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Event {
+  id             String        @id @default(uuid())
+  title          String
+  description    String?
+  location       String?
+  startTime      DateTime      // UTC
+  endTime        DateTime      // UTC
+  isAllDay       Boolean       @default(false)
+  timezone       String        @default("Asia/Ho_Chi_Minh")
+  color          String        @default("#4285F4")
+  recurrenceRule String?       // RRULE string (RFC 5545), e.g. "FREQ=WEEKLY;BYDAY=MO,WE,FR"
+  recurrenceId   String?       // set on exception instances only
+  status         EventStatus   @default(CONFIRMED)
+  calendarId     String
+  calendar       Calendar      @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  ownerId        String
+  owner          User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  participants   EventParticipant[]
+  reminders      Reminder[]
+  exceptions     EventException[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([calendarId, startTime])
+  @@index([ownerId])
+}
+
+model EventException {
+  id            String      @id @default(uuid())
+  eventId       String
+  event         Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  originalStart DateTime    // UTC — identifies which instance was modified
+  recurrenceId  String      // generated ID for this recurrence instance
+  title         String?
+  description   String?
+  location      String?
+  startTime     DateTime?   // UTC — overridden start
+  endTime       DateTime?   // UTC — overridden end
+  isAllDay      Boolean?
+  status        EventStatus?
+}
+
+model EventParticipant {
+  id             String              @id @default(uuid())
+  eventId        String
+  event          Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responseStatus ParticipantResponse @default(PENDING)
+  role           ParticipantRole     @default(ATTENDEE)
+}
+
+model Reminder {
+  id            String         @id @default(uuid())
+  eventId       String
+  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  method        ReminderMethod @default(POPUP)
+  minutesBefore Int
 }
 
