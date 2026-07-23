@@ -30,7 +30,7 @@ export default function WeekView({ date, events, onEventClick, onEventDragEnd }:
           {weekDates.map((d) => (
             <div
               key={d.toISOString()}
-              className={`flex-1 min-w-[100px] md:min-w-[120px] px-1 md:px-2 py-1.5 md:py-2 text-center border-l border-hairline
+              className={`flex-1 min-w-[120px] px-1 md:px-2 py-1.5 md:py-2 text-center border-l border-hairline
                 ${isToday(d) ? "bg-blue-50" : ""}
               `}
             >
