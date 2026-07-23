@@ -29,7 +29,7 @@ export default function TimeGrid({
   onEventDragEnd,
 }: TimeGridProps) {
   return (
-    <div className="flex flex-1 overflow-auto">
+    <div className="flex flex-1">
       {/* Time labels column */}
       <div className="w-10 md:w-16 shrink-0 border-r border-hairline">
         {HOURS.map((h) => (
