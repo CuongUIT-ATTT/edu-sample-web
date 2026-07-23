@@ -240,6 +240,10 @@ export default function CalendarApp({
   };
 
   const handleEventDragEnd = async (event: CalendarEvent, newStart: Date, newEnd: Date) => {
+    if (event.isSchedule) {
+      showToast("Không thể di chuyển lịch học. Vào phần đăng ký lịch để chỉnh sửa.", "warning");
+      return;
+    }
     try {
       await updateEvent(event.id, { startTime: newStart, endTime: newEnd }, event.isRecurrenceInstance ? "this" : "all");
       loadCountRef.current = 0;

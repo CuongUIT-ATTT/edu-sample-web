@@ -88,7 +88,7 @@ export default function TimeGrid({
                 left={le.leftPercent}
                 width={le.widthPercent}
                 onClick={onEventClick}
-                onDragEnd={onEventDragEnd}
+                onDragEnd={le.event.isSchedule ? undefined : onEventDragEnd}
               />
             ))}
 
