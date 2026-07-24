@@ -90,7 +90,7 @@ export default function StudentDashboardLayout({
               <span className="hidden md:inline">Bảng xếp hạng</span>
             </Link>
             <Link
-              href="/documents"
+              href="/student/documents"
               onClick={closeSidebar}
               className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
             >
@@ -185,7 +185,7 @@ export default function StudentDashboardLayout({
                   <span>Bảng xếp hạng</span>
                 </Link>
                 <Link
-                  href="/documents"
+                  href="/student/documents"
                   onClick={closeSidebar}
                   className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
                 >

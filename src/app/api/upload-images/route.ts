@@ -9,18 +9,16 @@ interface UploadResult {
 const MAX_IMAGES = 30;
 
 /**
- * Batch upload images (base64 data URLs or external URLs) to Cloudinary.
+ * Batch upload images (base64 data URLs or external URLs) to ImgBB.
  * POST { images: string[] } → { success, results: UploadResult[] }
  */
 export async function POST(req: NextRequest) {
   try {
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.CLOUDINARY_API_KEY;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    const imgbbKey = process.env.IMGBB_API_KEY;
 
-    if (!cloudName || !apiKey || !apiSecret) {
+    if (!imgbbKey) {
       return NextResponse.json(
-        { error: "Cloudinary chưa được cấu hình trong .env" },
+        { error: "IMGBB_API_KEY chưa được cấu hình trong .env" },
         { status: 500 }
       );
     }
@@ -45,13 +43,11 @@ export async function POST(req: NextRequest) {
     const results: UploadResult[] = await Promise.all(
       images.map(async (src, index) => {
         try {
-          const formData = new FormData();
+          let base64Data = "";
 
           if (src.startsWith("data:image/")) {
-            // Base64 data URL — Cloudinary accepts data URLs directly
-            formData.append("file", src);
+            base64Data = src.split(",")[1];
           } else if (src.startsWith("http://") || src.startsWith("https://")) {
-            // External URL — fetch and send as blob
             const imgRes = await fetch(src, {
               signal: AbortSignal.timeout(15000),
             });
@@ -59,44 +55,35 @@ export async function POST(req: NextRequest) {
               return { index, url: null, error: `Không tải được ảnh: ${imgRes.status}` };
             }
             const blob = await imgRes.blob();
-            formData.append("file", blob, `quiz_img_${index}.png`);
+            const arrayBuffer = await blob.arrayBuffer();
+            base64Data = Buffer.from(arrayBuffer).toString("base64");
           } else {
             return { index, url: null, error: "Không nhận diện được định dạng ảnh" };
           }
 
-          const timestamp = Math.floor(Date.now() / 1000).toString();
-          formData.append("api_key", apiKey);
-          formData.append("timestamp", timestamp);
-          formData.append("folder", "quiz_images");
+          // Upload to ImgBB
+          const formData = new FormData();
+          formData.append("key", imgbbKey);
+          formData.append("image", base64Data);
 
-          // Cloudinary signature = sha1(api_secret + timestamp + api_key) is not used with basic auth
-          // Use basic auth instead: base64(apiKey:apiSecret)
-          const authHeader = "Basic " + Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
+          const imgbbRes = await fetch("https://api.imgbb.com/1/upload", {
+            method: "POST",
+            body: formData,
+            signal: AbortSignal.timeout(30000),
+          });
 
-          const cloudinaryRes = await fetch(
-            `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: authHeader,
-              },
-              body: formData,
-              signal: AbortSignal.timeout(30000),
-            }
-          );
-
-          if (!cloudinaryRes.ok) {
-            const errText = await cloudinaryRes.text();
-            console.error(`Cloudinary upload failed [${index}]:`, errText);
-            return { index, url: null, error: "Upload thất bại" };
+          if (!imgbbRes.ok) {
+            const errText = await imgbbRes.text();
+            console.error(`ImgBB upload failed [${index}]:`, errText);
+            return { index, url: null, error: "Upload ImgBB thất bại" };
           }
 
-          const data = await cloudinaryRes.json();
-          if (!data.secure_url) {
-            return { index, url: null, error: "Upload thất bại" };
+          const data = await imgbbRes.json();
+          if (!data?.data?.url) {
+            return { index, url: null, error: "Upload ImgBB thất bại" };
           }
 
-          return { index, url: data.secure_url as string };
+          return { index, url: data.data.url as string };
         } catch (err) {
           return {
             index,
