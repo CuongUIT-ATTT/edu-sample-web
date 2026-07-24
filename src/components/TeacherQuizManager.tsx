@@ -399,7 +399,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
       showToast(`Đang upload ${imageEntries.length} ảnh lên ImgBB...`, "info");
       setImportingImages(true);
 
-      // Upload từng ảnh lên ImgBB
+      // Upload từng ảnh qua proxy server (tránh CORS)
       const IMGBB_KEY = "1e76aab065ef1f9c93204720c9bd4038";
       const urlMap: Record<number, string> = {};
 
@@ -418,18 +418,17 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   });
                 })();
 
-            const form = new FormData();
-            form.append("key", IMGBB_KEY);
-            form.append("image", imgData);
-
-            const res = await fetch("https://api.imgbb.com/1/upload", {
+            const res = await fetch("/api/upload-to-imgbb", {
               method: "POST",
-              body: form,
-              signal: AbortSignal.timeout(30000),
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ image: imgData }),
+              signal: AbortSignal.timeout(35000),
             });
             const json = await res.json();
-            if (json.data?.url) {
-              urlMap[qNum] = json.data.url;
+            if (json.url) {
+              urlMap[qNum] = json.url;
+            } else {
+              console.error(`ImgBB fail q${qNum}:`, json.error);
             }
           } catch (e) {
             console.error(`ImgBB upload failed for question_${qNum}:`, e);
