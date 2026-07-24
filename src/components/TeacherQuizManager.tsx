@@ -396,37 +396,55 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         return;
       }
 
-      showToast(`Đang upload ${imageEntries.length} ảnh lên Cloudinary...`, "info");
+      showToast(`Đang upload ${imageEntries.length} ảnh lên ImgBB...`, "info");
       setImportingImages(true);
 
-      // Upload tất cả base64 lên Cloudinary
-      const urls = imageEntries.map(([, src]) => src);
-      const res = await fetch("/api/upload-images", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images: urls }),
-      });
-      const data = await res.json();
+      // Upload từng ảnh lên ImgBB
+      const IMGBB_KEY = "1e76aab065ef1f9c93204720c9bd4038";
+      const urlMap: Record<number, string> = {};
 
-      if (!data.success || !Array.isArray(data.results)) {
-        showToast("Upload ảnh thất bại.", "error");
-        return;
-      }
+      await Promise.all(
+        imageEntries.map(async ([qNum, src]) => {
+          try {
+            const imgData = src.startsWith("data:image/")
+              ? src
+              : await (async () => {
+                  const r = await fetch(src);
+                  const blob = await r.blob();
+                  return new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.readAsDataURL(blob);
+                  });
+                })();
+
+            const form = new FormData();
+            form.append("key", IMGBB_KEY);
+            form.append("image", imgData);
+
+            const res = await fetch("https://api.imgbb.com/1/upload", {
+              method: "POST",
+              body: form,
+              signal: AbortSignal.timeout(30000),
+            });
+            const json = await res.json();
+            if (json.data?.url) {
+              urlMap[qNum] = json.data.url;
+            }
+          } catch (e) {
+            console.error(`ImgBB upload failed for question_${qNum}:`, e);
+          }
+        })
+      );
 
       // Map URL thật vào câu hỏi
-      let mergedCount = 0;
-      setQuestions((prev) => {
-        const next = [...prev];
-        for (let i = 0; i < imageEntries.length; i++) {
-          const [qNum] = imageEntries[i];
-          const result = data.results[i];
-          if (result?.url && qNum >= 1 && qNum <= next.length) {
-            next[qNum - 1] = { ...next[qNum - 1], imageUrl: result.url };
-            mergedCount++;
-          }
-        }
-        return next;
-      });
+      const mergedCount = Object.keys(urlMap).length;
+      setQuestions((prev) =>
+        prev.map((q, idx) => {
+          const url = urlMap[idx + 1];
+          return url ? { ...q, imageUrl: url } : q;
+        })
+      );
 
       showToast(`Đã gắn ${mergedCount}/${imageEntries.length} ảnh vào câu hỏi!`, mergedCount === imageEntries.length ? "success" : "warning");
     } catch {
