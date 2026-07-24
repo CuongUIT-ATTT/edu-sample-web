@@ -23,6 +23,7 @@ export interface DocumentInput {
   fileSize?: string;
   category: string;
   published?: boolean;
+  classIds?: string[]; // class visibility: if set, doc is visible only to these classes
 }
 
 export async function getDocuments(onlyPublished = false) {
@@ -55,7 +56,11 @@ export async function createDocument(input: DocumentInput) {
         fileSize: input.fileSize || null,
         category: input.category.trim() || "Chung",
         published: input.published ?? false,
+        classVisibility: input.classIds?.length
+          ? { create: input.classIds.map((cid) => ({ classId: cid })) }
+          : undefined,
       },
+      include: { classVisibility: true },
     });
 
     revalidatePath("/admin/documents");
@@ -86,7 +91,14 @@ export async function updateDocument(id: string, input: Partial<DocumentInput>) 
         ...(input.fileSize !== undefined && { fileSize: input.fileSize || null }),
         ...(input.category !== undefined && { category: input.category.trim() || "Chung" }),
         ...(input.published !== undefined && { published: input.published }),
+        ...(input.classIds !== undefined && {
+          classVisibility: {
+            deleteMany: {},
+            create: input.classIds.map((cid) => ({ classId: cid })),
+          },
+        }),
       },
+      include: { classVisibility: true },
     });
 
     revalidatePath("/admin/documents");
@@ -188,5 +200,24 @@ export async function deleteDocument(id: string) {
   } catch (err) {
     console.error("deleteDocument error:", err);
     return { success: false, error: "Xóa tài liệu thất bại." };
+  }
+}
+
+export async function getDocumentsForStudent(studentClassIds: string[]) {
+  try {
+    const docs = await db.document.findMany({
+      where: {
+        OR: [
+          { published: true },
+          { classVisibility: { some: { classId: { in: studentClassIds } } } },
+        ],
+      },
+      include: { classVisibility: { include: { class: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    return { success: true, data: docs };
+  } catch (err) {
+    console.error("getDocumentsForStudent error:", err);
+    return { success: false, error: "Không thể tải tài liệu." };
   }
 }

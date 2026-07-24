@@ -114,6 +114,7 @@ model Class {
   students         StudentProfile[]
   schedules        Schedule[]
   quizzes          Quiz[]
+  documentVisibility DocumentClassVisibility[]
 }
 
 model Subject {
@@ -310,6 +311,17 @@ model Document {
   published   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  classVisibility DocumentClassVisibility[]
+}
+
+model DocumentClassVisibility {
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  classId    String
+  class      Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, classId])
 }
 
 // ─── Calendar / Events ─────────────────────────────────────────────

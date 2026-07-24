@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { ExternalLink, BookOpen, GraduationCap } from "lucide-react";
+import { getDocumentsForStudent } from "@/actions/documents";
+import { ExternalLink, BookOpen, GraduationCap, FileText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -25,18 +26,23 @@ export default async function StudentDocumentsPage() {
 
   const classIds = studentProfile.classes.map((c) => c.id);
 
-  const schedules = await db.schedule.findMany({
-    where: { classId: { in: classIds } },
-    include: {
-      class: true,
-      subject: true,
-      teacher: { include: { user: true } },
-    },
-    orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
-  });
+  const [schedules, classDocsResult] = await Promise.all([
+    db.schedule.findMany({
+      where: { classId: { in: classIds } },
+      include: {
+        class: true,
+        subject: true,
+        teacher: { include: { user: true } },
+      },
+      orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+    }),
+    getDocumentsForStudent(classIds),
+  ]);
+
+  const classDocs = classDocsResult.success ? classDocsResult.data ?? [] : [];
 
   interface DocItem {
-    type: "material" | "homework";
+    type: "material" | "homework" | "class_doc";
     title: string;
     url: string;
     className: string;
@@ -44,6 +50,7 @@ export default async function StudentDocumentsPage() {
     teacherName: string;
     dayLabel: string;
     time: string;
+    uploadedAt: Date;
   }
 
   const DAYS = ["", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
@@ -60,6 +67,7 @@ export default async function StudentDocumentsPage() {
         teacherName: schedule.teacher.user.name,
         dayLabel: DAYS[schedule.dayOfWeek] || "",
         time: `${schedule.startTime} - ${schedule.endTime}`,
+        uploadedAt: new Date(),
       });
     }
     if (schedule.homework) {
@@ -72,8 +80,25 @@ export default async function StudentDocumentsPage() {
         teacherName: schedule.teacher.user.name,
         dayLabel: DAYS[schedule.dayOfWeek] || "",
         time: `${schedule.startTime} - ${schedule.endTime}`,
+        uploadedAt: new Date(),
       });
     }
+  }
+
+  // Add class-specific documents
+  for (const doc of classDocs) {
+    const classNames = doc.classVisibility?.map((cv: { class: { name: string } }) => cv.class.name).join(", ") || "Lớp học";
+    docs.push({
+      type: "class_doc",
+      title: doc.title,
+      url: doc.fileUrl,
+      className: classNames,
+      subjectName: doc.category,
+      teacherName: "",
+      dayLabel: "",
+      time: "",
+      uploadedAt: new Date(doc.createdAt),
+    });
   }
 
   const byClass: Record<string, DocItem[]> = {};
@@ -107,11 +132,13 @@ export default async function StudentDocumentsPage() {
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 p-3 rounded-lg border border-hairline hover:shadow-sm hover:border-blue-200 transition-all group"
                 >
-                  <div className={`p-2 rounded-lg ${doc.type === "material" ? "bg-blue-50" : "bg-amber-50"}`}>
+                  <div className={`p-2 rounded-lg ${doc.type === "material" ? "bg-blue-50" : doc.type === "homework" ? "bg-amber-50" : "bg-violet-50"}`}>
                     {doc.type === "material" ? (
                       <BookOpen className="w-4 h-4 text-blue-500" />
-                    ) : (
+                    ) : doc.type === "homework" ? (
                       <GraduationCap className="w-4 h-4 text-amber-500" />
+                    ) : (
+                      <FileText className="w-4 h-4 text-violet-500" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -119,7 +146,9 @@ export default async function StudentDocumentsPage() {
                       {doc.title}
                     </p>
                     <p className="text-[11px] text-ink-muted-48 mt-0.5">
-                      {doc.subjectName} - {doc.teacherName} - {doc.dayLabel} {doc.time}
+                      {doc.type === "class_doc"
+                        ? `Danh mục: ${doc.subjectName} - ${doc.className}`
+                        : `${doc.subjectName} - ${doc.teacherName} - ${doc.dayLabel} ${doc.time}`}
                     </p>
                   </div>
                   <ExternalLink className="w-4 h-4 text-ink-muted-48 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />

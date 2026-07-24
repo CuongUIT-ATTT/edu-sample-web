@@ -36,10 +36,12 @@ interface Doc {
   category: string;
   published: boolean;
   createdAt: Date;
+  classVisibility?: { classId: string; class: { id: string; name: string } }[];
 }
 
 interface DocumentManagerProps {
   initialDocs: Doc[];
+  classes?: { id: string; name: string }[];
 }
 
 const CATEGORIES = [
@@ -81,7 +83,7 @@ function getDocumentViewUrl(fileUrl: string): string {
   return fileUrl;
 }
 
-export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
+export default function DocumentManager({ initialDocs, classes = [] }: DocumentManagerProps) {
   const [docs, setDocs] = useState<Doc[]>(initialDocs);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -102,6 +104,7 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
     fileType: "pdf",
     fileSize: "",
     published: false,
+    selectedClassIds: [] as string[],
   };
 
   const [form, setForm] = useState(emptyForm);
@@ -123,6 +126,7 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
       fileType: doc.fileType,
       fileSize: doc.fileSize || "",
       published: doc.published,
+      selectedClassIds: doc.classVisibility?.map((cv) => cv.classId) || [],
     });
     setShowModal(true);
   };
@@ -213,6 +217,7 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
         fileSize: form.fileSize.trim() || undefined,
         category: form.category,
         published: form.published,
+        classIds: form.selectedClassIds.length > 0 ? form.selectedClassIds : undefined,
       };
 
       if (editing) {
@@ -225,7 +230,15 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
       } else {
         const res = await createDocument(input);
         if (!res.success || !res.data) throw new Error(res.error);
-        setDocs((prev) => [res.data as Doc, ...prev]);
+        setDocs((prev) => [{
+          ...res.data,
+          classVisibility: (res.data as Record<string, unknown>).classVisibility
+            ? ((res.data as Record<string, unknown>).classVisibility as { classId: string }[]).map((cv) => ({
+                classId: cv.classId,
+                class: { id: cv.classId, name: "" },
+              }))
+            : undefined,
+        } as Doc, ...prev]);
         showToast("Thêm tài liệu thành công!", "success");
       }
       setShowModal(false);
@@ -508,6 +521,35 @@ export default function DocumentManager({ initialDocs }: DocumentManagerProps) {
                     ))}
                   </select>
                 </div>
+
+                {classes.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-ink">Hiển thị cho lớp (để trống = công khai)</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {classes.map((cls) => (
+                        <button
+                          key={cls.id}
+                          type="button"
+                          onClick={() =>
+                            setForm((p) => ({
+                              ...p,
+                              selectedClassIds: p.selectedClassIds.includes(cls.id)
+                                ? p.selectedClassIds.filter((id) => id !== cls.id)
+                                : [...p.selectedClassIds, cls.id],
+                            }))
+                          }
+                          className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
+                            form.selectedClassIds.includes(cls.id)
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : "border-hairline text-ink-muted-48 hover:border-blue-300"
+                          }`}
+                        >
+                          {cls.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-ink">Loại tệp</label>

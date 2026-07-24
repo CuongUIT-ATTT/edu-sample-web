@@ -6,7 +6,13 @@ import { FileText } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDocumentsPage() {
-  const docs = await db.document.findMany({ orderBy: { createdAt: "desc" } });
+  const [docs, classes] = await Promise.all([
+    db.document.findMany({
+      include: { classVisibility: { include: { class: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.class.findMany({ orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -22,11 +28,18 @@ export default async function AdminDocumentsPage() {
         </div>
       </div>
 
-      <DocumentManager initialDocs={docs.map(d => ({
-        ...d,
-        description: d.description ?? null,
-        fileSize: d.fileSize ?? null,
-      }))} />
+      <DocumentManager
+        initialDocs={docs.map((d) => ({
+          ...d,
+          description: d.description ?? null,
+          fileSize: d.fileSize ?? null,
+          classVisibility: d.classVisibility.map((cv) => ({
+            classId: cv.classId,
+            class: cv.class,
+          })),
+        }))}
+        classes={classes}
+      />
     </div>
   );
 }
