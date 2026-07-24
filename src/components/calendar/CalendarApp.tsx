@@ -83,6 +83,7 @@ export default function CalendarApp({
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [sessionDetailOpen, setSessionDetailOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<CalendarEvent | null>(null);
+  const [editScheduleData, setEditScheduleData] = useState<Record<string, unknown> | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const calendarsRef = useRef<CalendarItem[]>([]);
@@ -253,6 +254,33 @@ export default function CalendarApp({
     }
   };
 
+  const handleEditSchedule = () => {
+    if (!selectedSchedule?.scheduleMeta) return;
+    const meta = selectedSchedule.scheduleMeta;
+
+    // Resolve IDs from reference data by name
+    const foundClass = classes.find((c) => c.name === meta.className);
+    const foundSubject = subjects.find((s) => s.name === meta.subjectName);
+    const foundTeacher = teachers.find((t) => t.user.name === meta.teacherName);
+    const foundRoom = rooms.find((r) => r.name === meta.room);
+    const isWeekly = selectedSchedule.recurrenceRule != null;
+
+    setEditScheduleData({
+      scheduleId: meta.scheduleId,
+      classId: foundClass?.id || "",
+      subjectId: foundSubject?.id || "",
+      teacherId: foundTeacher?.id || "",
+      dayOfWeek: meta.dayOfWeek,
+      startTime: meta.startTime,
+      endTime: meta.endTime,
+      room: foundRoom?.name || meta.room || "",
+      startDate: selectedSchedule.start.toISOString().slice(0, 10),
+      recurrence: isWeekly ? "WEEKLY" : "NONE",
+    } as never);
+    setSessionDetailOpen(false);
+    setScheduleModalOpen(true);
+  };
+
   const handleCalendarToggle = (calId: string) => {
     setCalendars((prev) => prev.map((c) => (c.id === calId ? { ...c, isVisible: !c.isVisible } : c)));
   };
@@ -342,7 +370,7 @@ export default function CalendarApp({
 
       <ScheduleModal
         isOpen={scheduleModalOpen}
-        onClose={() => setScheduleModalOpen(false)}
+        onClose={() => { setScheduleModalOpen(false); setEditScheduleData(null); }}
         onSuccess={() => { loadCountRef.current = 0; setEvents([]); }}
         role={role}
         currentTeacherProfileId={teacherProfileId}
@@ -350,6 +378,7 @@ export default function CalendarApp({
         subjects={subjects}
         teachers={teachers}
         rooms={rooms}
+        editSchedule={editScheduleData as never}
       />
 
       <SessionDetailModal
@@ -358,6 +387,7 @@ export default function CalendarApp({
         schedule={selectedSchedule as never}
         role={role}
         onUpdate={() => { loadCountRef.current = 0; setEvents([]); }}
+        onEditSchedule={handleEditSchedule}
       />
     </div>
   );

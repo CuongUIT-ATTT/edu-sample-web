@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   X, ExternalLink, BookOpen, GraduationCap, Upload,
-  CheckCircle, XCircle, Clock, Users, Trash2,
+  CheckCircle, XCircle, Clock, Users, Trash2, Edit3,
 } from "lucide-react";
 import {
   updateScheduleFiles,
@@ -40,6 +40,7 @@ interface SessionDetailModalProps {
   schedule: ScheduleBlock | null;
   role: string;
   onUpdate: () => void;
+  onEditSchedule?: () => void;
 }
 
 interface Submission {
@@ -62,6 +63,7 @@ export default function SessionDetailModal({
   schedule,
   role,
   onUpdate,
+  onEditSchedule,
 }: SessionDetailModalProps) {
   const [materials, setMaterials] = useState("");
   const [homework, setHomework] = useState("");
@@ -239,6 +241,15 @@ export default function SessionDetailModal({
             </p>
           </div>
           <div className="flex items-center gap-1">
+            {isTeacherOrAdmin && (
+              <button
+                onClick={() => { onEditSchedule?.(); }}
+                className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                title="Chỉnh sửa lịch học"
+              >
+                <Edit3 className="w-4 h-4" />
+              </button>
+            )}
             {isTeacherOrAdmin && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}

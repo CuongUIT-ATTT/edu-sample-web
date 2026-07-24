@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, AlertTriangle } from "lucide-react";
-import { createSchedule } from "@/actions/schedules";
+import { createSchedule, updateSchedule } from "@/actions/schedules";
 import { TIME_SLOTS } from "@/lib/timeSlots";
 import { showToast } from "@/components/Toast";
 
@@ -16,6 +16,19 @@ interface ScheduleModalProps {
   subjects: { id: string; name: string; code: string }[];
   teachers: { id: string; user: { name: string } }[];
   rooms: { id: string; name: string; capacity?: number | null }[];
+  editSchedule?: {
+    scheduleId: string;
+    classId: string;
+    subjectId: string;
+    teacherId: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    room: string;
+    startDate: string;
+    endDate?: string;
+    recurrence: "NONE" | "WEEKLY" | null;
+  } | null;
 }
 
 const DAYS = [
@@ -38,10 +51,11 @@ export default function ScheduleModal({
   subjects,
   teachers,
   rooms,
+  editSchedule,
 }: ScheduleModalProps) {
   const [classId, setClassId] = useState("");
   const [subjectId, setSubjectId] = useState("");
-  const [teacherId, setTeacherId] = useState(currentTeacherProfileId ?? "");
+  const [teacherId, setTeacherId] = useState("");
   const [dayOfWeek, setDayOfWeek] = useState(1);
 
   // Helper: compute nearest future date for a given dayOfWeek (1=Mon..7=Sun)
@@ -66,6 +80,36 @@ export default function ScheduleModal({
   const [ignoreWarning, setIgnoreWarning] = useState(false);
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (editSchedule) {
+      setClassId(editSchedule.classId);
+      setSubjectId(editSchedule.subjectId);
+      setTeacherId(editSchedule.teacherId);
+      setDayOfWeek(editSchedule.dayOfWeek);
+      setStartDate(editSchedule.startDate);
+      setStartTime(editSchedule.startTime);
+      setEndTime(editSchedule.endTime);
+      setSelectedRoom(editSchedule.room);
+      setRecurrence(editSchedule.recurrence === "WEEKLY" ? "WEEKLY" : "NONE");
+      setEndDate(editSchedule.endDate || "");
+    } else if (isOpen && !editSchedule) {
+      // Reset form for new schedule
+      setClassId("");
+      setSubjectId("");
+      setTeacherId(currentTeacherProfileId ?? "");
+      setDayOfWeek(1);
+      setStartDate(computeNearestDate(1));
+      setStartTime("07:00");
+      setEndTime("08:00");
+      setSelectedRoom("");
+      setRecurrence("NONE");
+      setEndDate("");
+      setIgnoreWarning(false);
+      setWarningMsg(null);
+    }
+  }, [editSchedule, isOpen]);
 
   // Auto-sync startDate when dayOfWeek changes by user
 
@@ -105,30 +149,55 @@ export default function ScheduleModal({
 
     setSubmitting(true);
     try {
-      const result = await createSchedule({
-        classId,
-        subjectId,
-        teacherId: isTeacher ? currentTeacherProfileId ?? "" : teacherId,
-        dayOfWeek,
-        startTime,
-        endTime,
-        room: selectedRoom,
-        startDate,
-        endDate: recurrence === "WEEKLY" ? endDate : undefined,
-        recurrence,
-        ignoreWarning,
-      });
-
-      if (result.success) {
-        showToast("Đăng ký lịch học thành công!", "success");
-        setIgnoreWarning(false);
-        resetForm();
-        onSuccess();
-        onClose();
-      } else if ("isWarning" in result && result.isWarning) {
-        setWarningMsg(result.error);
+      if (editSchedule) {
+        // Update existing schedule
+        const result = await updateSchedule({
+          scheduleId: editSchedule.scheduleId,
+          classId,
+          subjectId,
+          teacherId: isTeacher ? currentTeacherProfileId ?? "" : teacherId,
+          dayOfWeek,
+          startTime,
+          endTime,
+          room: selectedRoom,
+          date: startDate,
+          updateMode: "ALL_FUTURE",
+          ignoreWarning,
+        });
+        if (result.success) {
+          showToast("Cập nhật lịch học thành công!", "success");
+          onSuccess();
+          onClose();
+        } else if ("isWarning" in result && result.isWarning) {
+          setWarningMsg(result.error);
+        } else {
+          showToast(result.error || "Lỗi cập nhật lịch học", "error");
+        }
       } else {
-        showToast(result.error || "Lỗi đăng ký lịch học", "error");
+        // Create new schedule
+        const result = await createSchedule({
+          classId,
+          subjectId,
+          teacherId: isTeacher ? currentTeacherProfileId ?? "" : teacherId,
+          dayOfWeek,
+          startTime,
+          endTime,
+          room: selectedRoom,
+          startDate,
+          endDate: recurrence === "WEEKLY" ? endDate : undefined,
+          recurrence,
+          ignoreWarning,
+        });
+
+        if (result.success) {
+          showToast("Đăng ký lịch học thành công!", "success");
+          onSuccess();
+          onClose();
+        } else if ("isWarning" in result && result.isWarning) {
+          setWarningMsg(result.error);
+        } else {
+          showToast(result.error || "Lỗi đăng ký lịch học", "error");
+        }
       }
     } catch {
       showToast("Lỗi server khi đăng ký lịch học", "error");
