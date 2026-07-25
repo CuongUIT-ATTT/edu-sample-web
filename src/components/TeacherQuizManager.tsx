@@ -426,9 +426,23 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
           const json = await res.json();
           if (json.url) {
             urlMap[qNum] = json.url;
-            showToast(`Đã upload ${i + 1}/${imageEntries.length} ảnh...`, "info");
+            showToast(`Đã upload ${i + 1}/${imageEntries.length} ảnh`, "success");
           } else {
-            console.error(`ImgBB fail q${qNum}:`, json.error);
+            // Retry 1 lần nếu fail
+            await new Promise((r) => setTimeout(r, 2000));
+            const retry = await fetch("/api/upload-to-imgbb", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ image: imgData }),
+              signal: AbortSignal.timeout(35000),
+            });
+            const retryJson = await retry.json();
+            if (retryJson.url) {
+              urlMap[qNum] = retryJson.url;
+              showToast(`Retry thành công: ${i + 1}/${imageEntries.length}`, "success");
+            } else {
+              console.error(`ImgBB fail q${qNum}:`, retryJson.error);
+            }
           }
         } catch (e) {
           console.error(`ImgBB upload failed for question_${qNum}:`, e);
