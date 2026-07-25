@@ -447,9 +447,9 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         } catch (e) {
           console.error(`ImgBB upload failed for question_${qNum}:`, e);
         }
-        // Delay 1s giữa các request để tránh ImgBB rate-limit
+        // Delay 2s giữa các request để tránh ImgBB rate-limit
         if (i < imageEntries.length - 1) {
-          await new Promise((r) => setTimeout(r, 1000));
+          await new Promise((r) => setTimeout(r, 2000));
         }
       }
 
