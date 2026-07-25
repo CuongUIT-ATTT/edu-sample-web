@@ -399,42 +399,45 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
       showToast(`Đang upload ${imageEntries.length} ảnh lên ImgBB...`, "info");
       setImportingImages(true);
 
-      // Upload từng ảnh qua proxy server (tránh CORS)
-      const IMGBB_KEY = "1e76aab065ef1f9c93204720c9bd4038";
+      // Upload tuần tự để tránh ImgBB rate-limit (Promise.all bị block)
       const urlMap: Record<number, string> = {};
 
-      await Promise.all(
-        imageEntries.map(async ([qNum, src]) => {
-          try {
-            const imgData = src.startsWith("data:image/")
-              ? src
-              : await (async () => {
-                  const r = await fetch(src);
-                  const blob = await r.blob();
-                  return new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result as string);
-                    reader.readAsDataURL(blob);
-                  });
-                })();
+      for (let i = 0; i < imageEntries.length; i++) {
+        const [qNum, src] = imageEntries[i];
+        try {
+          const imgData = src.startsWith("data:image/")
+            ? src
+            : await (async () => {
+                const r = await fetch(src);
+                const blob = await r.blob();
+                return new Promise<string>((resolve) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.readAsDataURL(blob);
+                });
+              })();
 
-            const res = await fetch("/api/upload-to-imgbb", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ image: imgData }),
-              signal: AbortSignal.timeout(35000),
-            });
-            const json = await res.json();
-            if (json.url) {
-              urlMap[qNum] = json.url;
-            } else {
-              console.error(`ImgBB fail q${qNum}:`, json.error);
-            }
-          } catch (e) {
-            console.error(`ImgBB upload failed for question_${qNum}:`, e);
+          const res = await fetch("/api/upload-to-imgbb", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image: imgData }),
+            signal: AbortSignal.timeout(35000),
+          });
+          const json = await res.json();
+          if (json.url) {
+            urlMap[qNum] = json.url;
+            showToast(`Đã upload ${i + 1}/${imageEntries.length} ảnh...`, "info");
+          } else {
+            console.error(`ImgBB fail q${qNum}:`, json.error);
           }
-        })
-      );
+        } catch (e) {
+          console.error(`ImgBB upload failed for question_${qNum}:`, e);
+        }
+        // Delay 1s giữa các request để tránh ImgBB rate-limit
+        if (i < imageEntries.length - 1) {
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+      }
 
       // Map URL thật vào câu hỏi
       const mergedCount = Object.keys(urlMap).length;
