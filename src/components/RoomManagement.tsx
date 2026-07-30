@@ -110,7 +110,7 @@ export default function RoomManagement({ rooms }: RoomManagementProps) {
           <p className="font-caption text-ink-muted-80 mt-1">Danh mục các phòng học/phòng chức năng của trung tâm</p>
         </div>
 
-        <div className="bg-canvas border border-hairline rounded-lg shadow-sm overflow-hidden">
+        <div className="bg-canvas border border-hairline rounded-lg shadow-sm overflow-x-auto">
           <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
             <h2 className="font-body-strong text-sm text-ink flex items-center gap-2">
               <Home className="h-4 w-4 text-primary" />
@@ -210,7 +210,7 @@ export default function RoomManagement({ rooms }: RoomManagementProps) {
       {/* UPDATE MODAL WITH FIXED SIZE */}
       {isEditOpen && editingRoom && (
         <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-lg w-[450px] shadow-product flex flex-col overflow-hidden animate-fade-in">
+          <div className="bg-canvas border border-hairline rounded-lg w-full sm:max-w-lg shadow-product flex flex-col overflow-hidden animate-fade-in">
             <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
               <h3 className="font-tagline text-base font-semibold text-ink">
                 Cập nhật phòng học: {editingRoom.name}

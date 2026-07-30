@@ -112,37 +112,78 @@ export default function TuitionAdminClient({ classes, initialPrice }: Props) {
         <div className="px-5 py-3 border-b border-divider-soft">
           <span className="text-xs font-bold text-ink-muted-48 uppercase tracking-wider">Danh sách lớp ({classes.length})</span>
         </div>
-        {classes.map(cls => (
-          <div key={cls.id} className="flex items-center justify-between px-5 py-4 border-b border-divider-soft last:border-0 hover:bg-surface-pearl/50 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center"><Users className="h-4 w-4" /></div>
-              <div>
-                <span className="text-sm font-semibold text-ink">{cls.name}</span>
-                <p className="text-[11px] text-ink-muted-48">{cls._count.students} học sinh</p>
+        {/* Desktop row layout */}
+        <div className="hidden sm:block">
+          {classes.map(cls => (
+            <div key={cls.id} className="flex items-center justify-between px-5 py-4 border-b border-divider-soft last:border-0 hover:bg-surface-pearl/50 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center"><Users className="h-4 w-4" /></div>
+                <div>
+                  <span className="text-sm font-semibold text-ink">{cls.name}</span>
+                  <p className="text-[11px] text-ink-muted-48">{cls._count.students} học sinh</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <button onClick={() => handleCalculate(cls.id, cls.name)} disabled={calculating === cls.id}
+                  className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-hairline hover:bg-surface-pearl transition-colors text-ink-muted-80 disabled:opacity-50">
+                  {calculating === cls.id ? <span className="h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Calculator className="h-3.5 w-3.5" />}
+                  Tính tháng {month}
+                </button>
+                <button onClick={() => handleBatchCalculate(cls.id, cls.name)} disabled={batchProcessing === cls.id}
+                  className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors disabled:opacity-50">
+                  {batchProcessing === cls.id ? <span className="h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <CalendarRange className="h-3.5 w-3.5" />}
+                  Tính {batchMonthFrom}-{batchMonthTo}
+                </button>
+                <button onClick={() => handleExportCSV(cls.id, cls.name)}
+                  className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-green-300 text-green-700 hover:bg-green-50 transition-colors">
+                  <Download className="h-3.5 w-3.5" /> CSV
+                </button>
+                <button onClick={() => router.push(`/admin/tuition/${cls.id}?month=${month}&year=${year}`)}
+                  className="h-8 w-8 rounded-lg border border-hairline hover:bg-surface-pearl flex items-center justify-center transition-colors">
+                  <ChevronRight className="h-4 w-4 text-ink-muted-48" />
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => handleCalculate(cls.id, cls.name)} disabled={calculating === cls.id}
-                className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-hairline hover:bg-surface-pearl transition-colors text-ink-muted-80 disabled:opacity-50">
-                {calculating === cls.id ? <span className="h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Calculator className="h-3.5 w-3.5" />}
-                Tính tháng {month}
-              </button>
-              <button onClick={() => handleBatchCalculate(cls.id, cls.name)} disabled={batchProcessing === cls.id}
-                className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors disabled:opacity-50">
-                {batchProcessing === cls.id ? <span className="h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <CalendarRange className="h-3.5 w-3.5" />}
-                Tính {batchMonthFrom}-{batchMonthTo}
-              </button>
-              <button onClick={() => handleExportCSV(cls.id, cls.name)}
-                className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-green-300 text-green-700 hover:bg-green-50 transition-colors">
-                <Download className="h-3.5 w-3.5" /> CSV
-              </button>
-              <button onClick={() => router.push(`/admin/tuition/${cls.id}?month=${month}&year=${year}`)}
-                className="h-8 w-8 rounded-lg border border-hairline hover:bg-surface-pearl flex items-center justify-center transition-colors">
-                <ChevronRight className="h-4 w-4 text-ink-muted-48" />
-              </button>
+          ))}
+        </div>
+        {/* Mobile card layout */}
+        <div className="sm:hidden flex flex-col gap-3 p-4">
+          {classes.length === 0 ? (
+            <p className="text-center py-6 text-ink-muted-48 text-xs">Không có lớp học nào.</p>
+          ) : classes.map(cls => (
+            <div key={cls.id} className="border border-hairline rounded-lg p-4 flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
+                  <Users className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="text-sm font-semibold text-ink">{cls.name}</span>
+                  <p className="text-[11px] text-ink-muted-48">{cls._count.students} học sinh</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-divider-soft">
+                <button onClick={() => handleCalculate(cls.id, cls.name)} disabled={calculating === cls.id}
+                  className="flex-1 flex items-center justify-center gap-1 text-[10px] px-2 py-1.5 rounded-lg border border-hairline hover:bg-surface-pearl transition-colors text-ink-muted-80 disabled:opacity-50">
+                  {calculating === cls.id ? <span className="h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Calculator className="h-3.5 w-3.5" />}
+                  T{month}
+                </button>
+                <button onClick={() => handleBatchCalculate(cls.id, cls.name)} disabled={batchProcessing === cls.id}
+                  className="flex-1 flex items-center justify-center gap-1 text-[10px] px-2 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors disabled:opacity-50">
+                  {batchProcessing === cls.id ? <span className="h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <CalendarRange className="h-3.5 w-3.5" />}
+                  {batchMonthFrom}-{batchMonthTo}
+                </button>
+                <button onClick={() => handleExportCSV(cls.id, cls.name)}
+                  className="flex-1 flex items-center justify-center gap-1 text-[10px] px-2 py-1.5 rounded-lg border border-green-300 text-green-700 hover:bg-green-50 transition-colors">
+                  <Download className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => router.push(`/admin/tuition/${cls.id}?month=${month}&year=${year}`)}
+                  className="h-8 w-8 rounded-lg border border-hairline hover:bg-surface-pearl flex items-center justify-center transition-colors">
+                  <ChevronRight className="h-4 w-4 text-ink-muted-48" />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

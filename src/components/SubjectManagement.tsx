@@ -111,7 +111,7 @@ export default function SubjectManagement({ subjects }: SubjectManagementProps) 
           <p className="font-caption text-ink-muted-80 mt-1">Danh mục các môn luyện thi và ôn tập tại trung tâm</p>
         </div>
 
-        <div className="bg-canvas border border-hairline rounded-lg shadow-sm overflow-hidden">
+        <div className="bg-canvas border border-hairline rounded-lg shadow-sm overflow-x-auto">
           <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
             <h2 className="font-body-strong text-sm text-ink flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-primary" />
@@ -207,7 +207,7 @@ export default function SubjectManagement({ subjects }: SubjectManagementProps) 
       {/* Edit Subject Modal */}
       {isEditOpen && editingSubject && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-lg w-[400px] max-w-full shadow-product flex flex-col overflow-hidden animate-fade-in">
+          <div className="bg-canvas border border-hairline rounded-lg w-full sm:max-w-lg shadow-product flex flex-col overflow-hidden animate-fade-in">
             <div className="px-6 py-4 border-b border-divider flex items-center justify-between bg-surface-pearl">
               <h3 className="font-tagline text-base font-semibold text-ink flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-primary" />
@@ -248,7 +248,7 @@ export default function SubjectManagement({ subjects }: SubjectManagementProps) 
                 />
               </div>
 
-              <div className="flex gap-2 justify-end mt-4">
+              <div className="flex flex-wrap gap-2 justify-end mt-4">
                 <button
                   type="button"
                   onClick={() => {

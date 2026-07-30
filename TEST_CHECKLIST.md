@@ -26,7 +26,7 @@
 | 7 | Quiz public/private | qz-001/002 | PASS | qz-001 isPublic=true, qz-002=false | Đúng |
 | 8 | Đủ 3 loại Question | qs-001/002/004 | PASS | MC + TF + SA | Đúng |
 | 9 | Question có ảnh/không | qs-003/001 | PASS | qs-003 có imageUrl, qs-001=null | Đúng |
-| 10 | **Submission sau hết hạn** | qz-003 | ❌ **Chưa có logic** | submitQuiz() không check endTime | Cần dev validate |
+| 10 | **Submission sau hết hạn** | qz-003 | ✅ **Đã fix** | Submission vẫn accept, gắn isLate=true, điểm không bị trừ | |
 
 ### ✅ Nhóm Schedule
 

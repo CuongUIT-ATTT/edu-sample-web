@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import LogoutButton from "@/components/LogoutButton";
 import {
   Users,
@@ -24,21 +25,58 @@ export default function AdminDashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname();
 
-  const closeSidebar = () => setSidebarOpen(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
+  // Close sidebar on Escape key press
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeSidebar();
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [closeSidebar]);
+
+  const isActive = (href: string) => pathname === href;
+
+  const linkClass = (href: string) =>
+    `flex items-center gap-3 px-2 md:px-4 py-2.5 rounded-sm text-sm transition-colors apple-active-scale ${
+      isActive(href)
+        ? "bg-surface-pearl text-ink font-body-strong border border-divider-soft"
+        : "text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption"
+    }`;
 
   return (
     <div className="flex h-screen bg-canvas-parchment overflow-hidden">
-      {/* Apple-style Dashboard Sidebar */}
-      <aside className="hidden md:flex md:w-64 bg-canvas border-r border-hairline flex-col justify-between p-3 md:p-6 flex-shrink-0 transition-all duration-300">
+      {/* Mobile overlay backdrop */}
+      {sidebarOpen && (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 md:hidden"
+          onClick={closeSidebar}
+        />
+      )}
+
+      {/* Unified sidebar: slides in on mobile, always visible on desktop */}
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw]
+          flex-col justify-between bg-canvas border-r border-hairline p-3
+          transform transition-transform duration-300 ease-in-out shadow-xl
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          md:translate-x-0 md:shadow-none md:w-64 md:max-w-none md:p-6
+        `}
+      >
         <div className="flex flex-col gap-8">
           {/* Brand Header */}
           <Link
             href="/admin"
-            className="flex flex-col md:flex-row items-center md:items-start gap-2 font-tagline tracking-tight text-ink justify-center md:justify-start"
+            onClick={closeSidebar}
+            className="flex items-center gap-2 font-tagline tracking-tight text-ink"
           >
             <span className="font-semibold text-xs md:text-lg">EduWeb</span>
-            <span className="text-[8px] md:text-[10px] bg-red-100 text-red-700 px-1 md:px-2 py-0.5 rounded-full font-bold uppercase text-center">
+            <span className="text-[8px] md:text-[10px] bg-red-100 text-red-700 px-1.5 md:px-2 py-0.5 rounded-full font-bold uppercase text-center">
               AD
             </span>
           </Link>
@@ -48,82 +86,90 @@ export default function AdminDashboardLayout({
             <Link
               href="/admin"
               onClick={closeSidebar}
-              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm bg-surface-pearl text-ink font-body-strong text-sm border border-divider-soft"
+              className={linkClass("/admin")}
             >
               <LayoutDashboard className="h-4 w-4 text-primary flex-shrink-0" />
-              <span className="hidden md:inline">Tổng quan</span>
+              <span>Tổng quan</span>
             </Link>
             <Link
               href="/admin/users"
               onClick={closeSidebar}
-              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+              className={linkClass("/admin/users")}
             >
               <Users className="h-4 w-4 flex-shrink-0" />
-              <span className="hidden md:inline">Người dùng</span>
+              <span>Người dùng</span>
             </Link>
             <Link
               href="/admin/quizzes"
               onClick={closeSidebar}
-              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+              className={linkClass("/admin/quizzes")}
             >
               <HelpCircle className="h-4 w-4 flex-shrink-0" />
-              <span className="hidden md:inline">Quản lý đề thi</span>
+              <span>Quản lý đề thi</span>
             </Link>
             <Link
               href="/admin/classes"
               onClick={closeSidebar}
-              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+              className={linkClass("/admin/classes")}
             >
               <BookOpen className="h-4 w-4 flex-shrink-0" />
-              <span className="hidden md:inline">Lớp luyện thi</span>
+              <span>Lớp luyện thi</span>
             </Link>
             <Link
               href="/admin/subjects"
               onClick={closeSidebar}
-              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+              className={linkClass("/admin/subjects")}
             >
               <Calendar className="h-4 w-4 text-purple-500 flex-shrink-0" />
-              <span className="hidden md:inline">Môn học</span>
+              <span>Môn học</span>
             </Link>
             <Link
               href="/admin/rooms"
               onClick={closeSidebar}
-              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+              className={linkClass("/admin/rooms")}
             >
               <Home className="h-4 w-4 text-orange-500 flex-shrink-0" />
-              <span className="hidden md:inline">Phòng học</span>
+              <span>Phòng học</span>
             </Link>
             <Link
               href="/admin/calendar"
               onClick={closeSidebar}
-              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+              className={linkClass("/admin/calendar")}
             >
               <Calendar className="h-4 w-4 flex-shrink-0" />
-              <span className="hidden md:inline">Lịch</span>
+              <span>Lịch</span>
+            </Link>
+            <Link
+              href="/admin/schedules"
+              onClick={closeSidebar}
+              className={linkClass("/admin/schedules")}
+            >
+              <Calendar className="h-4 w-4 flex-shrink-0" />
+              <span>Lịch học lớp</span>
             </Link>
             <Link
               href="/admin/system"
               onClick={closeSidebar}
-              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+              className={linkClass("/admin/system")}
             >
               <ShieldAlert className="h-4 w-4 flex-shrink-0" />
-              <span className="hidden md:inline">Bảo mật hệ thống</span>
+              <span>Bảo mật hệ thống</span>
             </Link>
             <Link
               href="/admin/documents"
               onClick={closeSidebar}
-              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+              className={linkClass("/admin/documents")}
             >
               <FileText className="h-4 w-4 flex-shrink-0" />
-              <span className="hidden md:inline">Quản lý tài liệu</span>
+              <span>Quản lý tài liệu</span>
             </Link>
             <Link
               href="/admin/tuition"
               onClick={closeSidebar}
-              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+              className={linkClass("/admin/tuition")}
             >
               <DollarSign className="h-4 w-4 flex-shrink-0" />
-              <span className="hidden md:inline">Học phí</span>
+              <span>Học phí</span>
             </Link>
           </nav>
         </div>
@@ -133,128 +179,17 @@ export default function AdminDashboardLayout({
           <Link
             href="/admin/settings"
             onClick={closeSidebar}
-            className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
+            className={linkClass("/admin/settings")}
           >
             <Settings className="h-4 w-4 flex-shrink-0" />
-            <span className="hidden md:inline">Thiết lập</span>
+            <span>Thiết lập</span>
           </Link>
           <LogoutButton />
         </div>
       </aside>
 
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 flex md:hidden">
-          <button
-            type="button"
-            aria-label="Đóng menu"
-            className="absolute inset-0 bg-black/40"
-            onClick={closeSidebar}
-          />
-          <aside className="relative z-10 flex h-full w-72 max-w-[85vw] flex-col justify-between bg-canvas border-r border-hairline p-4 shadow-2xl">
-            <div className="flex flex-col gap-8">
-              <Link
-                href="/admin"
-                onClick={closeSidebar}
-                className="flex items-center gap-2 font-tagline tracking-tight text-ink"
-              >
-                <span className="font-semibold text-sm">EduWeb</span>
-                <span className="text-[8px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold uppercase text-center">
-                  AD
-                </span>
-              </Link>
-              <nav className="flex flex-col gap-2">
-                <Link
-                  href="/admin"
-                  onClick={closeSidebar}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm bg-surface-pearl text-ink font-body-strong text-sm border border-divider-soft"
-                >
-                  <LayoutDashboard className="h-4 w-4 text-primary flex-shrink-0" />
-                  <span>Tổng quan</span>
-                </Link>
-                <Link
-                  href="/admin/users"
-                  onClick={closeSidebar}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
-                >
-                  <Users className="h-4 w-4 flex-shrink-0" />
-                  <span>Người dùng</span>
-                </Link>
-                <Link
-                  href="/admin/quizzes"
-                  onClick={closeSidebar}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
-                >
-                  <HelpCircle className="h-4 w-4 flex-shrink-0" />
-                  <span>Quản lý đề thi</span>
-                </Link>
-                <Link
-                  href="/admin/classes"
-                  onClick={closeSidebar}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
-                >
-                  <BookOpen className="h-4 w-4 flex-shrink-0" />
-                  <span>Lớp luyện thi</span>
-                </Link>
-                <Link
-                  href="/admin/subjects"
-                  onClick={closeSidebar}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
-                >
-                  <Calendar className="h-4 w-4 text-purple-500 flex-shrink-0" />
-                  <span>Môn học</span>
-                </Link>
-                <Link
-                  href="/admin/rooms"
-                  onClick={closeSidebar}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
-                >
-                  <Home className="h-4 w-4 text-orange-500 flex-shrink-0" />
-                  <span>Phòng học</span>
-                </Link>
-                <Link
-                  href="/admin/schedules"
-                  onClick={closeSidebar}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
-                >
-                  <Calendar className="h-4 w-4 flex-shrink-0" />
-                  <span>Lịch học lớp</span>
-                </Link>
-                <Link
-                  href="/admin/system"
-                  onClick={closeSidebar}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
-                >
-                  <ShieldAlert className="h-4 w-4 flex-shrink-0" />
-                  <span>Bảo mật hệ thống</span>
-                </Link>
-                <Link
-                  href="/admin/documents"
-                  onClick={closeSidebar}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
-                >
-                  <FileText className="h-4 w-4 flex-shrink-0" />
-                  <span>Quản lý tài liệu</span>
-                </Link>
-              </nav>
-            </div>
-
-            <div className="flex flex-col gap-2 border-t border-divider-soft pt-4">
-              <Link
-                href="/admin/settings"
-                onClick={closeSidebar}
-                className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
-              >
-                <Settings className="h-4 w-4 flex-shrink-0" />
-                <span>Thiết lập</span>
-              </Link>
-              <LogoutButton />
-            </div>
-          </aside>
-        </div>
-      )}
-
       {/* Main Body */}
-      <div className="flex-1 flex flex-col overflow-auto">
+      <div className="flex-1 flex flex-col overflow-auto ml-0 md:ml-64">
         {/* Apple sub-nav style Frosted Glass Header */}
         <header className="h-[60px] frosted-glass border-b border-hairline flex items-center justify-between px-4 md:px-8 z-30 sticky top-0">
           <div className="flex items-center gap-3 min-w-0">
@@ -280,9 +215,7 @@ export default function AdminDashboardLayout({
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 w-full">
-          {children}
-        </main>
+        <main className="flex-1 w-full">{children}</main>
       </div>
     </div>
   );

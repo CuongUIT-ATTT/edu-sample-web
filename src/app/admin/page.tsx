@@ -179,7 +179,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Stats Cards (store-utility-card style) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <Link
           href="/admin/users"
           className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-primary transition-all duration-200 apple-active-scale cursor-pointer group"

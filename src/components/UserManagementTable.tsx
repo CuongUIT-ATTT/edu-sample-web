@@ -301,7 +301,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 text-xs text-ink-muted-80">
             <Filter className="h-3.5 w-3.5" />
             <span>Vai trò:</span>
@@ -364,7 +364,8 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
       )}
 
       {/* Main Table */}
-      <div className="bg-canvas border border-hairline rounded-lg shadow-sm overflow-x-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block bg-canvas border border-hairline rounded-lg shadow-sm overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-hairline bg-surface-pearl">
@@ -452,6 +453,73 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card List */}
+      <div className="md:hidden flex flex-col gap-3">
+        {filteredUsers.length === 0 ? (
+          <div className="bg-canvas border border-hairline rounded-lg p-12 text-center">
+            <Users className="h-10 w-10 text-ink-muted-48 mx-auto mb-2" />
+            <p className="text-sm text-ink-muted-80">Không tìm thấy tài khoản nào khớp với bộ lọc.</p>
+          </div>
+        ) : (
+          filteredUsers.map((user) => (
+            <div key={user.id} className="border border-hairline rounded-lg p-4 bg-canvas shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2">
+                  <button onClick={() => toggleSelect(user.id)} className="mt-0.5">
+                    {selectedIds.has(user.id) ? (
+                      <CheckSquare className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Square className="h-4 w-4 text-ink-muted-48" />
+                    )}
+                  </button>
+                  <div>
+                    <p className="text-sm font-body-strong text-ink">{user.name}</p>
+                    <p className="text-xs font-caption text-ink-muted-48 mt-0.5">{user.email}</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 text-xs font-caption bg-surface-pearl border border-divider-soft text-ink-muted-80 px-2.5 py-1 rounded-full shrink-0">
+                  {getRoleIcon(user.role)}
+                  {getRoleLabel(user.role)}
+                </span>
+              </div>
+
+              {user.role === "STUDENT" && (
+                <div className="mt-3 text-xs font-caption text-ink-muted-80 border-t border-divider-soft pt-3">
+                  {user.studentProfile?.classes && user.studentProfile.classes.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {user.studentProfile.classes.map((c) => (
+                        <span key={c.id} className="text-xs font-body bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+                          Lớp {c.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="italic text-ink-muted-48">Chưa xếp lớp</span>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 mt-3 border-t border-divider-soft pt-3">
+                <button
+                  onClick={() => openEditModal(user)}
+                  className="text-primary hover:bg-blue-50 p-2 rounded-full transition-colors"
+                  title="Chỉnh sửa"
+                >
+                  <Edit3 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => handleDeleteIndividual(user.id, user.name)}
+                  className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
+                  title="Xoá"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* CREATE & EDIT MODAL */}

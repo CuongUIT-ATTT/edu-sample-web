@@ -1396,9 +1396,9 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               {/* PASTE TEXT / COPY PASTE AI PARSER */}
               {importMethod === "PASTE_TEXT" && (
                 <div className="border border-divider rounded-lg p-4 bg-surface-pearl flex flex-col gap-4">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                     <span className="text-xs font-bold text-ink">Dán nội dung đề thi từ file PDF/DOCX</span>
-                    <label className="text-xs text-primary hover:underline font-bold cursor-pointer">
+                    <label className="text-xs text-primary hover:underline font-bold cursor-pointer self-start sm:self-auto">
                       Tải lên file văn bản/pdf (.txt)
                       <input type="file" accept=".txt" onChange={handleFileUpload} className="hidden" />
                     </label>
@@ -1423,14 +1423,14 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               {/* CSV FILE IMPORT */}
               {importMethod === "CSV" && (
                 <div className="border border-divider rounded-lg p-4 bg-surface-pearl flex flex-col gap-3">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                     <span className="text-xs font-bold text-ink flex items-center gap-1.5">
                       <Upload className="h-4 w-4 text-green-600" /> Nhập nhanh từ file CSV
                     </span>
                     <button
                       type="button"
                       onClick={downloadCsvTemplate}
-                      className="text-xs text-primary hover:underline font-semibold"
+                      className="text-xs text-primary hover:underline font-semibold self-start sm:self-auto"
                     >
                       Tải file CSV mẫu (.csv)
                     </button>
@@ -1447,11 +1447,11 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               {/* JSON FILE IMPORT */}
               {importMethod === "JSON" && (
                 <div className="border border-divider rounded-lg p-4 bg-surface-pearl flex flex-col gap-4">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                     <span className="text-xs font-bold text-ink flex items-center gap-1.5">
                       <FileText className="h-4 w-4 text-orange-600" /> Nhập danh sách câu hỏi bằng mã JSON
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={downloadJsonTemplate}

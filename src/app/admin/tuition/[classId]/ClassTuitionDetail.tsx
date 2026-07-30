@@ -112,7 +112,7 @@ export default function ClassTuitionDetail({ initialTuition, month, year, schedu
   return (
     <div className="flex flex-col gap-5">
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-canvas border border-hairline rounded-lg p-4 flex flex-col gap-1">
           <span className="text-[10px] text-ink-muted-48 uppercase tracking-wider font-bold">Tổng học phí</span>
           <span className="text-xl font-bold text-ink">{totalAmount.toLocaleString()}đ</span>
@@ -155,12 +155,13 @@ export default function ClassTuitionDetail({ initialTuition, month, year, schedu
         </div>
       )}
 
-      {/* Tuition table */}
+      {/* Tuition table - desktop */}
       <div className="bg-canvas border border-hairline rounded-lg overflow-hidden">
         <div className="px-5 py-3 border-b border-divider-soft">
           <span className="text-xs font-bold text-ink-muted-48 uppercase tracking-wider">Chi tiết học phí</span>
         </div>
-        <table className="w-full text-xs">
+        {/* Desktop table */}
+        <table className="w-full text-xs hidden md:table">
           <thead>
             <tr className="bg-surface-pearl text-ink-muted-48 border-b border-divider-soft">
               <th className="text-left px-4 py-3 font-semibold">Học sinh</th>
@@ -214,6 +215,51 @@ export default function ClassTuitionDetail({ initialTuition, month, year, schedu
             ))}
           </tbody>
         </table>
+        {/* Mobile card list */}
+        <div className="md:hidden flex flex-col gap-3 p-4">
+          {tuition.length === 0 ? (
+            <p className="text-center py-8 text-ink-muted-48 text-xs">Chưa có dữ liệu. Hãy bấm "Tính học phí" ở trang trước.</p>
+          ) : tuition.map((item) => (
+            <div key={item.id} className="border border-hairline rounded-lg p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm text-ink">{item.student.user.name}</span>
+                {statusBadge(item.status)}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex flex-col">
+                  <span className="text-ink-muted-48">Số tiết</span>
+                  <span className="font-semibold text-ink">{item.periods}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-ink-muted-48">Học phí</span>
+                  <span className="font-semibold text-ink">{item.amount.toLocaleString()}đ</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-ink-muted-48">Đã đóng</span>
+                  <span className="font-semibold text-green-700">{item.paid.toLocaleString()}đ</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-ink-muted-48">Còn lại</span>
+                  <span className="font-semibold text-orange-600">{Math.max(0, item.amount - item.paid).toLocaleString()}đ</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-2 border-t border-divider-soft">
+                <button onClick={() => loadDetail(item.studentId, item.student.user.name)} disabled={loadingDetail}
+                  className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold px-2 py-1.5 rounded-full border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors">
+                  <Eye className="h-3 w-3" /> Chi tiết
+                </button>
+                <button onClick={() => setHistoryModal({ name: item.student.user.name, payments: item.payments })}
+                  className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold px-2 py-1.5 rounded-full border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors">
+                  <Clock className="h-3 w-3" /> Lịch sử
+                </button>
+                <button onClick={() => setPayModal({ tuitionId: item.id, studentName: item.student.user.name, owed: item.amount - item.paid })}
+                  className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold px-2 py-1.5 rounded-full border border-primary/30 text-primary hover:bg-primary/5 transition-colors">
+                  <DollarSign className="h-3 w-3" /> Thu tiền
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Detail Modal */}

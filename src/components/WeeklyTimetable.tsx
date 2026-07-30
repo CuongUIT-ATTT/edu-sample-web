@@ -1370,17 +1370,17 @@ export default function WeeklyTimetable({
         </div>
       ) : (
         /* GOOGLE CALENDAR STYLE MONTH VIEW */
-        <div className="bg-canvas border border-hairline rounded-lg p-4 shadow-sm overflow-x-auto">
-          <div className="min-w-[800px]">
-            {/* Header Columns */}
-            <div className="grid grid-cols-7 border-b border-hairline bg-surface-pearl text-center py-2 text-xs font-semibold text-ink">
+        <div className="bg-canvas border border-hairline rounded-lg shadow-sm">
+          {/* Month header - responsive padding/text */}
+          <div className="p-3 sm:p-4">
+            <div className="grid grid-cols-7 border-b border-hairline bg-surface-pearl text-center py-1.5 sm:py-2 text-[10px] sm:text-xs font-semibold text-ink rounded-t-lg">
               {DAYS_OF_WEEK.map((d) => (
                 <div key={d.value}>{d.label}</div>
               ))}
             </div>
 
             {/* Monthly Calendar Grid */}
-            <div className="grid grid-cols-7 grid-rows-5 border-l border-t border-hairline bg-canvas">
+            <div className="grid grid-cols-7 border-l border-t border-hairline bg-canvas">
               {monthDaysGrid.map((day, idx) => {
                 const dayNum = day.getDate();
                 const dayOfWeekValue = day.getDay() === 0 ? 7 : day.getDay();
@@ -1399,14 +1399,14 @@ export default function WeeklyTimetable({
                 return (
                   <div
                     key={idx}
-                    className={`min-h-[100px] border-r border-b border-hairline p-2 flex flex-col gap-1 transition-all hover:bg-surface-pearl/30 ${
+                    className={`min-h-[60px] sm:min-h-[100px] border-r border-b border-hairline p-1 sm:p-2 flex flex-col gap-0.5 sm:gap-1 transition-all hover:bg-surface-pearl/30 ${
                       isCurrentMonth
                         ? "bg-canvas"
                         : "bg-slate-50 text-ink-muted-48 opacity-60"
                     }`}
                   >
                     <span
-                      className={`text-xs font-bold self-end px-1.5 py-0.5 rounded-full ${
+                      className={`text-[10px] sm:text-xs font-bold self-end px-1 sm:px-1.5 py-0.5 rounded-full ${
                         day.toDateString() === new Date().toDateString()
                           ? "bg-primary text-white"
                           : "text-ink"
@@ -1416,7 +1416,7 @@ export default function WeeklyTimetable({
                     </span>
 
                     {/* Compact schedule cards */}
-                    <div className="flex flex-col gap-1 overflow-y-auto max-h-16">
+                    <div className="flex flex-col gap-0.5 sm:gap-1 overflow-y-auto max-h-8 sm:max-h-16">
                       {daySchedules.map((s) => {
                         const isOwn =
                           userRole === "ADMIN" ||
@@ -1429,14 +1429,15 @@ export default function WeeklyTimetable({
                             onClick={() => {
                               if (isOwn) setSelectedSession(s);
                             }}
-                            className={`px-1.5 py-0.5 rounded text-[9px] font-semibold truncate cursor-pointer ${
+                            className={`px-1 sm:px-1.5 py-0.5 rounded text-[7px] sm:text-[9px] font-semibold truncate cursor-pointer ${
                               isOwn
                                 ? "bg-blue-50 border border-blue-100 text-blue-700 hover:bg-blue-100"
                                 : "bg-gray-100 border border-gray-200 text-gray-500"
                             }`}
                             title={`${isOwn ? `${s.class.name} • ${s.subject.name}` : "Đã bận"} (${s.startTime} - ${s.endTime})`}
                           >
-                            {s.startTime} {isOwn ? s.class.name : "Đã bận"}
+                            <span className="hidden sm:inline">{s.startTime} </span>
+                            {isOwn ? s.class.name : "Đã bận"}
                           </div>
                         );
                       })}
@@ -2569,7 +2570,7 @@ export default function WeeklyTimetable({
 
         {/* Right Form (Hidden for students) */}
         {userRole !== "STUDENT" ? (
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6 w-full max-w-lg mx-auto lg:mx-0">
             <div>
               <h2 className="font-tagline text-lg font-semibold text-ink">
                 Thêm lịch học
@@ -2579,7 +2580,7 @@ export default function WeeklyTimetable({
               </p>
             </div>
 
-            <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm">
+            <div className="bg-canvas border border-hairline rounded-lg p-4 sm:p-6 shadow-sm">
               <form
                 onSubmit={(e) => handleFormSubmit(e)}
                 className="flex flex-col gap-4"

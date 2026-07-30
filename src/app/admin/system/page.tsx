@@ -246,7 +246,7 @@ export default async function AdminSystemPage({
       </div>
 
       {/* Status Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-canvas border border-hairline rounded-lg p-4 flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <Server className="h-4 w-4 text-primary" />
@@ -343,10 +343,10 @@ export default async function AdminSystemPage({
                     )}
                   </div>
 
-                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-2">
                       <p className="text-sm font-semibold text-ink leading-snug">{act.title}</p>
-                      <span className="text-[11px] text-ink-muted-48 flex-shrink-0 mt-0.5">
+                      <span className="text-[11px] text-ink-muted-48 flex-shrink-0">
                         {formatTimeAgo(act.timestamp)}
                       </span>
                     </div>
