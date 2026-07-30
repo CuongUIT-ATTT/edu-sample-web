@@ -46,12 +46,12 @@ export async function createSchedule(input: CreateScheduleInput) {
       return { success: false, error: "Ngày bắt đầu không khớp với thứ đã chọn" };
     }
 
-    // 1. Validate room exists in the admin-defined Room table
+    // 1. Auto-create room if it doesn't exist in the Room table
     const targetRoom = await db.room.findFirst({
       where: { name: { equals: room.trim(), mode: "insensitive" } }
     });
     if (!targetRoom) {
-      return { success: false, error: `Phòng học "${room}" không tồn tại. Vui lòng chọn một phòng học hợp lệ do Admin quản lý.` };
+      await db.room.create({ data: { name: room.trim() } });
     }
 
     // 2. Validate start and end times chronologically
