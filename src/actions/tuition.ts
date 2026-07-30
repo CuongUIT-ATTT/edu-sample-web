@@ -185,11 +185,11 @@ export async function exportTuitionCSV(classId: string, months: number[], year: 
     rows.push([name, ...monthAmounts, totalOwed.toLocaleString(), totalPaid.toLocaleString(), (totalOwed - totalPaid).toLocaleString()]);
   }
 
-  const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-  const csvBlob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8" });
-  const csvBase64 = Buffer.from(await csvBlob.text()).toString("base64");
+  const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
+  const bom = "﻿";
+  const buffer = Buffer.from(bom + csvContent, "utf-8");
 
-  return { success: true, csv: `data:text/csv;charset=utf-8;base64,${csvBase64}`, filename: `hoc_phi_${classData.name}_${year}.csv` };
+  return { success: true, csv: `data:text/csv;charset=utf-8;base64,${buffer.toString("base64")}`, filename: `hoc_phi_${classData.name}_${year}.csv` };
 }
 
 export async function toggleAbsence(dateStr: string, studentId: string, isAbsent: boolean) {
