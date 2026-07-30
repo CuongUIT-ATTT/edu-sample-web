@@ -44,21 +44,21 @@ enum ReminderMethod {
 }
 
 model User {
-  id           String          @id @default(uuid())
-  email        String          @unique
+  id           String   @id @default(uuid())
+  email        String   @unique
   passwordHash String
   name         String
   role         Role
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   adminProfile   AdminProfile?
   teacherProfile TeacherProfile?
   studentProfile StudentProfile?
   parentProfile  ParentProfile?
 
-  calendars          Calendar[]
-  ownedEvents        Event[]
+  calendars           Calendar[]
+  ownedEvents         Event[]
   eventParticipations EventParticipant[]
 }
 
@@ -72,28 +72,30 @@ model TeacherProfile {
   id        String     @id @default(uuid())
   userId    String     @unique
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subjects  Subject[]  // Many-to-many relationship with subjects they teach
-  classes   Class[]    // Classes they are the form teacher of
+  subjects  Subject[] // Many-to-many relationship with subjects they teach
+  classes   Class[] // Classes they are the form teacher of
   schedules Schedule[] // Schedules they teach
-  grades    Grade[]    // Grades they recorded
+  grades    Grade[] // Grades they recorded
   quizzes   Quiz[]
 }
 
 model StudentProfile {
-  id              String           @id @default(uuid())
-  userId          String           @unique
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  classes         Class[]
-  
-  parentId        String?
-  parent          ParentProfile?   @relation(fields: [parentId], references: [id], onDelete: SetNull)
-  
-  attendances     Attendance[]
-  grades          Grade[]
-  enrollments     Enrollment[]
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  classes Class[]
+
+  parentId String?
+  parent   ParentProfile? @relation(fields: [parentId], references: [id], onDelete: SetNull)
+
+  attendances         Attendance[]
+  grades              Grade[]
+  enrollments         Enrollment[]
   quizSubmissions     QuizSubmission[]
   homeworkSubmissions HomeworkSubmission[]
+  tuitions            Tuition[]
+  tuitionPayments     TuitionPayment[]
 }
 
 model ParentProfile {
@@ -104,17 +106,18 @@ model ParentProfile {
 }
 
 model Class {
-  id               String          @id @default(uuid())
-  name             String          @unique // e.g., "10A1", "12B3"
-  gradeLevel       Int             // e.g., 10, 11, 12
-  
-  formTeacherId    String?
-  formTeacher      TeacherProfile? @relation(fields: [formTeacherId], references: [id], onDelete: SetNull)
-  
-  students         StudentProfile[]
-  schedules        Schedule[]
-  quizzes          Quiz[]
+  id         String @id @default(uuid())
+  name       String @unique // e.g., "10A1", "12B3"
+  gradeLevel Int // e.g., 10, 11, 12
+
+  formTeacherId String?
+  formTeacher   TeacherProfile? @relation(fields: [formTeacherId], references: [id], onDelete: SetNull)
+
+  students           StudentProfile[]
+  schedules          Schedule[]
+  quizzes            Quiz[]
   documentVisibility DocumentClassVisibility[]
+  tuitions           Tuition[]
 }
 
 model Subject {
@@ -128,42 +131,42 @@ model Subject {
 }
 
 model Schedule {
-  id                String               @id @default(uuid())
-  classId           String
-  class             Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
-  subjectId         String
-  subject           Subject              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacherId         String
-  teacher           TeacherProfile       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  
-  dayOfWeek         Int                  // 1 = Monday, ..., 7 = Sunday
-  startTime         String               // "08:00"
-  endTime           String               // "09:30"
-  room              String?              // e.g., "Room 302"
-  
-  date              DateTime?            // Specific calendar date
-  recurrenceGroupId String?              // ID to group weekly occurrences together
-  materials         String?              // URL or JSON of preview documents
-  homework          String?              // URL or JSON of homework files
-  homeworkDueDate   DateTime?            // Deadline for homework submission
+  id        String         @id @default(uuid())
+  classId   String
+  class     Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId String
+  teacher   TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  dayOfWeek Int // 1 = Monday, ..., 7 = Sunday
+  startTime String // "08:00"
+  endTime   String // "09:30"
+  room      String? // e.g., "Room 302"
+
+  date              DateTime? // Specific calendar date
+  recurrenceGroupId String? // ID to group weekly occurrences together
+  materials         String? // URL or JSON of preview documents
+  homework          String? // URL or JSON of homework files
+  homeworkDueDate   DateTime? // Deadline for homework submission
   homeworkQuizId    String?
   homeworkQuiz      Quiz?                @relation(fields: [homeworkQuizId], references: [id], onDelete: SetNull)
   submissions       HomeworkSubmission[]
 }
 
 model HomeworkSubmission {
-  id          String         @id @default(uuid())
-  scheduleId  String
-  schedule    Schedule       @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  studentId   String
-  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  fileUrl     String         // The submitted homework document link
-  fileName    String?        // Human readable filename
-  submittedAt DateTime       @default(now())
-  grade       Float?         // Optional grade given by teacher
-  feedback    String?        // Teacher feedback
+  id            String         @id @default(uuid())
+  scheduleId    String
+  schedule      Schedule       @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fileUrl       String // The submitted homework document link
+  fileName      String? // Human readable filename
+  submittedAt   DateTime       @default(now())
+  grade         Float? // Optional grade given by teacher
+  feedback      String? // Teacher feedback
   gradeRelation Grade?
-  
+
   @@unique([scheduleId, studentId])
 }
 
@@ -171,7 +174,7 @@ model Attendance {
   id        String           @id @default(uuid())
   studentId String
   student   StudentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  date      DateTime         // Date of attendance
+  date      DateTime // Date of attendance
   status    AttendanceStatus
   remarks   String?
   createdAt DateTime         @default(now())
@@ -190,24 +193,24 @@ model Grade {
   teacher              TeacherProfile      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   homeworkSubmissionId String?             @unique
   homeworkSubmission   HomeworkSubmission? @relation(fields: [homeworkSubmissionId], references: [id], onDelete: Cascade)
-  
-  type      String         // e.g., "QUIZ", "MIDTERM", "FINAL"
-  score     Float          // numeric score
-  weight    Float          // percentage weight (e.g. 0.2 for midterm)
+
+  type      String // e.g., "QUIZ", "MIDTERM", "FINAL"
+  score     Float // numeric score
+  weight    Float // percentage weight (e.g. 0.2 for midterm)
   remarks   String?
-  date      DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  date      DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Course {
-  id          String           @id @default(uuid())
+  id          String       @id @default(uuid())
   title       String
   description String?
   thumbnail   String?
-  level       Int              // e.g. 10, 11, 12
-  published   Boolean          @default(false)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  level       Int // e.g. 10, 11, 12
+  published   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   modules     Module[]
   enrollments Enrollment[]
 }
@@ -222,14 +225,14 @@ model Module {
 }
 
 model Lesson {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   title       String
   videoUrl    String?
   documentUrl String?
   content     String?
   order       Int
   moduleId    String
-  module      Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module      Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 }
 
 model Enrollment {
@@ -244,52 +247,52 @@ model Enrollment {
 }
 
 model Quiz {
-  id               String           @id @default(uuid())
+  id               String  @id @default(uuid())
   title            String
   description      String?
-  duration         Int              // in minutes
+  duration         Int // in minutes
   passingScore     Float
-  isPublic         Boolean          @default(false)
-  answerVisibility String           @default("IMMEDIATELY") // IMMEDIATELY, WHEN_ENDED, NEVER
-  
-  subjectId    String
-  subject      Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacherId    String?
-  teacher      TeacherProfile?  @relation(fields: [teacherId], references: [id], onDelete: SetNull)
-  
-  classId      String?
-  class        Class?           @relation(fields: [classId], references: [id], onDelete: SetNull)
-  
-  questions    Question[]
-  submissions  QuizSubmission[]
-  schedules    Schedule[]
+  isPublic         Boolean @default(false)
+  answerVisibility String  @default("IMMEDIATELY") // IMMEDIATELY, WHEN_ENDED, NEVER
+
+  subjectId String
+  subject   Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId String?
+  teacher   TeacherProfile? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+
+  classId String?
+  class   Class?  @relation(fields: [classId], references: [id], onDelete: SetNull)
+
+  questions   Question[]
+  submissions QuizSubmission[]
+  schedules   Schedule[]
 }
 
 model Question {
-  id            String   @id @default(uuid())
+  id            String  @id @default(uuid())
   text          String
-  type          String   // e.g. "MULTIPLE_CHOICE"
-  options       Json     // Array of choices, e.g. ["A", "B", "C", "D"]
-  correctAnswer String   // Index or text of correct answer
-  score         Float    @default(1.0)
+  type          String // e.g. "MULTIPLE_CHOICE"
+  options       Json // Array of choices, e.g. ["A", "B", "C", "D"]
+  correctAnswer String // Index or text of correct answer
+  score         Float   @default(1.0)
   explanation   String?
   imageUrl      String?
-  
-  quizId        String
-  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  quizId String
+  quiz   Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
 }
 
 model QuizSubmission {
-  id          String          @id @default(uuid())
-  studentId   String?
-  student     StudentProfile? @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  quizId      String
-  quiz        Quiz            @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  
+  id        String          @id @default(uuid())
+  studentId String?
+  student   StudentProfile? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  quizId    String
+  quiz      Quiz            @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
   score       Float
-  answers     Json            // Map of question ID to student's answer
+  answers     Json // Map of question ID to student's answer
   guestName   String?
-  submittedAt DateTime        @default(now())
+  submittedAt DateTime @default(now())
 }
 
 model Room {
@@ -305,7 +308,7 @@ model Document {
   description String?
   fileUrl     String
   fileName    String
-  fileType    String   // 'pdf' or 'docx'
+  fileType    String // 'pdf' or 'docx'
   fileSize    String?
   category    String   @default("Chung")
   published   Boolean  @default(false)
@@ -340,43 +343,43 @@ model Calendar {
 }
 
 model Event {
-  id             String        @id @default(uuid())
+  id             String             @id @default(uuid())
   title          String
   description    String?
   location       String?
-  startTime      DateTime      // UTC
-  endTime        DateTime      // UTC
-  isAllDay       Boolean       @default(false)
-  timezone       String        @default("Asia/Ho_Chi_Minh")
-  color          String        @default("#4285F4")
-  recurrenceRule String?       // RRULE string (RFC 5545), e.g. "FREQ=WEEKLY;BYDAY=MO,WE,FR"
-  recurrenceId   String?       // set on exception instances only
-  status         EventStatus   @default(CONFIRMED)
+  startTime      DateTime // UTC
+  endTime        DateTime // UTC
+  isAllDay       Boolean            @default(false)
+  timezone       String             @default("Asia/Ho_Chi_Minh")
+  color          String             @default("#4285F4")
+  recurrenceRule String? // RRULE string (RFC 5545), e.g. "FREQ=WEEKLY;BYDAY=MO,WE,FR"
+  recurrenceId   String? // set on exception instances only
+  status         EventStatus        @default(CONFIRMED)
   calendarId     String
-  calendar       Calendar      @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  calendar       Calendar           @relation(fields: [calendarId], references: [id], onDelete: Cascade)
   ownerId        String
-  owner          User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner          User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   participants   EventParticipant[]
   reminders      Reminder[]
   exceptions     EventException[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@index([calendarId, startTime])
   @@index([ownerId])
 }
 
 model EventException {
-  id            String      @id @default(uuid())
+  id            String       @id @default(uuid())
   eventId       String
-  event         Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  originalStart DateTime    // UTC — identifies which instance was modified
-  recurrenceId  String      // generated ID for this recurrence instance
+  event         Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  originalStart DateTime // UTC — identifies which instance was modified
+  recurrenceId  String // generated ID for this recurrence instance
   title         String?
   description   String?
   location      String?
-  startTime     DateTime?   // UTC — overridden start
-  endTime       DateTime?   // UTC — overridden end
+  startTime     DateTime? // UTC — overridden start
+  endTime       DateTime? // UTC — overridden end
   isAllDay      Boolean?
   status        EventStatus?
 }
@@ -399,3 +402,48 @@ model Reminder {
   minutesBefore Int
 }
 
+// ─── Tuition / Học phí ─────────────────────────────────────────────
+
+model TuitionFeeSetting {
+  id             String   @id @default(uuid())
+  pricePerPeriod Float    @default(15000)
+  updatedAt      DateTime @updatedAt
+  updatedBy      String
+}
+
+model Tuition {
+  id        String  @id @default(uuid())
+  studentId String
+  classId   String
+  month     Int
+  year      Int
+  periods   Int
+  amount    Float
+  paid      Float   @default(0)
+  status    String  @default("PENDING")
+  note      String?
+
+  student   StudentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  payments  TuitionPayment[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([studentId, classId, month, year])
+}
+
+model TuitionPayment {
+  id         String   @id @default(uuid())
+  tuitionId  String
+  studentId  String
+  amount     Float
+  paidAt     DateTime
+  method     String   @default("CASH")
+  note       String?
+  recordedBy String
+
+  tuition Tuition        @relation(fields: [tuitionId], references: [id], onDelete: Cascade)
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}

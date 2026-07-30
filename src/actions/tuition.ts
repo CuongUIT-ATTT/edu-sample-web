@@ -1,0 +1,138 @@
+"use server";
+
+import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
+
+export async function getFeeSettings() {
+  let setting = await db.tuitionFeeSetting.findFirst({ orderBy: { updatedAt: "desc" } });
+  if (!setting) {
+    setting = await db.tuitionFeeSetting.create({
+      data: { pricePerPeriod: 15000, updatedBy: "system" },
+    });
+  }
+  return { pricePerPeriod: setting.pricePerPeriod };
+}
+
+export async function updateFeeSettings(pricePerPeriod: number) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") return { success: false, error: "Không có quyền" };
+
+  await db.tuitionFeeSetting.create({
+    data: { pricePerPeriod, updatedBy: session.id as string },
+  });
+  revalidatePath("/admin/tuition");
+  return { success: true };
+}
+
+export async function calculateTuition(classId: string, month: number, year: number) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") return { success: false, error: "Không có quyền" };
+
+  const { pricePerPeriod } = await getFeeSettings();
+  const classData = await db.class.findUnique({
+    where: { id: classId },
+    include: { students: { include: { user: { select: { name: true } } } } },
+  });
+  if (!classData) return { success: false, error: "Lớp không tồn tại" };
+
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0, 23, 59, 59);
+
+  const schedules = await db.schedule.findMany({
+    where: { classId, date: { gte: startDate, lte: endDate } },
+  });
+
+  const schedulePeriods: Record<string, number> = {};
+  for (const s of schedules) {
+    if (s.date) {
+      const [sh, sm] = s.startTime.split(":").map(Number);
+      const [eh, em] = s.endTime.split(":").map(Number);
+      const minutes = (eh * 60 + em) - (sh * 60 + sm);
+      schedulePeriods[s.id] = Math.max(1, Math.round(minutes / 45));
+    }
+  }
+
+  const totalPeriods = Object.values(schedulePeriods).reduce((a, b) => a + b, 0);
+  const scheduleCount = schedules.length;
+  const results = [];
+
+  for (const student of classData.students) {
+    const absences = await db.attendance.count({
+      where: {
+        studentId: student.id,
+        date: { gte: startDate, lte: endDate },
+        status: { in: ["ABSENT", "EXCUSED"] },
+      },
+    });
+
+    const absentPeriods = scheduleCount > 0 ? Math.round((absences / scheduleCount) * totalPeriods) : 0;
+    const studentPeriods = Math.max(0, totalPeriods - absentPeriods);
+    const amount = studentPeriods * pricePerPeriod;
+
+    await db.tuition.upsert({
+      where: { studentId_classId_month_year: { studentId: student.id, classId, month, year } },
+      update: { periods: studentPeriods, amount },
+      create: { studentId: student.id, classId, month, year, periods: studentPeriods, amount },
+    });
+
+    results.push({
+      studentId: student.id,
+      studentName: student.user.name,
+      periods: studentPeriods,
+      amount,
+      absences,
+    });
+  }
+
+  revalidatePath(`/admin/tuition/${classId}`);
+  return { success: true, data: results };
+}
+
+export async function getTuitionByClass(classId: string, month: number, year: number) {
+  return db.tuition.findMany({
+    where: { classId, month, year },
+    include: {
+      student: { include: { user: { select: { name: true } } } },
+      payments: { orderBy: { paidAt: "desc" } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getAllClasses() {
+  return db.class.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { students: true } } } });
+}
+
+export async function recordPayment(tuitionId: string, amount: number, method: string, note: string) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") return { success: false, error: "Không có quyền" };
+
+  const tuition = await db.tuition.findUnique({ where: { id: tuitionId } });
+  if (!tuition) return { success: false, error: "Không tìm thấy" };
+
+  await db.tuitionPayment.create({
+    data: { tuitionId, studentId: tuition.studentId, amount, paidAt: new Date(), method, note: note || null, recordedBy: session.id as string },
+  });
+
+  const newPaid = tuition.paid + amount;
+  const status = newPaid >= tuition.amount ? "PAID" : newPaid > 0 ? "PARTIAL" : "PENDING";
+  await db.tuition.update({ where: { id: tuitionId }, data: { paid: newPaid, status } });
+
+  revalidatePath("/admin/tuition");
+  return { success: true };
+}
+
+export async function toggleAbsence(dateStr: string, studentId: string, isAbsent: boolean) {
+  const date = new Date(dateStr);
+  if (!isAbsent) {
+    await db.attendance.deleteMany({ where: { studentId, date } });
+  } else {
+    await db.attendance.upsert({
+      where: { studentId_date: { studentId, date } },
+      update: { status: "ABSENT" },
+      create: { studentId, date, status: "ABSENT" },
+    });
+  }
+  return { success: true };
+}
