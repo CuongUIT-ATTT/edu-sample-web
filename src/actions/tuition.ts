@@ -116,7 +116,7 @@ export async function recordPayment(tuitionId: string, amount: number, method: s
   if (!tuition) return { success: false, error: "Không tìm thấy" };
 
   await db.tuitionPayment.create({
-    data: { tuitionId, studentId: tuition.studentId, amount, paidAt: new Date(), method, note: note || null, recordedBy: session.id as string },
+    data: { tuitionId, studentId: tuition.studentId, amount, paidAt: new Date(), method, note: note || null, recordedBy: session.userId },
   });
 
   const newPaid = tuition.paid + amount;
