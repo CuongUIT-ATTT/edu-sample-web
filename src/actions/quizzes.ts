@@ -18,7 +18,7 @@ export async function submitQuiz(input: SubmitQuizInput) {
     const quiz = await db.quiz.findUnique({
       where: { id: input.quizId },
       include: { questions: true },
-    });
+    }) as any;
 
     if (!quiz) {
       return { success: false, error: "Đề kiểm tra trắc nghiệm không tồn tại." };
@@ -129,7 +129,7 @@ export async function submitQuiz(input: SubmitQuizInput) {
         maxScore,
         passed,
         submissionId: submission.id,
-        correctAnswers: showAnswers ? quiz.questions.map(q => ({
+        correctAnswers: showAnswers ? quiz.questions.map((q: any) => ({
           id: q.id,
           correctAnswer: q.correctAnswer,
           explanation: q.explanation

@@ -119,7 +119,7 @@ export async function recordPayment(tuitionId: string, amount: number, method: s
   const status = newPaid >= tuition.amount ? "PAID" : newPaid > 0 ? "PARTIAL" : "PENDING";
   await db.tuition.update({ where: { id: tuitionId }, data: { paid: newPaid, status } });
 
-  revalidatePath("/admin/tuition");
+  revalidatePath(`/admin/tuition/${tuition.classId}`);
   return { success: true };
 }
 
