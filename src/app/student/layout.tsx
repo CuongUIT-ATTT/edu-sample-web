@@ -179,7 +179,7 @@ export default function StudentDashboardLayout({
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 w-full">{children}</main>
+        <main className="flex-1 w-full p-4 md:p-8">{children}</main>
       </div>
     </div>
   );
