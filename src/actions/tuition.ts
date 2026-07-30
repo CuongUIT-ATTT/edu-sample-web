@@ -19,7 +19,7 @@ export async function updateFeeSettings(pricePerPeriod: number) {
   if (!session || session.role !== "ADMIN") return { success: false, error: "Không có quyền" };
 
   await db.tuitionFeeSetting.create({
-    data: { pricePerPeriod, updatedBy: session.id as string },
+    data: { pricePerPeriod, updatedBy: session.userId },
   });
   revalidatePath("/admin/tuition");
   return { success: true };

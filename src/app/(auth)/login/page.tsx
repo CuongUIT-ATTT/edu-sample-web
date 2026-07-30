@@ -1,13 +1,39 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { GraduationCap, AlertCircle, RefreshCw } from "lucide-react";
 import { login } from "@/actions/auth";
 
+/** Decode JWT payload từ cookie session_token để biết role */
+function getSessionRole(): string | null {
+  try {
+    const m = document.cookie.match(/(?:^|; )session_token=([^;]+)/);
+    if (!m) return null;
+    const payload = JSON.parse(atob(decodeURIComponent(m[1]).split(".")[1]));
+    return payload?.role?.toLowerCase() || null;
+  } catch {
+    return null;
+  }
+}
+
+const HOME_BY_ROLE: Record<string, string> = {
+  admin: "/admin",
+  teacher: "/teacher",
+  student: "/student",
+  parent: "/parent",
+};
+
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [homeHref, setHomeHref] = useState("/");
+
+  // Nếu đã đăng nhập, "Quay lại trang chủ" sẽ về dashboard role thay vì trang khách
+  useEffect(() => {
+    const role = getSessionRole();
+    if (role && HOME_BY_ROLE[role]) setHomeHref(HOME_BY_ROLE[role]);
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -108,8 +134,8 @@ export default function LoginPage() {
         </form>
 
         <div className="text-center mt-6">
-          <Link href="/" className="text-xs text-ink-muted-48 hover:underline select-none">
-            Quay lại trang chủ
+          <Link href={homeHref} className="text-xs text-ink-muted-48 hover:underline select-none">
+            {homeHref === "/" ? "Quay lại trang chủ" : "Về trang quản lý"}
           </Link>
         </div>
 
