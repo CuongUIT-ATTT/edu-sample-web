@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DollarSign, X, Eye } from "lucide-react";
+import { DollarSign, X, Eye, Clock } from "lucide-react";
 import { showToast } from "@/components/Toast";
 import { recordPayment } from "@/actions/tuition";
 
@@ -45,6 +45,7 @@ export default function ClassTuitionDetail({ initialTuition, month, year, schedu
   const [showSchedules, setShowSchedules] = useState(false);
   const [detail, setDetail] = useState<{ name: string; rows: { date: string; start: string; end: string; room: string; status: string }[] } | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [historyModal, setHistoryModal] = useState<{ name: string; payments: TuitionItem['payments'] } | null>(null);
 
   const loadDetail = async (studentId: string, studentName: string) => {
     setLoadingDetail(true);
@@ -168,23 +169,23 @@ export default function ClassTuitionDetail({ initialTuition, month, year, schedu
               <th className="text-right px-4 py-3 font-semibold">Đã đóng</th>
               <th className="text-right px-4 py-3 font-semibold">Còn lại</th>
               <th className="text-center px-4 py-3 font-semibold">Trạng thái</th>
-              <th className="text-center px-4 py-3 font-semibold" colSpan={2}>Thao tác</th>
+              <th className="text-center px-4 py-3 font-semibold" colSpan={3}>Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {tuition.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-8 text-ink-muted-48">Chưa có dữ liệu. Hãy bấm "Tính học phí" ở trang trước.</td></tr>
-            ) : tuition.map((t) => (
-              <tr key={t.id} className="border-b border-divider-soft last:border-0 hover:bg-surface-pearl/50">
-                <td className="px-4 py-3.5 font-semibold text-ink">{t.student.user.name}</td>
-                <td className="px-4 py-3.5 text-center text-ink-muted-80">{t.periods}</td>
-                <td className="px-4 py-3.5 text-right font-semibold text-ink">{t.amount.toLocaleString()}đ</td>
-                <td className="px-4 py-3.5 text-right text-green-700 font-semibold">{t.paid.toLocaleString()}đ</td>
-                <td className="px-4 py-3.5 text-right text-orange-600 font-semibold">{Math.max(0, t.amount - t.paid).toLocaleString()}đ</td>
-                <td className="px-4 py-3.5 text-center">{statusBadge(t.status)}</td>
+              <tr><td colSpan={8} className="text-center py-8 text-ink-muted-48">Chưa có dữ liệu. Hãy bấm "Tính học phí" ở trang trước.</td></tr>
+            ) : tuition.map((item) => (
+              <tr key={item.id} className="border-b border-divider-soft last:border-0 hover:bg-surface-pearl/50">
+                <td className="px-4 py-3.5 font-semibold text-ink">{item.student.user.name}</td>
+                <td className="px-4 py-3.5 text-center text-ink-muted-80">{item.periods}</td>
+                <td className="px-4 py-3.5 text-right font-semibold text-ink">{item.amount.toLocaleString()}đ</td>
+                <td className="px-4 py-3.5 text-right text-green-700 font-semibold">{item.paid.toLocaleString()}đ</td>
+                <td className="px-4 py-3.5 text-right text-orange-600 font-semibold">{Math.max(0, item.amount - item.paid).toLocaleString()}đ</td>
+                <td className="px-4 py-3.5 text-center">{statusBadge(item.status)}</td>
                 <td className="px-4 py-3.5 text-center">
                   <button
-                    onClick={() => loadDetail(t.studentId, t.student.user.name)}
+                    onClick={() => loadDetail(item.studentId, item.student.user.name)}
                     disabled={loadingDetail}
                     className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors"
                     title="Xem chi tiết buổi học"
@@ -194,7 +195,16 @@ export default function ClassTuitionDetail({ initialTuition, month, year, schedu
                 </td>
                 <td className="px-4 py-3.5 text-center">
                   <button
-                    onClick={() => setPayModal({ tuitionId: t.id, studentName: t.student.user.name, owed: t.amount - t.paid })}
+                    onClick={() => setHistoryModal({ name: item.student.user.name, payments: item.payments })}
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors"
+                    title="Lịch sử đóng tiền"
+                  >
+                    <Clock className="h-3 w-3" /> Lịch sử
+                  </button>
+                </td>
+                <td className="px-4 py-3.5 text-center">
+                  <button
+                    onClick={() => setPayModal({ tuitionId: item.id, studentName: item.student.user.name, owed: item.amount - item.paid })}
                     className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-primary/30 text-primary hover:bg-primary/5 transition-colors"
                   >
                     <DollarSign className="h-3 w-3" /> Thu tiền
@@ -215,7 +225,12 @@ export default function ClassTuitionDetail({ initialTuition, month, year, schedu
               <button onClick={() => setDetail(null)} className="h-7 w-7 rounded-md text-ink-muted-80 hover:bg-surface-pearl flex items-center justify-center"><X className="h-4 w-4" /></button>
             </div>
             <div className="p-5 overflow-y-auto flex flex-col gap-3">
-              <p className="text-[10px] text-ink-muted-48">Tháng {month}/{year} • {detail.rows.length} buổi | Giá tiết: {new Intl.NumberFormat().format(18000)}đ/45p</p>
+              <div className="text-[10px] text-ink-muted-48 flex flex-wrap gap-x-4 gap-y-1">
+                <span>Tháng {month}/{year}</span>
+                <span>Số buổi: <strong>{detail.rows.length}</strong></span>
+                <span>Tổng tiết từ lịch: <strong>{detail.rows.reduce((s, r) => { const [sh,sm]=r.start.split(":").map(Number); const [eh,em]=r.end.split(":").map(Number); return s + Math.max(1, Math.round(((eh*60+em)-(sh*60+sm))/45)); }, 0)} tiết</strong></span>
+                <span>Giá: {new Intl.NumberFormat().format(18000)}đ/tiết</span>
+              </div>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-ink-muted-48 border-b border-divider-soft">
@@ -249,6 +264,42 @@ export default function ClassTuitionDetail({ initialTuition, month, year, schedu
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {historyModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-canvas border border-hairline rounded-xl shadow-product w-full max-w-sm flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-divider-soft">
+              <h3 className="text-sm font-bold text-ink">Lịch sử đóng tiền - {historyModal.name}</h3>
+              <button onClick={() => setHistoryModal(null)} className="h-7 w-7 rounded-md text-ink-muted-80 hover:bg-surface-pearl flex items-center justify-center"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="p-5 flex flex-col gap-3">
+              {historyModal.payments.length === 0 ? (
+                <p className="text-xs text-ink-muted-48 text-center py-4">Chưa có lịch sử thanh toán.</p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead><tr className="text-ink-muted-48 border-b border-divider-soft">
+                    <th className="text-left py-2 font-semibold">Ngày</th>
+                    <th className="text-right py-2 font-semibold">Số tiền</th>
+                    <th className="text-center py-2 font-semibold">PTTT</th>
+                    <th className="text-left py-2 font-semibold">Ghi chú</th>
+                  </tr></thead>
+                  <tbody>
+                    {historyModal.payments.map((pmt: { id: string; amount: number; paidAt: string; method: string; note: string | null }) => (
+                      <tr key={pmt.id} className="border-b border-divider-soft last:border-0">
+                        <td className="py-2">{new Date(pmt.paidAt).toLocaleDateString("vi-VN")}</td>
+                        <td className="py-2 text-right font-semibold text-green-700">{pmt.amount.toLocaleString()}đ</td>
+                        <td className="py-2 text-center">{pmt.method === "CASH" ? "Tiền mặt" : "CK"}</td>
+                        <td className="py-2 text-ink-muted-48">{pmt.note || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
