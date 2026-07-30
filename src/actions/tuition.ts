@@ -123,6 +123,75 @@ export async function recordPayment(tuitionId: string, amount: number, method: s
   return { success: true };
 }
 
+export async function calculateMultipleMonths(classId: string, months: number[], year: number) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") return { success: false, error: "Không có quyền" };
+
+  for (const month of months) {
+    await calculateTuition(classId, month, year);
+  }
+
+  revalidatePath(`/admin/tuition/${classId}`);
+  return { success: true, totalMonths: months.length };
+}
+
+export async function exportTuitionCSV(classId: string, months: number[], year: number) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") return { success: false, error: "Không có quyền" };
+
+  const classData = await db.class.findUnique({ where: { id: classId } });
+  if (!classData) return { success: false, error: "Lớp không tồn tại" };
+
+  // Ensure tuition is calculated for all requested months
+  for (const month of months) {
+    await calculateTuition(classId, month, year);
+  }
+
+  const tuitionList = await db.tuition.findMany({
+    where: { classId, month: { in: months }, year },
+    include: {
+      student: { include: { user: { select: { name: true } } } },
+      payments: { orderBy: { paidAt: "desc" } },
+    },
+    orderBy: [{ student: { user: { name: "asc" } } }, { month: "asc" }],
+  });
+
+  // Build CSV
+  const headers = ["Học sinh", ...months.map(m => `Tháng ${m}/${year}`), "Tổng học phí", "Đã đóng", "Còn lại"];
+  const rows: string[][] = [];
+  const studentMap = new Map<string, typeof tuitionList>();
+
+  for (const t of tuitionList) {
+    if (!studentMap.has(t.studentId)) studentMap.set(t.studentId, []);
+    studentMap.get(t.studentId)!.push(t);
+  }
+
+  for (const [studentId, entries] of studentMap) {
+    const name = entries[0].student.user.name;
+    let totalOwed = 0, totalPaid = 0;
+    const monthAmounts: string[] = [];
+
+    for (const month of months) {
+      const entry = entries.find(e => e.month === month);
+      if (entry) {
+        monthAmounts.push(entry.amount.toLocaleString());
+        totalOwed += entry.amount;
+        totalPaid += entry.paid;
+      } else {
+        monthAmounts.push("0");
+      }
+    }
+
+    rows.push([name, ...monthAmounts, totalOwed.toLocaleString(), totalPaid.toLocaleString(), (totalOwed - totalPaid).toLocaleString()]);
+  }
+
+  const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+  const csvBlob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8" });
+  const csvBase64 = Buffer.from(await csvBlob.text()).toString("base64");
+
+  return { success: true, csv: `data:text/csv;charset=utf-8;base64,${csvBase64}`, filename: `hoc_phi_${classData.name}_${year}.csv` };
+}
+
 export async function toggleAbsence(dateStr: string, studentId: string, isAbsent: boolean) {
   const date = new Date(dateStr);
   if (!isAbsent) {
