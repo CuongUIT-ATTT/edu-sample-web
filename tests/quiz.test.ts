@@ -30,3 +30,38 @@ describe("Quiz - Types & Images", () => {
     expect(sub!.guestName).toContain("Nguyễn");
   });
 });
+
+describe("Quiz - isLate flag", () => {
+  it("QuizSubmission có field isLate", async () => {
+    const sub = await db.quizSubmission.findFirst();
+    expect(sub).toHaveProperty("isLate");
+  });
+
+  it("tạo submission mới với isLate=true — điểm vẫn tính bình thường", async () => {
+    const sub = await db.quizSubmission.create({
+      data: {
+        quizId: "qz-003",
+        score: 6.0,
+        answers: JSON.stringify({}),
+        guestName: "Test isLate",
+        isLate: true,
+      },
+    });
+    expect(sub.isLate).toBe(true);
+    expect(sub.score).toBe(6.0); // không bị trừ điểm
+  });
+
+  it("tạo submission isLate=false (đúng giờ)", async () => {
+    const sub = await db.quizSubmission.create({
+      data: {
+        quizId: "qz-001",
+        score: 9.0,
+        answers: JSON.stringify({}),
+        guestName: "Test on-time",
+        isLate: false,
+      },
+    });
+    expect(sub.isLate).toBe(false);
+    expect(sub.score).toBe(9.0);
+  });
+});

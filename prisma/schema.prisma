@@ -293,6 +293,7 @@ model QuizSubmission {
   answers     Json // Map of question ID to student's answer
   guestName   String?
   submittedAt DateTime @default(now())
+  isLate      Boolean  @default(false)
 }
 
 model Room {

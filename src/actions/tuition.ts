@@ -62,7 +62,7 @@ export async function calculateTuition(classId: string, month: number, year: num
       where: {
         studentId: student.id,
         date: { gte: startDate, lte: endDate },
-        status: { in: ["ABSENT", "EXCUSED"] },
+        status: { in: ["EXCUSED"] },
       },
     });
 

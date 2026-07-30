@@ -72,6 +72,10 @@ export async function submitQuiz(input: SubmitQuizInput) {
       }
     }
 
+    // Check if submitted after endTime — flag as late, still accept
+    const endTime = new Date(quiz.createdAt.getTime() + quiz.duration * 60000);
+    const isLate = new Date() > endTime;
+
     const submission = await db.quizSubmission.create({
       data: {
         studentId: studentProfile ? studentProfile.id : null,
@@ -79,6 +83,7 @@ export async function submitQuiz(input: SubmitQuizInput) {
         score: totalScore,
         answers: JSON.parse(JSON.stringify(input.answers)),
         guestName: studentProfile ? null : input.guestName?.trim(),
+        isLate,
       },
     });
 
