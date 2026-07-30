@@ -55,6 +55,10 @@ export async function calculateTuition(classId: string, month: number, year: num
 
   const totalPeriods = Object.values(schedulePeriods).reduce((a, b) => a + b, 0);
   const scheduleCount = schedules.length;
+
+  // Reset existing tuition for this class/month/year to prevent duplicates on re-run
+  await db.tuition.deleteMany({ where: { classId, month, year } });
+
   const results = [];
 
   for (const student of classData.students) {
