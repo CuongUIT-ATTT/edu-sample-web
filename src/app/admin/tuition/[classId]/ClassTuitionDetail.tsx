@@ -35,7 +35,8 @@ interface Props {
 
 export default function ClassTuitionDetail({ initialTuition, month, year, schedules }: Props) {
   const router = useRouter();
-  const [tuition] = useState(initialTuition);
+  // tuition = initialTuition (server-rendered, refresh when router.refresh() re-renders)
+  const tuition = initialTuition;
   const [payModal, setPayModal] = useState<{ tuitionId: string; studentName: string; owed: number } | null>(null);
   const [payAmount, setPayAmount] = useState("");
   const [payMethod, setPayMethod] = useState("CASH");
