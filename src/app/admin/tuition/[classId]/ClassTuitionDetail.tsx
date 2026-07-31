@@ -107,8 +107,22 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
     );
   };
 
-  const totalAmount = tuition.reduce((s, t) => s + t.amount, 0);
-  const totalPaid = tuition.reduce((s, t) => s + t.paid, 0);
+  // Aggregate tuition records by studentId (sum periods/amount across months)
+  const aggregated: Record<string, TuitionItem> = {};
+  for (const t of tuition) {
+    const sid = t.studentId;
+    if (!aggregated[sid]) {
+      aggregated[sid] = { ...t, periods: 0, amount: 0, paid: 0, payments: [] as TuitionItem['payments'] };
+    }
+    aggregated[sid].periods += t.periods;
+    aggregated[sid].amount += t.amount;
+    aggregated[sid].paid += t.paid;
+    aggregated[sid].payments.push(...t.payments);
+  }
+  const aggList = Object.values(aggregated);
+
+  const totalAmount = aggList.reduce((s, t) => s + t.amount, 0);
+  const totalPaid = aggList.reduce((s, t) => s + t.paid, 0);
 
   return (
     <div className="flex flex-col gap-5">
@@ -175,9 +189,9 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
             </tr>
           </thead>
           <tbody>
-            {tuition.length === 0 ? (
+            {aggList.length === 0 ? (
               <tr><td colSpan={8} className="text-center py-8 text-ink-muted-48">Chưa có dữ liệu. Hãy bấm "Tính học phí" ở trang trước.</td></tr>
-            ) : tuition.map((item) => (
+            ) : aggList.map((item) => (
               <tr key={item.id} className="border-b border-divider-soft last:border-0 hover:bg-surface-pearl/50">
                 <td className="px-4 py-3.5 font-semibold text-ink">{item.student.user.name}</td>
                 <td className="px-4 py-3.5 text-center text-ink-muted-80">{item.periods}</td>
@@ -218,9 +232,9 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
         </table>
         {/* Mobile card list */}
         <div className="md:hidden flex flex-col gap-3 p-4">
-          {tuition.length === 0 ? (
+          {aggList.length === 0 ? (
             <p className="text-center py-8 text-ink-muted-48 text-xs">Chưa có dữ liệu. Hãy bấm "Tính học phí" ở trang trước.</p>
-          ) : tuition.map((item) => (
+          ) : aggList.map((item) => (
             <div key={item.id} className="border border-hairline rounded-lg p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-sm text-ink">{item.student.user.name}</span>
