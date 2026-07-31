@@ -13,14 +13,15 @@ export default async function ClassTuitionPage({
   searchParams,
 }: {
   params: Promise<{ classId: string }>;
-  searchParams: Promise<{ month?: string; year?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; year?: string }>;
 }) {
   const session = await getSession();
   if (!session || session.role !== "ADMIN") redirect("/login");
 
   const { classId } = await params;
   const sp = await searchParams;
-  const month = parseInt(sp.month || String(new Date().getMonth() + 1));
+  const fromMonth = parseInt(sp.from || String(new Date().getMonth() + 1));
+  const toMonth = parseInt(sp.to || String(new Date().getMonth() + 1));
   const year = parseInt(sp.year || String(new Date().getFullYear()));
 
   const classData = await db.class.findUnique({
@@ -30,19 +31,16 @@ export default async function ClassTuitionPage({
   if (!classData) redirect("/admin/tuition");
 
   const tuitionList = await db.tuition.findMany({
-    where: { classId, month, year },
+    where: { classId, month: { gte: fromMonth, lte: toMonth }, year },
     include: {
       student: { include: { user: { select: { name: true } } } },
       payments: { orderBy: { paidAt: "desc" } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ student: { user: { name: "asc" } } }, { month: "asc" }],
   });
 
   const schedules = await db.schedule.findMany({
-    where: {
-      classId,
-      date: { gte: new Date(year, month - 1, 1), lte: new Date(year, month, 0, 23, 59, 59) },
-    },
+    where: { classId, date: { gte: new Date(year, fromMonth - 1, 1), lte: new Date(year, toMonth, 0, 23, 59, 59) } },
     orderBy: { date: "asc" },
   });
 
@@ -54,13 +52,15 @@ export default async function ClassTuitionPage({
         </Link>
         <div>
           <h1 className="font-tagline text-2xl font-semibold text-ink">Học phí lớp {classData.name}</h1>
-          <p className="font-caption text-ink-muted-80 mt-1">Tháng {month}/{year} • {classData._count.students} học sinh</p>
+          <p className="font-caption text-ink-muted-80 mt-1">
+            Tháng {fromMonth === toMonth ? fromMonth : `${fromMonth}→${toMonth}`}/{year} • {classData._count.students} HS • {schedules.length} buổi
+          </p>
         </div>
       </div>
-
       <ClassTuitionDetail
         classId={classId}
-        month={month}
+        fromMonth={fromMonth}
+        toMonth={toMonth}
         year={year}
         initialTuition={JSON.parse(JSON.stringify(tuitionList))}
         schedules={JSON.parse(JSON.stringify(schedules))}

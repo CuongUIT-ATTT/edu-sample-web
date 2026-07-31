@@ -27,13 +27,14 @@ interface ScheduleItem {
 
 interface Props {
   classId: string;
-  month: number;
+  fromMonth: number;
+  toMonth: number;
   year: number;
   initialTuition: TuitionItem[];
   schedules: ScheduleItem[];
 }
 
-export default function ClassTuitionDetail({ initialTuition, month, year, schedules }: Props) {
+export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth, year, schedules }: Props) {
   const router = useRouter();
   // tuition = initialTuition (server-rendered, refresh when router.refresh() re-renders)
   const tuition = initialTuition;
@@ -50,7 +51,7 @@ export default function ClassTuitionDetail({ initialTuition, month, year, schedu
   const loadDetail = async (studentId: string, studentName: string) => {
     setLoadingDetail(true);
     try {
-      const res = await fetch(`/api/attendance?studentId=${studentId}&month=${month}&year=${year}`);
+      const res = await fetch(`/api/attendance?studentId=${studentId}&from=${fromMonth}&to=${toMonth}&year=${year}`);
       const data = await res.json();
       const attendance = data?.records || [];
 
@@ -129,7 +130,7 @@ export default function ClassTuitionDetail({ initialTuition, month, year, schedu
 
       {/* Schedules toggle */}
       <button onClick={() => setShowSchedules(!showSchedules)} className="text-xs text-primary hover:underline font-semibold self-start">
-        {showSchedules ? "Ẩn" : "Xem"} lịch học tháng {month}/{year} ({schedules.length} buổi)
+        {showSchedules ? "Ẩn" : "Xem"} lịch học tháng {fromMonth === toMonth ? `${fromMonth}` : `${fromMonth}→${toMonth}`}/{year} ({schedules.length} buổi)
       </button>
 
       {showSchedules && (
@@ -272,7 +273,7 @@ export default function ClassTuitionDetail({ initialTuition, month, year, schedu
             </div>
             <div className="p-5 overflow-y-auto flex flex-col gap-3">
               <div className="text-[10px] text-ink-muted-48 flex flex-wrap gap-x-4 gap-y-1">
-                <span>Tháng {month}/{year}</span>
+                <span>Tháng {fromMonth === toMonth ? fromMonth : `${fromMonth}→${toMonth}`}/{year}</span>
                 <span>Số buổi: <strong>{detail.rows.length}</strong></span>
                 <span>Tổng tiết từ lịch: <strong>{detail.rows.reduce((s, r) => { const [sh,sm]=r.start.split(":").map(Number); const [eh,em]=r.end.split(":").map(Number); return s + Math.max(1, Math.round(((eh*60+em)-(sh*60+sm))/45)); }, 0)} tiết</strong></span>
                 <span>Giá: {new Intl.NumberFormat().format(18000)}đ/tiết</span>
