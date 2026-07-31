@@ -59,17 +59,33 @@ export async function calculateTuition(classId: string, fromMonth: number, toMon
     }
 
     const totalPeriods = Object.values(schedulePeriods).reduce((a, b) => a + b, 0);
-    const scheduleCount = schedules.length;
 
     await db.tuition.deleteMany({ where: { classId, month, year } });
 
     for (const student of classData.students) {
-      const absences = await db.attendance.count({
-        where: { studentId: student.id, date: { gte: startDate, lte: endDate }, status: { in: ["EXCUSED"] } },
+      // Logic mới: chỉ tính buổi ĐÃ điểm danh. Chưa điểm danh = không tính tiền.
+      // PRESENT/LATE = tính tiền. ABSENT/EXCUSED = không tính tiền.
+      const attendanceRecords = await db.attendance.findMany({
+        where: { studentId: student.id, date: { gte: startDate, lte: endDate } },
       });
 
-      const absentPeriods = scheduleCount > 0 ? Math.round((absences / scheduleCount) * totalPeriods) : 0;
-      const studentPeriods = Math.max(0, totalPeriods - absentPeriods);
+      // Đếm số tiết đã được điểm danh (PRESENT + LATE)
+      const markedSchedules = new Set<string>();
+      for (const att of attendanceRecords) {
+        if (att.status === "PRESENT" || att.status === "LATE") {
+          // Tìm schedule tương ứng với ngày điểm danh
+          const matchingSchedule = schedules.find(
+            (s) => s.date && new Date(s.date).toISOString().split("T")[0] === att.date.toISOString().split("T")[0]
+          );
+          if (matchingSchedule && !markedSchedules.has(matchingSchedule.id)) {
+            markedSchedules.add(matchingSchedule.id);
+          }
+        }
+      }
+
+      // Tính số tiết = số buổi đã điểm danh × tiết/buổi
+      const firstSchedulePeriods = Object.values(schedulePeriods)[0] || 1;
+      const studentPeriods = markedSchedules.size * firstSchedulePeriods;
       const amount = studentPeriods * pricePerPeriod;
 
       await db.tuition.upsert({
@@ -78,7 +94,7 @@ export async function calculateTuition(classId: string, fromMonth: number, toMon
         create: { studentId: student.id, classId, month, year, periods: studentPeriods, amount },
       });
 
-      allResults.push({ studentId: student.id, studentName: student.user.name, month, periods: studentPeriods, amount, absences });
+      allResults.push({ studentId: student.id, studentName: student.user.name, month, periods: studentPeriods, amount, markedCount: markedSchedules.size });
     }
   }
 
