@@ -32,10 +32,17 @@ export async function calculateTuition(classId: string, fromMonth: number, toMon
   if (!classData) return { success: false, error: "Lớp không tồn tại" };
 
   const allResults: any[] = [];
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
   for (let month = fromMonth; month <= toMonth; month++) {
     const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+    // Don't calculate for months entirely in the future
+    if (startDate > today) continue;
+
+    // Cap end date at today for current month
+    const monthEnd = new Date(year, month, 0, 23, 59, 59);
+    const endDate = monthEnd > today ? today : monthEnd;
 
     const schedules = await db.schedule.findMany({
       where: { classId, date: { gte: startDate, lte: endDate } },

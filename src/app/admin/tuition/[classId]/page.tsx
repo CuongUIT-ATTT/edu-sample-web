@@ -39,8 +39,10 @@ export default async function ClassTuitionPage({
     orderBy: [{ student: { user: { name: "asc" } } }, { month: "asc" }],
   });
 
+  const now = new Date();
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
   const schedules = await db.schedule.findMany({
-    where: { classId, date: { gte: new Date(year, fromMonth - 1, 1), lte: new Date(year, toMonth, 0, 23, 59, 59) } },
+    where: { classId, date: { gte: new Date(year, fromMonth - 1, 1), lte: todayEnd } },
     orderBy: { date: "asc" },
   });
 
