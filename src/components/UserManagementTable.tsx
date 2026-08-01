@@ -57,15 +57,20 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
   const [formParentId, setFormParentId] = useState("");
 
   const downloadUserCsvTemplate = () => {
-    const headers = "Name,Email,Password,Role,Class\n";
-    const sampleRow = "\"Nguyen Van A\",\"student_a@eduweb.vn\",\"Password@2026\",\"STUDENT\",\"10A1\"\n\"Tran Thi B\",\"teacher_b@eduweb.vn\",\"Password@2026\",\"TEACHER\",\"\"\n";
-    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(headers + sampleRow);
+    // Dùng dấu ';' làm phân cách vì Excel VN mặc định dùng ';' → mở ra đúng cột.
+    // Kèm BOM UTF-8 (﻿) để Excel nhận đúng tiếng Việt khi mở và lưu lại.
+    const headers = "Name;Email;Password;Role;Class\n";
+    const sampleRow = "\"Nguyễn Văn A\";\"student_a@eduweb.vn\";\"Password@2026\";\"STUDENT\";\"10A1\"\n\"Trần Thị B\";\"teacher_b@eduweb.vn\";\"Password@2026\";\"TEACHER\";\"\"\n";
+    // Dùng Blob thay data URL để giữ BOM byte chính xác (data URL có thể bị strip BOM)
+    const blob = new Blob(["﻿" + headers + sampleRow], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", csvContent);
-    link.setAttribute("download", "mau_danh_sach_nguoi_dung.csv");
+    link.href = url;
+    link.download = "mau_danh_sach_nguoi_dung.csv";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const getRoleIcon = (role: string) => {
@@ -250,6 +255,16 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
     0xFC: "ỵ", 0xFD: "ỹ", 0xFE: "ỷ", 0xFF: "ỹ",
   };
 
+  const decodeWin1258 = (bytes: Uint8Array): string => {
+    let out = "";
+    for (let i = 0; i < bytes.length; i++) {
+      const b = bytes[i];
+      if (b < 0x80) out += String.fromCharCode(b);
+      else out += WIN1258_VIET[b] ?? "?";
+    }
+    return out;
+  };
+
   // UTF-16BE: TextDecoder browser không hỗ trợ "utf-16be" → hoán đổi byte thành LE rồi decode
   const decodeUtf16Be = (bytes: Uint8Array): string => {
     const le = new Uint8Array(bytes.length);
@@ -279,14 +294,14 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
     try {
       return new TextDecoder("utf-8", { fatal: true }).decode(buf);
     } catch {
-      // UTF-8 không hợp lệ → ANSI Windows-1258 (Vietnamese): decode thủ công
-      let out = "";
-      for (let i = 0; i < bytes.length; i++) {
-        const b = bytes[i];
-        if (b < 0x80) out += String.fromCharCode(b);
-        else out += WIN1258_VIET[b] ?? "?";
-      }
-      return out;
+      // UTF-8 không hợp lệ → ANSI. Excel VN mặc định Windows-1252, nhưng một số
+      // máy dùng Windows-1258 (Vietnamese). Thử 1258 trước (tiếng Việt đúng dấu),
+      // rồi 1252 (byte 0x80-0x9F, 0xA1...) nếu 1258 không khớp.
+      const as1258 = decodeWin1258(bytes);
+      const as1252 = new TextDecoder("windows-1252").decode(buf);
+      // Chọn bản "có dấu tiếng Việt nhiều hơn" — 1258 cho đúng nguyên âm Việt
+      const countVi = (s: string) => (s.match(/[áàảãạăắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộơớờởỡợúùủũụứừửữựýỳỷỹỵđ]/g) || []).length;
+      return countVi(as1258) > countVi(as1252) ? as1258 : as1252;
     }
   };
 
