@@ -11,6 +11,49 @@ interface SubmitQuizInput {
   timeExpired?: boolean;
 }
 
+/**
+ * Quyết định có hiển thị đáp án sau khi nộp hay không.
+ * - IMMEDIATELY: luôn hiển thị
+ * - WHEN_ENDED: chỉ khi hết thời gian (timer = 0)
+ * - NEVER: không hiển thị
+ * - AFTER_ALL_SUBMITTED: đề private gắn lớp — hiển thị khi tất cả học sinh lớp đã nộp
+ *   HOẶC đã qua deadline. Nếu không có lớp → hành xử như IMMEDIATELY.
+ */
+async function resolveAnswerVisibility(
+  quiz: { id: string; answerVisibility: string; classId: string | null; deadline: Date | null },
+  timeExpired: boolean,
+  now: Date = new Date(),
+): Promise<boolean> {
+  switch (quiz.answerVisibility) {
+    case "IMMEDIATELY":
+      return true;
+    case "WHEN_ENDED":
+      return !!timeExpired;
+    case "NEVER":
+      return false;
+    case "AFTER_ALL_SUBMITTED": {
+      // Đề không gắn lớp → không có nhóm để chờ → như IMMEDIATELY
+      if (!quiz.classId) return true;
+      // Đã qua deadline (nếu có đặt) → mở đáp án
+      if (quiz.deadline && now > new Date(quiz.deadline)) return true;
+      const classInfo = await db.class.findUnique({
+        where: { id: quiz.classId },
+        select: { _count: { select: { students: true } } },
+      });
+      const studentCount = classInfo?._count.students ?? 0;
+      if (studentCount === 0) return false; // lớp trống → không vội lộ đáp án
+      const submitted = await db.quizSubmission.findMany({
+        where: { quizId: quiz.id, studentId: { not: null } },
+        select: { studentId: true },
+        distinct: ["studentId"],
+      });
+      return submitted.length >= studentCount;
+    }
+    default:
+      return false;
+  }
+}
+
 export async function submitQuiz(input: SubmitQuizInput) {
   try {
     const session = await getSession();
@@ -72,9 +115,8 @@ export async function submitQuiz(input: SubmitQuizInput) {
       }
     }
 
-    // Check if submitted after endTime — flag as late, still accept
-    const endTime = new Date(quiz.createdAt.getTime() + quiz.duration * 60000);
-    const isLate = new Date() > endTime;
+    // Check if submitted after deadline — flag as late, still accept (không chặn)
+    const isLate = quiz.deadline ? new Date() > new Date(quiz.deadline) : false;
 
     const submission = await db.quizSubmission.create({
       data: {
@@ -115,26 +157,22 @@ export async function submitQuiz(input: SubmitQuizInput) {
 
     const passed = totalScore >= quiz.passingScore;
 
-    let showAnswers = false;
-    if (quiz.answerVisibility === "IMMEDIATELY") {
-      showAnswers = true;
-    } else if (quiz.answerVisibility === "WHEN_ENDED" && input.timeExpired) {
-      showAnswers = true;
-    }
+    const showAnswers = await resolveAnswerVisibility(quiz, !!input.timeExpired);
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       data: {
         score: totalScore,
         maxScore,
         passed,
         submissionId: submission.id,
+        isLate,
         correctAnswers: showAnswers ? quiz.questions.map((q: any) => ({
           id: q.id,
           correctAnswer: q.correctAnswer,
           explanation: q.explanation
         })) : null
-      } 
+      }
     };
   } catch (error) {
     console.error("Error submitting quiz:", error);
@@ -147,10 +185,11 @@ interface CreateQuizInput {
   description?: string;
   duration: number;
   passingScore: number;
+  deadline?: string | null; // ISO string, null = không đóng đề
   subjectId: string;
   classId?: string;
   isPublic?: boolean;
-  answerVisibility?: string; // IMMEDIATELY, WHEN_ENDED, NEVER
+  answerVisibility?: string; // IMMEDIATELY, WHEN_ENDED, NEVER, AFTER_ALL_SUBMITTED
   questions: {
     questionText: string;
     type?: string;
@@ -180,11 +219,17 @@ export async function createQuiz(input: CreateQuizInput) {
       teacherId = teacher.id;
     }
 
-    const { title, description, duration, passingScore, subjectId, classId, isPublic, answerVisibility, questions } = input;
+    const { title, description, duration, passingScore, deadline, subjectId, classId, isPublic, answerVisibility, questions } = input;
 
     if (!title || isNaN(duration) || isNaN(passingScore) || !subjectId || questions.length === 0) {
       return { success: false, error: "Vui lòng nhập đầy đủ thông tin đề thi và ít nhất 1 câu hỏi." };
     }
+
+    // AFTER_ALL_SUBMITTED chỉ hợp lệ cho đề private CÓ gắn lớp; ngược lại ép về IMMEDIATELY
+    const finalVisibility =
+      answerVisibility === "AFTER_ALL_SUBMITTED" && (isPublic || !classId)
+        ? "IMMEDIATELY"
+        : answerVisibility || "IMMEDIATELY";
 
     const quiz = await db.$transaction(async (tx) => {
       const newQuiz = await tx.quiz.create({
@@ -193,10 +238,11 @@ export async function createQuiz(input: CreateQuizInput) {
           description: description || null,
           duration,
           passingScore,
+          deadline: deadline ? new Date(deadline) : null,
           subjectId,
           classId: classId || null,
           isPublic: isPublic || false,
-          answerVisibility: answerVisibility || "IMMEDIATELY",
+          answerVisibility: finalVisibility,
           teacherId,
         },
       });
@@ -263,7 +309,13 @@ export async function updateQuiz(input: UpdateQuizInput) {
       return { success: false, error: "Chỉ quản trị viên hoặc giảng viên mới được sửa đề kiểm tra." };
     }
 
-    const { id, title, description, duration, passingScore, subjectId, classId, isPublic, answerVisibility, questions } = input;
+    const { id, title, description, duration, passingScore, deadline, subjectId, classId, isPublic, answerVisibility, questions } = input;
+
+    // AFTER_ALL_SUBMITTED chỉ hợp lệ cho đề private CÓ gắn lớp
+    const finalVisibility =
+      answerVisibility === "AFTER_ALL_SUBMITTED" && (isPublic || !classId)
+        ? "IMMEDIATELY"
+        : answerVisibility || "IMMEDIATELY";
 
     await db.$transaction(async (tx) => {
       // 1. Update quiz basic info
@@ -274,10 +326,11 @@ export async function updateQuiz(input: UpdateQuizInput) {
           description: description || null,
           duration,
           passingScore,
+          deadline: deadline ? new Date(deadline) : null,
           subjectId,
           classId: classId || null,
           isPublic: isPublic || false,
-          answerVisibility: answerVisibility || "IMMEDIATELY",
+          answerVisibility: finalVisibility,
         },
       });
 

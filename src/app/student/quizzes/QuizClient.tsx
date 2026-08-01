@@ -21,6 +21,7 @@ interface Quiz {
   description: string | null;
   duration: number;
   passingScore: number;
+  deadline?: string | null;
   questions: Question[];
 }
 
@@ -33,6 +34,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     score: number;
     maxScore: number;
     passed: boolean;
+    isLate?: boolean;
     correctAnswers?: { id: string; correctAnswer: string; explanation: string | null }[] | null;
   } | null>(null);
   const [showReview, setShowReview] = useState(false);
@@ -125,6 +127,9 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
       showToast("Vui lòng đồng ý với Nội quy phòng thi để tiếp tục.", "warning");
       return;
     }
+    if (selectedQuiz.deadline && Date.now() > new Date(selectedQuiz.deadline).getTime()) {
+      showToast("Đề đã quá hạn — bài làm của bạn sẽ được đánh dấu Nộp muộn.", "warning");
+    }
     setTimeLeft(selectedQuiz.duration * 60);
     setAnswers({});
     setQuizResult(null);
@@ -174,6 +179,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
           score: response.data.score,
           maxScore: response.data.maxScore,
           passed: response.data.passed,
+          isLate: response.data.isLate,
           correctAnswers: response.data.correctAnswers,
         });
       } else {
@@ -707,6 +713,11 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
               }`}>
                 {quizResult.passed ? "Đạt bài kiểm tra năng lực" : "Chưa đạt mục tiêu tối thiểu"}
               </span>
+              {quizResult.isLate && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold uppercase tracking-wider self-center">
+                  Nộp muộn
+                </span>
+              )}
               
               {/* Point breakdown per sections (tyhh.net style) */}
               <div className="grid grid-cols-2 gap-4 mt-4 text-xs text-left max-w-sm mx-auto w-full">

@@ -25,6 +25,7 @@ export default async function PublicQuizzesPage() {
     description: (q.description || "").replace("[UNLISTED]", "").trim(),
     duration: q.duration,
     passingScore: q.passingScore,
+    deadline: q.deadline?.toISOString() ?? null,
     category: q.subject.name,
     answerVisibility: q.answerVisibility,
     questions: q.questions.map((qn) => ({

@@ -29,6 +29,26 @@ export const mockDb = {
     findMany: vi.fn(),
     count: vi.fn(),
   },
+  quiz: {
+    findUnique: vi.fn(),
+  },
+  quizSubmission: {
+    create: vi.fn(),
+    findMany: vi.fn(),
+    count: vi.fn(),
+  },
+  studentProfile: {
+    findUnique: vi.fn(),
+  },
+  grade: {
+    create: vi.fn(),
+  },
+  class: {
+    findUnique: vi.fn(),
+  },
+  teacherProfile: {
+    findFirst: vi.fn(),
+  },
   $transaction: vi.fn(async (arg) => {
     if (typeof arg === 'function') {
       return arg(mockDb)

@@ -22,6 +22,7 @@ interface Quiz {
   description: string;
   duration: number;
   passingScore: number;
+  deadline?: string | null;
   category: string;
   questions: Question[];
 }
@@ -42,6 +43,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
     score: number;
     maxScore: number;
     passed: boolean;
+    isLate?: boolean;
     correctAnswers?: { id: string; correctAnswer: string; explanation: string | null }[] | null;
   } | null>(null);
   const [showReview, setShowReview] = useState(false);
@@ -138,6 +140,9 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
     if (!tempSelectedQuiz) return;
 
     setSelectedQuiz(tempSelectedQuiz);
+    if (tempSelectedQuiz.deadline && Date.now() > new Date(tempSelectedQuiz.deadline).getTime()) {
+      showToast("Đề đã quá hạn — bài làm của bạn sẽ được đánh dấu Nộp muộn.", "warning");
+    }
     setTimeLeft(tempSelectedQuiz.duration * 60);
     setAnswers({});
     setQuizResult(null);
@@ -188,6 +193,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
           score: response.data.score,
           maxScore: response.data.maxScore,
           passed: response.data.passed,
+          isLate: response.data.isLate,
           correctAnswers: response.data.correctAnswers,
         });
       } else {
@@ -535,6 +541,11 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
               }`}>
                 {quizResult.passed ? "Chúc mừng bạn đã đạt!" : "Rất tiếc bạn chưa đạt mục tiêu."}
               </span>
+              {quizResult.isLate && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold uppercase tracking-wider self-center">
+                  Nộp muộn
+                </span>
+              )}
             </div>
 
             {quizResult.correctAnswers && (

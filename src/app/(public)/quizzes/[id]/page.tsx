@@ -78,6 +78,7 @@ export default async function SharedQuizPage({
     description: (quiz.description || "").replace("[UNLISTED]", "").trim(),
     duration: quiz.duration,
     passingScore: quiz.passingScore,
+    deadline: quiz.deadline?.toISOString() ?? null,
     subjectName: quiz.subject.name,
     isPublic: quiz.isPublic,
     answerVisibility: quiz.answerVisibility,

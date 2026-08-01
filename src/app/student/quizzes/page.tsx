@@ -28,6 +28,7 @@ export default async function StudentQuizzesPage() {
     description: string | null;
     duration: number;
     passingScore: number;
+    deadline: string | null;
     questions: { id: string; text: string; type?: string; options: string[]; score: number; correctAnswer: string; imageUrl?: string | null }[];
   }[] = [];
 
@@ -51,6 +52,7 @@ export default async function StudentQuizzesPage() {
       description: quiz.description,
       duration: quiz.duration,
       passingScore: quiz.passingScore,
+      deadline: quiz.deadline?.toISOString() ?? null,
       answerVisibility: quiz.answerVisibility,
       questions: quiz.questions.map((q) => ({
         id: q.id,
