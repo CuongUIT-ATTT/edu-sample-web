@@ -9,12 +9,12 @@ import {
   Calendar,
   LogOut,
   CheckSquare,
-  TrendingUp,
   LayoutDashboard,
   Settings,
   HelpCircle,
   Menu,
   FileText,
+  DollarSign,
 } from "lucide-react";
 
 export default function TeacherDashboardLayout({
@@ -98,14 +98,6 @@ export default function TeacherDashboardLayout({
               <span>Điểm danh</span>
             </Link>
             <Link
-              href="/teacher/grades"
-              onClick={closeSidebar}
-              className={linkClass("/teacher/grades")}
-            >
-              <TrendingUp className="h-4 w-4 flex-shrink-0" />
-              <span>Bảng điểm</span>
-            </Link>
-            <Link
               href="/teacher/classes"
               onClick={closeSidebar}
               className={linkClass("/teacher/classes")}
@@ -122,14 +114,6 @@ export default function TeacherDashboardLayout({
               <span>Lịch</span>
             </Link>
             <Link
-              href="/teacher/schedules"
-              onClick={closeSidebar}
-              className={linkClass("/teacher/schedules")}
-            >
-              <Calendar className="h-4 w-4 flex-shrink-0" />
-              <span>Lịch dạy tuần</span>
-            </Link>
-            <Link
               href="/teacher/quizzes"
               onClick={closeSidebar}
               className={linkClass("/teacher/quizzes")}
@@ -144,6 +128,14 @@ export default function TeacherDashboardLayout({
             >
               <FileText className="h-4 w-4 flex-shrink-0" />
               <span>Tài liệu học tập</span>
+            </Link>
+            <Link
+              href="/teacher/tuition"
+              onClick={closeSidebar}
+              className={linkClass("/teacher/tuition")}
+            >
+              <DollarSign className="h-4 w-4 text-green-600 flex-shrink-0" />
+              <span>Học phí</span>
             </Link>
           </nav>
         </div>
