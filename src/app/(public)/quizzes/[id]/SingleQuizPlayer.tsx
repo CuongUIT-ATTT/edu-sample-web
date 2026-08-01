@@ -39,7 +39,8 @@ interface SingleQuizPlayerProps {
 export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false }: SingleQuizPlayerProps) {
   const [guestName, setGuestName] = useState(sessionUser?.name || "");
   const [showNameModal, setShowNameModal] = useState(!sessionUser);
-  const [quizStarted, setQuizStarted] = useState(!!sessionUser);
+  // Luôn hiện màn giới thiệu + nội quy (giống trang public), kể cả khi đã đăng nhập
+  const [quizStarted, setQuizStarted] = useState(false);
   const [timeLeft, setTimeLeft] = useState(quiz.duration * 60);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [quizResult, setQuizResult] = useState<{
