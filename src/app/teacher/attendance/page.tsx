@@ -79,6 +79,16 @@ export default function TeacherAttendancePage() {
   // Find currently selected schedule object
   const activeSchedule = schedules.find((s) => s.id === selectedScheduleId);
 
+  // Tính ngày cụ thể (tuần này) của 1 ca học theo dayOfWeek — hiển thị trong dropdown
+  const getScheduleDate = (dayOfWeek: number): string => {
+    const today = new Date();
+    const todayDay = today.getDay() === 0 ? 7 : today.getDay();
+    const diff = dayOfWeek - todayDay;
+    const target = new Date(today);
+    target.setDate(today.getDate() + diff);
+    return target.toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" });
+  };
+
   const checkTimeWindow = () => {
     if (!activeSchedule || !selectedDate)
       return { isAllowed: true, reason: "" };
@@ -253,8 +263,8 @@ export default function TeacherAttendancePage() {
             ) : (
               schedules.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {DAYS_NAME[s.dayOfWeek]} — {s.class.name} • {s.subject.name} (
-                  {s.startTime} - {s.endTime})
+                  {getScheduleDate(s.dayOfWeek)} — {DAYS_NAME[s.dayOfWeek]} —{" "}
+                  {s.class.name} • {s.subject.name} ({s.startTime} - {s.endTime})
                 </option>
               ))
             )}
