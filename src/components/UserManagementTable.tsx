@@ -250,6 +250,16 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
     0xFC: "ỵ", 0xFD: "ỹ", 0xFE: "ỷ", 0xFF: "ỹ",
   };
 
+  // UTF-16BE: TextDecoder browser không hỗ trợ "utf-16be" → hoán đổi byte thành LE rồi decode
+  const decodeUtf16Be = (bytes: Uint8Array): string => {
+    const le = new Uint8Array(bytes.length);
+    for (let i = 0; i + 1 < bytes.length; i += 2) {
+      le[i] = bytes[i + 1];
+      le[i + 1] = bytes[i];
+    }
+    return new TextDecoder("utf-16le").decode(le);
+  };
+
   const decodeCsvBuffer = (buf: ArrayBuffer): string => {
     // Detect BOM
     const bytes = new Uint8Array(buf);
@@ -263,7 +273,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
     }
     if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
       // UTF-16BE BOM
-      return new TextDecoder("utf-16be").decode(bytes.subarray(2));
+      return decodeUtf16Be(bytes.subarray(2));
     }
     // Không có BOM: thử UTF-8 trước (fatal → throw nếu có byte không hợp lệ)
     try {
@@ -280,6 +290,31 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
     }
   };
 
+  // Tách một dòng CSV thành các ô, tôn trọng dấu ngoặc kép và delimiter trong chuỗi
+  const parseCsvLine = (line: string, delim: string): string[] => {
+    const cols: string[] = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') { cur += '"'; i++; }
+          else inQuotes = false;
+        } else cur += ch;
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === delim) {
+        cols.push(cur.trim());
+        cur = "";
+      } else {
+        cur += ch;
+      }
+    }
+    cols.push(cur.trim());
+    return cols;
+  };
+
   const handleCsvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -287,23 +322,35 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const buf = event.target?.result as ArrayBuffer;
-      const text = decodeCsvBuffer(buf).replace(/^﻿/, "");
-      const rows = text.split(/\r?\n/).map((r) => r.trim()).filter((r) => r.length > 0);
-      if (rows.length < 2) return;
+      try {
+        const buf = event.target?.result as ArrayBuffer;
+        const text = decodeCsvBuffer(buf).replace(/^﻿/, "");
+        const rows = text.split(/\r?\n/).map((r) => r.trim()).filter((r) => r.length > 0);
+        if (rows.length < 2) return;
 
-      const parsed: any[] = [];
-      const headers = rows[0].split(",").map((h) => h.trim().toLowerCase());
+        // Auto-detect delimiter: ưu tiên ';' (Excel VN), rồi ',', rồi tab
+        const header = rows[0];
+        let delim = ",";
+        for (const d of [";", ",", "\t"]) {
+          if (header.includes(d)) { delim = d; break; }
+        }
 
-      for (let i = 1; i < rows.length; i++) {
-        const cols = rows[i].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
-        const rowData: any = {};
-        headers.forEach((h, index) => {
-          rowData[h] = cols[index] || "";
-        });
-        parsed.push(rowData);
+        const parsed: any[] = [];
+        const headers = parseCsvLine(rows[0], delim).map((h) => h.toLowerCase());
+
+        for (let i = 1; i < rows.length; i++) {
+          const cols = parseCsvLine(rows[i], delim);
+          const rowData: any = {};
+          headers.forEach((h, index) => {
+            rowData[h] = cols[index] ?? "";
+          });
+          parsed.push(rowData);
+        }
+        setParsedPreview(parsed);
+      } catch (err) {
+        console.error("CSV parse error:", err);
+        setCsvFile(null);
       }
-      setParsedPreview(parsed);
     };
     reader.readAsArrayBuffer(file);
   };
