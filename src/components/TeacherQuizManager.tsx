@@ -2,10 +2,11 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus, Image as ImageIcon } from "lucide-react";
+import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus, Image as ImageIcon, Scissors } from "lucide-react";
 import { createQuiz, deleteQuiz, updateQuiz, getQuizSubmissions } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
 import { showToast } from "@/components/Toast";
+import PDFRegionSelector from "@/components/PDFRegionSelector";
 
 interface QuizItem {
   id: string;
@@ -13,6 +14,7 @@ interface QuizItem {
   description?: string | null;
   duration: number;
   passingScore: number;
+  deadline?: string | null;
   isPublic?: boolean;
   submissions?: { score: number }[];
   answerVisibility?: string;
@@ -92,15 +94,16 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [isPublic, setIsPublic] = useState(false);
   const [showOnList, setShowOnList] = useState(true);
   const [answerVisibility, setAnswerVisibility] = useState("IMMEDIATELY");
+  const [deadline, setDeadline] = useState(""); // string cho <input type="datetime-local">
   const [modalMode, setModalMode] = useState<"CREATE" | "EDIT">("CREATE");
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
   
   // Custom type toggle inside form
-  const [importMethod, setImportMethod] = useState<"MANUAL" | "PASTE_TEXT" | "CSV" | "JSON">("MANUAL");
-  const [rawPastedText, setRawPastedText] = useState("");
+  const [importMethod, setImportMethod] = useState<"JSON" | "PDF">("JSON");
   const [jsonText, setJsonText] = useState("");
   const [imageJsonText, setImageJsonText] = useState("");
   const [importingImages, setImportingImages] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
 
   // Questions array state supporting Section I, II, III
   const [questions, setQuestions] = useState<{
@@ -114,10 +117,6 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   }[]>([
     { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "", imageUrl: "" }
   ]);
-
-  const handleAddQuestion = () => {
-    setQuestions([...questions, { questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 0.25, explanation: "", imageUrl: "" }]);
-  };
 
   const handleAddQuestionByType = (type: "MULTIPLE_CHOICE" | "TRUE_FALSE" | "SHORT_ANSWER") => {
     let options: string[] = [];
@@ -218,20 +217,6 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     }
   };
 
-  const downloadCsvTemplate = () => {
-    const headers = "QuestionText,Type,OptionA,OptionB,OptionC,OptionD,CorrectAnswer,Score\n";
-    const row1 = "\"Tim tap xac dinh cua ham so $y=\\log(x-3)$\",\"MULTIPLE_CHOICE\",\"$D=(3; +\\infty)$\",\"$D=[3; +\\infty)$\",\"$D=(-\\infty; 3)$\",\"$D=\\mathbb{R}$\",\"0\",\"1.0\"\n";
-    const row2 = "\"Phat bieu nao dung ve ham so bac hai?\",\"TRUE_FALSE\",\"Do thi la Parabol\",\"Co dinh la $(-b/2a; -\\Delta/4a)$\",\"Cat truc tung tai (0;c)\",\"Luon dong bien tren R\",\"T,T,T,F\",\"2.0\"\n";
-    const row3 = "\"Tim nghiem cua phuong trinh $\\log_2(x) = 3$\",\"SHORT_ANSWER\",\"\",\"\",\"\",\"\",\"8\",\"1.0\"\n";
-    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(headers + row1 + row2 + row3);
-    const link = document.createElement("a");
-    link.setAttribute("href", csvContent);
-    link.setAttribute("download", "mau_cau_hoi_THPT_2026.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const downloadJsonTemplate = () => {
     // Tiny 1x1 red pixel PNG — example of base64 image in imageUrl.
     // Users can paste any base64 data:image/... string here; the system auto-uploads it to Cloudinary.
@@ -303,67 +288,6 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (!text) return;
-
-      const lines = text.split("\n");
-      const parsedQuestions = [];
-
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-
-        const cells = [];
-        let current = "";
-        let inQuotes = false;
-        for (let j = 0; j < line.length; j++) {
-          const char = line[j];
-          if (char === '"') {
-            inQuotes = !inQuotes;
-          } else if (char === ',' && !inQuotes) {
-            cells.push(current.trim());
-            current = "";
-          } else {
-            current += char;
-          }
-        }
-        cells.push(current.trim());
-
-        if (cells.length >= 8) {
-          const type = (cells[1].replace(/^"|"$/g, "").toUpperCase()) as any;
-          const qType = ["MULTIPLE_CHOICE", "TRUE_FALSE", "SHORT_ANSWER"].includes(type) ? type : "MULTIPLE_CHOICE";
-          
-          parsedQuestions.push({
-            questionText: cells[0].replace(/^"|"$/g, "").replace(/""/g, '"'),
-            type: qType,
-            options: qType === "SHORT_ANSWER" ? [] : [
-              cells[2].replace(/^"|"$/g, "").replace(/""/g, '"'),
-              cells[3].replace(/^"|"$/g, "").replace(/""/g, '"'),
-              cells[4].replace(/^"|"$/g, "").replace(/""/g, '"'),
-              cells[5].replace(/^"|"$/g, "").replace(/""/g, '"'),
-            ],
-            correctAnswer: cells[6].replace(/^"|"$/g, ""),
-            score: parseFloat(cells[7]) || 1.0,
-          });
-        }
-      }
-
-      if (parsedQuestions.length > 0) {
-        setQuestions(parsedQuestions);
-        showToast(`Đã tải thành công ${parsedQuestions.length} câu hỏi từ file CSV! Hãy xem lại chi tiết ở phía dưới.`, "success");
-      } else {
-        showToast("Không tìm thấy dòng câu hỏi hợp lệ trong file CSV.", "error");
-      }
-    };
-    reader.readAsText(file, "UTF-8");
   };
 
   const handleMergeImages = async () => {
@@ -468,6 +392,24 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     } finally {
       setImportingImages(false);
     }
+  };
+
+  const handleAttachPdfImage = (qIdx: number, url: string) => {
+    setQuestions((prev) => prev.map((q, i) => (i === qIdx ? { ...q, imageUrl: url } : q)));
+  };
+
+  const handleAddPdfBlankQuestions = (count: number) => {
+    const blanks = Array.from({ length: count }, () => ({
+      questionText: "",
+      type: "MULTIPLE_CHOICE" as const,
+      options: ["", "", "", ""],
+      correctAnswer: "0",
+      score: 0.25,
+      explanation: "",
+      imageUrl: "",
+    }));
+    setQuestions((prev) => [...prev, ...blanks]);
+    showToast(`Đã thêm ${count} câu trống. Bạn có thể chỉnh nội dung ở phần dưới.`, "info");
   };
 
   const handleImportJson = async () => {
@@ -615,120 +557,6 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     }
   };
 
-  // AI Paste text parser - Free parsing!
-  const parsePastedText = () => {
-    if (!rawPastedText.trim()) {
-      showToast("Vui lòng dán nội dung câu hỏi/đề thi vào ô văn bản.", "warning");
-      return;
-    }
-
-    const lines = rawPastedText.split("\n");
-    const parsed: typeof questions = [];
-    let currentQ: any = null;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-
-      const qMatch = line.match(/^(?:Câu|Cau|Question)\s*(\d+)\s*[:.]\s*(.*)$/i);
-      if (qMatch) {
-        if (currentQ) {
-          finalizeQuestion(currentQ);
-          parsed.push(currentQ);
-        }
-        currentQ = {
-          questionText: qMatch[2].trim(),
-          type: "MULTIPLE_CHOICE",
-          options: [],
-          correctAnswer: "0",
-          score: 1.0
-        };
-        continue;
-      }
-
-      const optMatch = line.match(/^([A-D])\s*[:.)-]\s*(.*)$/i);
-      if (optMatch && currentQ) {
-        currentQ.options.push(optMatch[2].trim());
-        continue;
-      }
-
-      const tfMatch = line.match(/^([a-d])\s*[:.)-]\s*(.*)$/i);
-      if (tfMatch && currentQ) {
-        currentQ.type = "TRUE_FALSE";
-        currentQ.options.push(tfMatch[2].trim());
-        continue;
-      }
-
-      const ansMatch = line.match(/^(?:Đáp án|Dap an|Chọn|Chon|Answer)\s*[:.]?\s*(.*)$/i);
-      if (ansMatch && currentQ) {
-        const val = ansMatch[1].trim().toUpperCase();
-        if (val === "A" || val === "B" || val === "C" || val === "D") {
-          currentQ.correctAnswer = (val.charCodeAt(0) - 65).toString();
-        } else if (val.includes(",") || val === "Đ" || val === "S" || val === "D" || val.startsWith("ĐÚNG") || val.startsWith("SAI") || val.startsWith("T") || val.startsWith("F")) {
-          const normalized = val.split(",").map(item => {
-            const clean = item.trim();
-            return (clean.startsWith("Đ") || clean.startsWith("T") || clean.startsWith("D")) ? "T" : "F";
-          }).join(",");
-          currentQ.correctAnswer = normalized;
-          currentQ.type = "TRUE_FALSE";
-        } else {
-          currentQ.correctAnswer = val;
-          currentQ.type = "SHORT_ANSWER";
-        }
-        continue;
-      }
-
-      if (currentQ) {
-        if (currentQ.options.length === 0) {
-          currentQ.questionText += " " + line;
-        }
-      }
-    }
-
-    if (currentQ) {
-      finalizeQuestion(currentQ);
-      parsed.push(currentQ);
-    }
-
-    function finalizeQuestion(q: any) {
-      if (q.type === "MULTIPLE_CHOICE") {
-        while (q.options.length < 4) q.options.push("");
-        q.options = q.options.slice(0, 4);
-      } else if (q.type === "TRUE_FALSE") {
-        while (q.options.length < 4) q.options.push("");
-        q.options = q.options.slice(0, 4);
-        if (!q.correctAnswer.includes(",")) {
-          q.correctAnswer = "T,T,T,T";
-        }
-      } else if (q.type === "SHORT_ANSWER") {
-        q.options = [];
-      }
-    }
-
-    if (parsed.length > 0) {
-      setQuestions(parsed);
-      showToast(`Phân tích thành công ${parsed.length} câu hỏi tự động từ văn bản! Bạn có thể xem lại danh sách câu hỏi chi tiết dưới đây.`, "success");
-      setRawPastedText("");
-    } else {
-      showToast("Không bóc tách được câu hỏi nào. Vui lòng kiểm tra lại định dạng câu hỏi (Ví dụ: 'Câu 1: ... A. ... B. ...').", "error");
-    }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (text) {
-        setRawPastedText(text);
-        showToast("Đã tải dữ liệu file văn bản thành công. Hãy bấm nút 'Phân tích tự động' để quét đề.", "success");
-      }
-    };
-    reader.readAsText(file, "UTF-8");
-  };
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSuccessMsg(null);
@@ -745,6 +573,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         description: finalDescription || undefined,
         duration: Number(duration),
         passingScore: Number(passingScore),
+        deadline: deadline ? new Date(deadline).toISOString() : null,
         subjectId,
         classId: classId || undefined,
         isPublic,
@@ -767,6 +596,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         description: finalDescription || undefined,
         duration: Number(duration),
         passingScore: Number(passingScore),
+        deadline: deadline ? new Date(deadline).toISOString() : null,
         subjectId,
         classId: classId || undefined,
         isPublic,
@@ -796,9 +626,19 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setIsPublic(false);
     setShowOnList(true);
     setAnswerVisibility("IMMEDIATELY");
+    setDeadline("");
     setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "", imageUrl: "" }]);
     setModalMode("CREATE");
     setEditingQuizId(null);
+    setPdfFile(null);
+    setImportMethod("JSON");
+  };
+
+  // Convert ISO deadline → giá trị <input type="datetime-local"> (giờ địa phương)
+  const toLocalDateTimeInput = (iso: string) => {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
   const handleEditClick = (q: QuizItem) => {
@@ -814,7 +654,14 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setSubjectId(q.subject.id);
     setClassId(q.class?.id || "");
     setIsPublic(q.isPublic || false);
-    setAnswerVisibility(q.answerVisibility || "IMMEDIATELY");
+    setDeadline(q.deadline ? toLocalDateTimeInput(q.deadline) : "");
+    setAnswerVisibility(
+      q.answerVisibility === "AFTER_ALL_SUBMITTED" && q.class?.id
+        ? "AFTER_ALL_SUBMITTED"
+        : q.answerVisibility === "AFTER_ALL_SUBMITTED"
+        ? "IMMEDIATELY"
+        : q.answerVisibility || "IMMEDIATELY"
+    );
     if (q.questions && q.questions.length > 0) {
       setQuestions(q.questions.map((qn) => ({
         questionText: qn.text,
@@ -1262,7 +1109,11 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   <label className="text-xs font-caption-strong text-ink-muted-80">Lớp học (Tùy chọn)</label>
                   <select
                     value={classId}
-                    onChange={(e) => setClassId(e.target.value)}
+                    onChange={(e) => {
+                      setClassId(e.target.value);
+                      // AFTER_ALL_SUBMITTED cần gắn lớp — nếu bỏ lớp thì hạ cấp về IMMEDIATELY
+                      if (answerVisibility === "AFTER_ALL_SUBMITTED" && !e.target.value) setAnswerVisibility("IMMEDIATELY");
+                    }}
                     className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
                   >
                     <option value="">— Tất cả học viên (Mặc định) —</option>
@@ -1281,6 +1132,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                       onChange={(e) => {
                         setIsPublic(e.target.checked);
                         if (!e.target.checked) setShowOnList(true);
+                        // Đề public không có khái niệm lớp → hạ cấp AFTER_ALL_SUBMITTED
+                        if (e.target.checked && answerVisibility === "AFTER_ALL_SUBMITTED") setAnswerVisibility("IMMEDIATELY");
                       }}
                       className="h-4 w-4 rounded text-primary focus:ring-primary cursor-pointer"
                     />
@@ -1317,8 +1170,14 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   >
                     <option value="IMMEDIATELY">Xem đáp án và giải thích ngay sau khi nộp bài</option>
                     <option value="WHEN_ENDED">Xem đáp án và giải thích khi hết thời gian thi (timer = 0)</option>
+                    <option value="AFTER_ALL_SUBMITTED" disabled={!classId || isPublic}>
+                      Hiển thị đáp án sau khi tất cả học sinh trong lớp nộp bài
+                    </option>
                     <option value="NEVER">Không cho học viên xem đáp án và giải thích</option>
                   </select>
+                  {isPublic && (
+                    <span className="text-[10px] text-ink-muted-48">Đề công khai không có tùy chọn "sau khi cả lớp nộp bài" (không có khái niệm lớp).</span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 md:col-span-2">
@@ -1343,106 +1202,46 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     />
                   </div>
                 </div>
+
+                <div className="flex flex-col gap-1.5 md:col-span-2">
+                  <label className="text-xs font-caption-strong text-ink-muted-80">Thời gian đóng đề (Deadline — Tùy chọn)</label>
+                  <input
+                    type="datetime-local"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    className="bg-canvas border border-hairline rounded-pill px-4 py-2 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                  />
+                  <span className="text-[10px] text-ink-muted-48">Bỏ trống = không đóng đề. Sau deadline học sinh VẪN làm được nhưng hiển thị "Nộp muộn".</span>
+                </div>
               </div>
 
               {/* Import Method Toggle Buttons */}
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => setImportMethod("MANUAL")}
-                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold border transition-all ${
-                    importMethod === "MANUAL" 
-                      ? "bg-primary border-primary text-white shadow-sm" 
-                      : "bg-surface-pearl border-divider text-ink-muted-80 hover:bg-canvas"
-                  }`}
-                >
-                  Nhập tay
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setImportMethod("PASTE_TEXT")}
-                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold border transition-all ${
-                    importMethod === "PASTE_TEXT" 
-                      ? "bg-primary border-primary text-white shadow-sm" 
-                      : "bg-surface-pearl border-divider text-ink-muted-80 hover:bg-canvas"
-                  }`}
-                >
-                  Dán đề từ PDF/Word (AI Free)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setImportMethod("CSV")}
-                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold border transition-all ${
-                    importMethod === "CSV" 
-                      ? "bg-primary border-primary text-white shadow-sm" 
-                      : "bg-surface-pearl border-divider text-ink-muted-80 hover:bg-canvas"
-                  }`}
-                >
-                  Import file CSV
-                </button>
-                <button
-                  type="button"
                   onClick={() => setImportMethod("JSON")}
                   className={`px-4 py-1.5 rounded-pill text-xs font-semibold border transition-all ${
-                    importMethod === "JSON" 
-                      ? "bg-primary border-primary text-white shadow-sm" 
+                    importMethod === "JSON"
+                      ? "bg-primary border-primary text-white shadow-sm"
                       : "bg-surface-pearl border-divider text-ink-muted-80 hover:bg-canvas"
                   }`}
                 >
                   Dán JSON
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setImportMethod("PDF")}
+                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold border transition-all ${
+                    importMethod === "PDF"
+                      ? "bg-purple-600 border-purple-600 text-white shadow-sm"
+                      : "bg-surface-pearl border-divider text-ink-muted-80 hover:bg-canvas"
+                  }`}
+                >
+                  PDF → Chọn vùng ảnh
+                </button>
               </div>
 
-              {/* PASTE TEXT / COPY PASTE AI PARSER */}
-              {importMethod === "PASTE_TEXT" && (
-                <div className="border border-divider rounded-lg p-4 bg-surface-pearl flex flex-col gap-4">
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                    <span className="text-xs font-bold text-ink">Dán nội dung đề thi từ file PDF/DOCX</span>
-                    <label className="text-xs text-primary hover:underline font-bold cursor-pointer self-start sm:self-auto">
-                      Tải lên file văn bản/pdf (.txt)
-                      <input type="file" accept=".txt" onChange={handleFileUpload} className="hidden" />
-                    </label>
-                  </div>
-                  <textarea
-                    rows={6}
-                    value={rawPastedText}
-                    onChange={(e) => setRawPastedText(e.target.value)}
-                    placeholder="Mẫu:&#13;Câu 1: Giải phương trình $x^2 - 4 = 0$&#13;A. $x=2$&#13;B. $x=-2$&#13;C. $x=\pm 2$&#13;D. $x=0$&#13;Đáp án: C"
-                    className="bg-canvas border border-hairline rounded-lg p-3 text-xs outline-none focus:border-primary-focus w-full"
-                  />
-                  <button
-                    type="button"
-                    onClick={parsePastedText}
-                    className="bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-4 py-2 rounded-pill shadow-sm self-end"
-                  >
-                    Phân tích đề tự động
-                  </button>
-                </div>
-              )}
 
-              {/* CSV FILE IMPORT */}
-              {importMethod === "CSV" && (
-                <div className="border border-divider rounded-lg p-4 bg-surface-pearl flex flex-col gap-3">
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                    <span className="text-xs font-bold text-ink flex items-center gap-1.5">
-                      <Upload className="h-4 w-4 text-green-600" /> Nhập nhanh từ file CSV
-                    </span>
-                    <button
-                      type="button"
-                      onClick={downloadCsvTemplate}
-                      className="text-xs text-primary hover:underline font-semibold self-start sm:self-auto"
-                    >
-                      Tải file CSV mẫu (.csv)
-                    </button>
-                  </div>
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={handleImportCsv}
-                    className="bg-canvas border border-hairline rounded p-2 text-xs w-full"
-                  />
-                </div>
-              )}
 
               {/* JSON FILE IMPORT */}
               {importMethod === "JSON" && (
@@ -1514,6 +1313,57 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   >
                     Gắn ảnh vào câu hỏi
                   </button>
+                </div>
+              )}
+
+              {/* PDF REGION SELECTOR - Phase 2 */}
+              {importMethod === "PDF" && (
+                <div className="flex flex-col gap-3">
+                  {!pdfFile ? (
+                    <div className="border border-dashed border-purple-300 rounded-lg p-6 bg-purple-50/30 flex flex-col items-center gap-3">
+                      <Scissors className="h-8 w-8 text-purple-500" />
+                      <div className="text-center flex flex-col gap-1">
+                        <span className="text-sm font-bold text-ink">Chọn tài liệu PDF để khoanh vùng ảnh</span>
+                        <span className="text-[10px] text-ink-muted-48">
+                          Upload file PDF (đề thi, tài liệu scan), sau đó kéo chuột vẽ vùng trên từng trang để gắn vào câu hỏi. Tối đa 50MB.
+                        </span>
+                      </div>
+                      <label className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-4 py-2 rounded-pill shadow-sm cursor-pointer">
+                        <Upload className="h-3.5 w-3.5" /> Chọn file PDF
+                        <input
+                          type="file"
+                          accept="application/pdf,.pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (file.size > 50 * 1024 * 1024) {
+                              showToast("PDF tối đa 50MB.", "error");
+                              return;
+                            }
+                            setPdfFile(file);
+                          }}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <>
+                      <PDFRegionSelector
+                        key={`${pdfFile.name}-${pdfFile.size}`}
+                        file={pdfFile}
+                        questions={questions}
+                        onAttachImage={handleAttachPdfImage}
+                        onAddBlankQuestions={handleAddPdfBlankQuestions}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPdfFile(null)}
+                        className="self-start text-xs px-3 py-1.5 rounded-pill border border-hairline text-ink-muted-80 hover:bg-surface"
+                      >
+                        Chọn PDF khác
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
 
