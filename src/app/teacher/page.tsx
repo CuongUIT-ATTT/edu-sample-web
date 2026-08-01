@@ -2,8 +2,6 @@ import React from "react";
 import Link from "next/link";
 import {
   CheckSquare,
-  TrendingUp,
-  Calendar,
   ArrowRight,
   ShieldAlert,
   Award,
@@ -71,14 +69,26 @@ export default async function TeacherDashboardPage() {
           return s.dayOfWeek === todayDayOfWeek;
         });
 
-        schedulesList = filteredSchedules.map((s) => ({
-          id: s.id,
-          time: `Hôm nay, ${s.startTime} - ${s.endTime}`,
-          subjectName: s.subject.name,
-          className: `Lớp ${s.class.name}`,
-          room: s.room || "Room 302",
-          status: "Sắp diễn ra",
-        }));
+        // Tính trạng thái theo thời gian thực so với bây giờ
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        schedulesList = filteredSchedules.map((s) => {
+          const [sh, sm] = s.startTime.split(":").map(Number);
+          const [eh, em] = s.endTime.split(":").map(Number);
+          const startMin = sh * 60 + sm;
+          const endMin = eh * 60 + em;
+          let status = "Sắp diễn ra";
+          if (nowMinutes > endMin) status = "Đã hoàn thành";
+          else if (nowMinutes >= startMin) status = "Đang diễn ra";
+          return {
+            id: s.id,
+            time: `${s.startTime} - ${s.endTime}`,
+            subjectName: s.subject.name,
+            className: `Lớp ${s.class.name}`,
+            room: s.room || "—",
+            status,
+          };
+        });
 
         // Fetch students under this teacher
         const classIds = schedules.map((s) => s.classId);
@@ -99,36 +109,8 @@ export default async function TeacherDashboardPage() {
     console.error("Prisma error in Teacher Dashboard:", error);
   }
 
-  // Fallback data if DB is empty or no schedules exist
-  const displaySchedules =
-    schedulesList.length > 0
-      ? schedulesList
-      : [
-          {
-            id: "1",
-            time: "08:00 - 09:30",
-            subjectName: "Toán học nâng cao",
-            className: "Lớp 10A1 VIP",
-            room: "Room 302",
-            status: "Đã hoàn thành",
-          },
-          {
-            id: "2",
-            time: "10:00 - 11:30",
-            subjectName: "Giải tích luyện đề",
-            className: "Lớp 12B3 VIP",
-            room: "Room 405",
-            status: "Sắp diễn ra",
-          },
-          {
-            id: "3",
-            time: "14:00 - 15:30",
-            subjectName: "Toán chuyên đề đại số",
-            className: "Lớp 11A2 VIP",
-            room: "Room 304",
-            status: "Sắp diễn ra",
-          },
-        ];
+  // Chỉ dùng lịch thật từ DB (không fallback dữ liệu giả)
+  const displaySchedules = schedulesList;
 
   const totalClasses = displaySchedules.length;
 
@@ -201,53 +183,11 @@ export default async function TeacherDashboardPage() {
             Thực hiện điểm danh <ArrowRight className="h-3.5 w-3.5" />
           </span>
         </Link>
-
-        <Link
-          href="/teacher/grades"
-          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4 hover:border-green-600 transition-all duration-200 apple-active-scale cursor-pointer group"
-        >
-          <div className="h-10 w-10 rounded-sm bg-green-50 text-green-600 flex items-center justify-center group-hover:bg-green-100 transition-colors">
-            <TrendingUp className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="font-body-strong text-lg font-semibold text-ink group-hover:text-green-600 transition-colors">
-              Nhập điểm thi thử
-            </h3>
-            <p className="font-caption text-ink-muted-80 mt-1">
-              Cập nhật kết quả thi thử định kỳ, kiểm tra 15 phút và nhận xét
-              giảng viên.
-            </p>
-          </div>
-          <span className="text-primary hover:underline font-caption font-semibold flex items-center gap-1.5 mt-2">
-            Cập nhật điểm số <ArrowRight className="h-3.5 w-3.5" />
-          </span>
-        </Link>
-
-        <Link
-          href="/teacher/schedules"
-          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4 hover:border-purple-600 transition-all duration-200 apple-active-scale cursor-pointer group"
-        >
-          <div className="h-10 w-10 rounded-sm bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
-            <Calendar className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="font-body-strong text-lg font-semibold text-ink group-hover:text-purple-600 transition-colors">
-              Lịch giảng dạy tuần
-            </h3>
-            <p className="font-caption text-ink-muted-80 mt-1">
-              Tra cứu thời gian biểu, phòng livestream và các lớp học được phân
-              công.
-            </p>
-          </div>
-          <span className="text-primary hover:underline font-caption font-semibold flex items-center gap-1.5 mt-2">
-            Xem lịch dạy học <ArrowRight className="h-3.5 w-3.5" />
-          </span>
-        </Link>
       </div>
 
       {/* Class Schedule detail view */}
       <Link
-        href="/teacher/schedules"
+        href="/teacher/calendar"
         className="bg-canvas border border-hairline rounded-lg p-6 hover:border-primary transition-all duration-200 cursor-pointer block"
       >
         <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4 flex justify-between items-center">
@@ -257,6 +197,11 @@ export default async function TeacherDashboardPage() {
           </span>
         </h3>
         <div className="flex flex-col gap-4">
+          {displaySchedules.length === 0 && (
+            <p className="text-xs text-ink-muted-48 text-center py-4">
+              Hôm nay bạn không có lịch dạy.
+            </p>
+          )}
           {displaySchedules.map((item) => (
             <div
               key={item.id}

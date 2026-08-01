@@ -7,11 +7,6 @@ export const dynamic = "force-dynamic";
 
 // Module-level constants: computed once at module load time (not during render)
 const MODULE_LOAD_TIME = new Date();
-const FALLBACK_ACTIVITIES = [
-  { title: "Khởi tạo hệ thống Lớp học trực tuyến", actor: "Thực hiện bởi Admin", timestamp: new Date(MODULE_LOAD_TIME.getTime() - 4 * 3600 * 1000) },
-  { title: "Khởi tạo tài khoản Giảng viên Nguyễn Văn Bình", actor: "Thực hiện bởi Admin", timestamp: new Date(MODULE_LOAD_TIME.getTime() - 6 * 3600 * 1000) },
-  { title: "Khởi tạo tài khoản Học viên Nguyễn Văn A", actor: "Thực hiện bởi Admin", timestamp: new Date(MODULE_LOAD_TIME.getTime() - 8 * 3600 * 1000) }
-];
 
 function formatTimeAgo(date: Date) {
   const now = MODULE_LOAD_TIME;
@@ -110,7 +105,7 @@ export default async function AdminDashboardPage() {
       else if (u.role === "ADMIN") roleText = "Quản trị viên";
 
       activitiesList.push({
-        title: `Khởi tạo tài khoản ${roleText.toLowerCase()} ${u.name}`,
+        title: `Tạo mới tài khoản ${roleText.toLowerCase()}: ${u.name}`,
         actor: "Thực hiện bởi Admin",
         timestamp: u.createdAt,
       });
@@ -154,7 +149,7 @@ export default async function AdminDashboardPage() {
           { id: "3", name: "Lớp 12C3", studentsCount: 28 },
         ];
 
-  const finalActivities = displayActivities.length > 0 ? displayActivities : FALLBACK_ACTIVITIES;
+  const finalActivities = displayActivities;
 
 
   return (
@@ -257,17 +252,23 @@ export default async function AdminDashboardPage() {
             Hoạt động hệ thống gần đây
           </h3>
           <div className="flex flex-col gap-4">
-            {finalActivities.map((act, index) => (
-              <div key={index} className="flex justify-between items-start text-xs border-b border-divider-soft pb-3 last:border-0">
-                <div>
-                  <p className="font-semibold text-ink">
-                    {act.title}
-                  </p>
-                  <p className="text-ink-muted-48 mt-0.5">{act.actor}</p>
+            {finalActivities.length === 0 ? (
+              <p className="text-xs text-ink-muted-48 text-center py-4">
+                Chưa có hoạt động hệ thống nào gần đây.
+              </p>
+            ) : (
+              finalActivities.map((act, index) => (
+                <div key={index} className="flex justify-between items-start text-xs border-b border-divider-soft pb-3 last:border-0">
+                  <div>
+                    <p className="font-semibold text-ink">
+                      {act.title}
+                    </p>
+                    <p className="text-ink-muted-48 mt-0.5">{act.actor}</p>
+                  </div>
+                  <span className="text-ink-muted-48 flex-shrink-0 ml-4">{formatTimeAgo(act.timestamp)}</span>
                 </div>
-                <span className="text-ink-muted-48 flex-shrink-0 ml-4">{formatTimeAgo(act.timestamp)}</span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 

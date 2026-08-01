@@ -1,12 +1,24 @@
 import React from "react";
 import Link from "next/link";
 import { Clock, ArrowLeft } from "lucide-react";
+import { getSession } from "@/lib/auth";
 
-export default function NotFound() {
+const HOME_BY_ROLE: Record<string, string> = {
+  ADMIN: "/admin",
+  TEACHER: "/teacher",
+  STUDENT: "/student",
+  PARENT: "/parent",
+};
+
+export default async function NotFound() {
+  // Đọc httpOnly cookie session_token server-side → về dashboard theo role nếu đã đăng nhập
+  const session = await getSession();
+  const homeHref = session && HOME_BY_ROLE[session.role] ? HOME_BY_ROLE[session.role] : "/";
+
   return (
     <div className="bg-canvas-parchment min-h-screen flex items-center justify-center px-6">
       <div className="max-w-md w-full bg-canvas border border-hairline rounded-lg p-8 shadow-product flex flex-col items-center text-center animate-fade-in gap-6">
-        
+
         {/* Animated Clock/Progress Icon */}
         <div className="h-16 w-16 rounded-full bg-blue-50 text-primary flex items-center justify-center shadow-sm relative overflow-hidden">
           <Clock className="h-8 w-8 animate-pulse text-primary" />
@@ -26,7 +38,7 @@ export default function NotFound() {
         </div>
 
         <Link
-          href="/"
+          href={homeHref}
           className="bg-primary hover:bg-primary-focus text-white px-6 py-3 rounded-pill font-body font-semibold text-xs apple-active-scale transition-colors shadow-sm flex items-center gap-1.5 mt-2"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Quay lại trang chủ

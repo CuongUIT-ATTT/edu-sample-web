@@ -1,8 +1,18 @@
 import React from "react";
 import Link from "next/link";
 import { ShieldX } from "lucide-react";
+import { getSession } from "@/lib/auth";
 
-export default function UnauthorizedPage() {
+const HOME_BY_ROLE: Record<string, string> = {
+  ADMIN: "/admin",
+  TEACHER: "/teacher",
+  STUDENT: "/student",
+  PARENT: "/parent",
+};
+
+export default async function UnauthorizedPage() {
+  const session = await getSession();
+  const homeHref = session && HOME_BY_ROLE[session.role] ? HOME_BY_ROLE[session.role] : "/";
   return (
     <div className="bg-canvas-parchment min-h-screen flex items-center justify-center px-6">
       <div className="max-w-[440px] w-full bg-canvas border border-hairline rounded-lg p-8 shadow-product flex flex-col items-center text-center">
@@ -25,8 +35,8 @@ export default function UnauthorizedPage() {
           >
             Đăng nhập tài khoản khác
           </Link>
-          <Link 
-            href="/" 
+          <Link
+            href={homeHref}
             className="text-primary hover:underline font-caption font-semibold mt-2"
           >
             Quay lại trang chủ

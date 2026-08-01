@@ -32,12 +32,13 @@ export default function SubjectManagement({ subjects }: SubjectManagementProps) 
     setSuccessMsg(null);
     setErrorMsg(null);
 
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     const res = await createSubject(formData);
 
     if (res.success) {
       setSuccessMsg(res.message || "Thành công");
-      e.currentTarget.reset();
+      form.reset();
       window.location.reload();
     } else {
       setErrorMsg(res.error || "Có lỗi xảy ra");

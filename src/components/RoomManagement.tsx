@@ -30,12 +30,13 @@ export default function RoomManagement({ rooms }: RoomManagementProps) {
     setSuccessMsg(null);
     setErrorMsg(null);
 
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     const res = await createRoom(formData);
 
     if (res.success) {
       setSuccessMsg(res.message || "Tạo phòng học thành công.");
-      e.currentTarget.reset();
+      form.reset();
       window.location.reload();
     } else {
       setErrorMsg(res.error || "Tạo phòng học thất bại.");
