@@ -12,7 +12,10 @@ export async function GET(req: NextRequest) {
   }
 
   const startDate = new Date(year, from - 1, 1);
-  const endDate = new Date(year, to, 0, 23, 59, 59);
+  const now = new Date();
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  const monthEnd = new Date(year, to, 0, 23, 59, 59);
+  const endDate = monthEnd > todayEnd ? todayEnd : monthEnd;
 
   const records = await db.attendance.findMany({
     where: { studentId, date: { gte: startDate, lte: endDate } },

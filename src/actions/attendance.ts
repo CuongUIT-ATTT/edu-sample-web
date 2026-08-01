@@ -53,6 +53,7 @@ export async function markAttendance(input: MarkAttendanceInput) {
     revalidatePath("/teacher/attendance");
     revalidatePath(`/student/attendance`);
     revalidatePath(`/parent/attendance`);
+    revalidatePath(`/admin/attendance`);
 
     return { success: true, data: attendance };
   } catch (error) {

@@ -17,6 +17,7 @@ import {
   HelpCircle,
   FileText,
   DollarSign,
+  ClipboardCheck,
 } from "lucide-react";
 
 export default function AdminDashboardLayout({
@@ -100,14 +101,6 @@ export default function AdminDashboardLayout({
               <span>Người dùng</span>
             </Link>
             <Link
-              href="/admin/quizzes"
-              onClick={closeSidebar}
-              className={linkClass("/admin/quizzes")}
-            >
-              <HelpCircle className="h-4 w-4 flex-shrink-0" />
-              <span>Quản lý đề thi</span>
-            </Link>
-            <Link
               href="/admin/classes"
               onClick={closeSidebar}
               className={linkClass("/admin/classes")}
@@ -140,20 +133,12 @@ export default function AdminDashboardLayout({
               <span>Lịch</span>
             </Link>
             <Link
-              href="/admin/schedules"
+              href="/admin/quizzes"
               onClick={closeSidebar}
-              className={linkClass("/admin/schedules")}
+              className={linkClass("/admin/quizzes")}
             >
-              <Calendar className="h-4 w-4 flex-shrink-0" />
-              <span>Lịch học lớp</span>
-            </Link>
-            <Link
-              href="/admin/system"
-              onClick={closeSidebar}
-              className={linkClass("/admin/system")}
-            >
-              <ShieldAlert className="h-4 w-4 flex-shrink-0" />
-              <span>Bảo mật hệ thống</span>
+              <HelpCircle className="h-4 w-4 flex-shrink-0" />
+              <span>Quản lý đề thi</span>
             </Link>
             <Link
               href="/admin/documents"
@@ -170,6 +155,22 @@ export default function AdminDashboardLayout({
             >
               <DollarSign className="h-4 w-4 flex-shrink-0" />
               <span>Học phí</span>
+            </Link>
+            <Link
+              href="/admin/attendance"
+              onClick={closeSidebar}
+              className={linkClass("/admin/attendance")}
+            >
+              <ClipboardCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
+              <span>Điểm danh</span>
+            </Link>
+            <Link
+              href="/admin/system"
+              onClick={closeSidebar}
+              className={linkClass("/admin/system")}
+            >
+              <ShieldAlert className="h-4 w-4 flex-shrink-0" />
+              <span>Bảo mật hệ thống</span>
             </Link>
           </nav>
         </div>
