@@ -49,7 +49,6 @@ const DAYS_NAME: Record<number, string> = {
 export default function TeacherAttendancePage() {
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState("");
-  const [weekOffset, setWeekOffset] = useState(0); // 0 = current week, -1 = last week, +1 = next week
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedDate, setSelectedDate] = useState("");
   const [attendance, setAttendance] = useState<
@@ -118,26 +117,19 @@ export default function TeacherAttendancePage() {
 
   const { isAllowed, reason } = checkTimeWindow();
 
-  // 2. Compute date whenever selected schedule or weekOffset changes
+  // 2. Khi đổi ca học: tự đề xuất ngày của ca đó trong tuần này (user có thể đổi lại)
   useEffect(() => {
     if (!activeSchedule) return;
 
-    // Calculate target date based on schedule dayOfWeek and weekOffset
     // activeSchedule.dayOfWeek: 1 = Mon, ..., 7 = Sun
     // JS getDay(): 0 = Sun, 1 = Mon, ..., 6 = Sat
-    const getTargetDate = () => {
-      const today = new Date();
-      const todayDay = today.getDay() === 0 ? 7 : today.getDay();
-
-      // Difference between target day and today
-      const diff = activeSchedule.dayOfWeek - todayDay;
-      const target = new Date(today);
-      target.setDate(today.getDate() + diff + weekOffset * 7);
-      return target.toISOString().split("T")[0];
-    };
-
-    setSelectedDate(getTargetDate());
-  }, [selectedScheduleId, activeSchedule, weekOffset]);
+    const today = new Date();
+    const todayDay = today.getDay() === 0 ? 7 : today.getDay();
+    const diff = activeSchedule.dayOfWeek - todayDay;
+    const target = new Date(today);
+    target.setDate(today.getDate() + diff);
+    setSelectedDate(target.toISOString().split("T")[0]);
+  }, [selectedScheduleId, activeSchedule]);
 
   // 3. Load students when class of active schedule changes
   useEffect(() => {
@@ -270,36 +262,25 @@ export default function TeacherAttendancePage() {
           </select>
         </div>
 
-        <div className="flex flex-col gap-1.5 min-w-[180px]">
+        <div className="flex flex-col gap-1.5 min-w-[200px]">
           <label className="text-xs font-caption-strong text-ink-muted-80">
-            Chọn tuần điểm danh
+            Ngày điểm danh
           </label>
-          <select
-            value={weekOffset}
-            onChange={(e) => setWeekOffset(Number(e.target.value))}
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
             className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-11 text-sm text-ink outline-none focus:border-primary-focus w-full"
-          >
-            <option value={0}>Tuần này</option>
-            <option value={-1}>Tuần trước</option>
-            <option value={-2}>2 tuần trước</option>
-            <option value={1}>Tuần sau</option>
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-caption-strong text-ink-muted-48 uppercase">
-            Ngày điểm danh dự kiến:
-          </span>
-          <span className="text-sm font-semibold text-primary h-11 flex items-center gap-1.5 px-3 bg-blue-50 border border-blue-200 rounded-pill">
-            <Calendar className="h-4 w-4" />{" "}
+          />
+          <span className="text-[10px] text-ink-muted-48 flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
             {selectedDate
               ? new Date(selectedDate).toLocaleDateString("vi-VN", {
                   weekday: "long",
                   day: "numeric",
                   month: "numeric",
-                  year: "numeric",
                 })
-              : "—"}
+              : "Chọn ngày điểm danh"}
           </span>
         </div>
       </div>
