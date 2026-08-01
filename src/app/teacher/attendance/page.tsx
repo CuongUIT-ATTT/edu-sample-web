@@ -8,7 +8,6 @@ import {
   X,
   Clock,
   BookOpen,
-  Calendar,
   ShieldAlert,
 } from "lucide-react";
 import { markAttendance } from "@/actions/attendance";
@@ -117,7 +116,7 @@ export default function TeacherAttendancePage() {
 
   const { isAllowed, reason } = checkTimeWindow();
 
-  // 2. Khi đổi ca học: tự đề xuất ngày của ca đó trong tuần này (user có thể đổi lại)
+  // 2. Khi đổi ca học: tự đề xuất ngày của ca đó trong tuần này
   useEffect(() => {
     if (!activeSchedule) return;
 
@@ -262,27 +261,29 @@ export default function TeacherAttendancePage() {
           </select>
         </div>
 
-        <div className="flex flex-col gap-1.5 min-w-[200px]">
-          <label className="text-xs font-caption-strong text-ink-muted-80">
-            Ngày điểm danh
-          </label>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-11 text-sm text-ink outline-none focus:border-primary-focus w-full"
-          />
-          <span className="text-[10px] text-ink-muted-48 flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            {selectedDate
-              ? new Date(selectedDate).toLocaleDateString("vi-VN", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "numeric",
-                })
-              : "Chọn ngày điểm danh"}
-          </span>
-        </div>
+        {/* Hiển thị thông tin ca học đang điểm danh: thứ, ngày tháng năm, lớp, môn */}
+        {activeSchedule && (
+          <div className="flex flex-col gap-1.5 md:min-w-[300px]">
+            <label className="text-xs font-caption-strong text-ink-muted-80">
+              Ca học điểm danh
+            </label>
+            <div className="text-sm font-semibold text-ink leading-snug">
+              {DAYS_NAME[activeSchedule.dayOfWeek]},{" "}
+              {selectedDate
+                ? new Date(selectedDate).toLocaleDateString("vi-VN", {
+                    day: "numeric",
+                    month: "numeric",
+                    year: "numeric",
+                  })
+                : "—"}
+            </div>
+            <span className="text-xs text-ink-muted-80 flex items-center gap-1.5">
+              <BookOpen className="h-3.5 w-3.5 text-primary" />
+              Lớp {activeSchedule.class.name} • {activeSchedule.subject.name} (
+              {activeSchedule.startTime} - {activeSchedule.endTime})
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Time window lock warning */}
