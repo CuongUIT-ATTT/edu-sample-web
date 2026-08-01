@@ -57,12 +57,14 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
   const [formParentId, setFormParentId] = useState("");
 
   const downloadUserCsvTemplate = () => {
-    // Dùng dấu ';' làm phân cách vì Excel VN mặc định dùng ';' → mở ra đúng cột.
+    // Dùng ',' làm phân cách (phổ biến với Excel). Dòng 'sep=,' đầu tiên ép Excel
+    // tách đúng cột bất kể cấu hình vùng (list separator) của máy.
     // Kèm BOM UTF-8 (﻿) để Excel nhận đúng tiếng Việt khi mở và lưu lại.
-    const headers = "Name;Email;Password;Role;Class\n";
-    const sampleRow = "\"Nguyễn Văn A\";\"student_a@eduweb.vn\";\"Password@2026\";\"STUDENT\";\"10A1\"\n\"Trần Thị B\";\"teacher_b@eduweb.vn\";\"Password@2026\";\"TEACHER\";\"\"\n";
+    const sepLine = "sep=,\n";
+    const headers = "Name,Email,Password,Role,Class\n";
+    const sampleRow = "\"Nguyễn Văn A\",\"student_a@eduweb.vn\",\"Password@2026\",\"STUDENT\",\"10A1\"\n\"Trần Thị B\",\"teacher_b@eduweb.vn\",\"Password@2026\",\"TEACHER\",\"\"\n";
     // Dùng Blob thay data URL để giữ BOM byte chính xác (data URL có thể bị strip BOM)
-    const blob = new Blob(["﻿" + headers + sampleRow], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(["﻿" + sepLine + headers + sampleRow], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -340,7 +342,9 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
       try {
         const buf = event.target?.result as ArrayBuffer;
         const text = decodeCsvBuffer(buf).replace(/^﻿/, "");
-        const rows = text.split(/\r?\n/).map((r) => r.trim()).filter((r) => r.length > 0);
+        const allRows = text.split(/\r?\n/).map((r) => r.trim()).filter((r) => r.length > 0);
+        // Bỏ dòng 'sep=,' nếu có (Excel chèn để ép delimiter)
+        const rows = allRows.length > 0 && /^sep=/.test(allRows[0]) ? allRows.slice(1) : allRows;
         if (rows.length < 2) return;
 
         // Auto-detect delimiter: ưu tiên ';' (Excel VN), rồi ',', rồi tab
