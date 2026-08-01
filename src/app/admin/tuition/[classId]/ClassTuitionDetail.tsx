@@ -13,7 +13,7 @@ interface TuitionItem {
   amount: number;
   paid: number;
   status: string;
-  student: { user: { name: string } };
+  student: { user: { name: string }; credits: { credit: number }[] };
   payments: { id: string; amount: number; paidAt: string; method: string; note: string | null }[];
 }
 
@@ -38,7 +38,8 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
   const router = useRouter();
   // tuition = initialTuition (server-rendered, refresh when router.refresh() re-renders)
   const tuition = initialTuition;
-  const [payModal, setPayModal] = useState<{ tuitionId: string; studentName: string; owed: number } | null>(null);
+  const [payModal, setPayModal] = useState<{ tuitionId: string; studentName: string; owed: number; credit: number } | null>(null);
+  const [confirmModal, setConfirmModal] = useState(false);
   const [payAmount, setPayAmount] = useState("");
   const [payMethod, setPayMethod] = useState("CASH");
   const [payNote, setPayNote] = useState("");
@@ -82,8 +83,13 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
     setPaying(true);
     const res = await recordPayment(payModal.tuitionId, amount, payMethod, payNote);
     if (res.success) {
-      showToast("Đã ghi nhận thanh toán!", "success");
+      const surplus = res.surplus ?? 0;
+      const msg = surplus > 0
+        ? `Đã ghi nhận ${amount.toLocaleString()}đ — dư ${surplus.toLocaleString()}đ thành số dư trả trước!`
+        : "Đã ghi nhận thanh toán!";
+      showToast(msg, "success");
       setPayModal(null);
+      setConfirmModal(false);
       setPayAmount("");
       setPayNote("");
       router.refresh();
@@ -107,6 +113,14 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
     );
   };
 
+  // Số dư trả trước theo cặp (học sinh, lớp) — lấy từ row đầu tiên của mỗi student
+  const creditByStudent = new Map<string, number>();
+  for (const t of tuition) {
+    if (!creditByStudent.has(t.studentId)) {
+      creditByStudent.set(t.studentId, t.student.credits?.[0]?.credit ?? 0);
+    }
+  }
+
   // Aggregate tuition records by studentId (sum periods/amount across months)
   const aggregated: Record<string, TuitionItem> = {};
   for (const t of tuition) {
@@ -123,11 +137,26 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
 
   const totalAmount = aggList.reduce((s, t) => s + t.amount, 0);
   const totalPaid = aggList.reduce((s, t) => s + t.paid, 0);
+  const totalCredit = aggList.reduce((s, t) => s + (creditByStudent.get(t.studentId) ?? 0), 0);
+
+  // Hàm mở modal thu tiền: chọn tuitionId của row còn nợ sớm nhất; nếu đã đóng hết thì dùng row mới nhất (tạo credit)
+  const openPayModal = (item: TuitionItem) => {
+    const rows = tuition.filter((t) => t.studentId === item.studentId);
+    const owing = rows.find((r) => r.amount - r.paid > 0);
+    const target = owing ?? rows[rows.length - 1];
+    if (!target) return;
+    setPayModal({
+      tuitionId: target.id,
+      studentName: item.student.user.name,
+      owed: Math.max(0, target.amount - target.paid),
+      credit: creditByStudent.get(item.studentId) ?? 0,
+    });
+  };
 
   return (
     <div className="flex flex-col gap-5">
       {/* Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-canvas border border-hairline rounded-lg p-4 flex flex-col gap-1">
           <span className="text-[10px] text-ink-muted-48 uppercase tracking-wider font-bold">Tổng học phí</span>
           <span className="text-xl font-bold text-ink">{totalAmount.toLocaleString()}đ</span>
@@ -137,8 +166,13 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
           <span className="text-xl font-bold text-green-700">{totalPaid.toLocaleString()}đ</span>
         </div>
         <div className="bg-canvas border border-hairline rounded-lg p-4 flex flex-col gap-1">
+          <span className="text-[10px] text-ink-muted-48 uppercase tracking-wider font-bold">Tiền dư trả trước</span>
+          <span className="text-xl font-bold text-teal-600">{totalCredit.toLocaleString()}đ</span>
+          <span className="text-[10px] text-ink-muted-48">sẽ tự trừ vào kỳ sau</span>
+        </div>
+        <div className="bg-canvas border border-hairline rounded-lg p-4 flex flex-col gap-1">
           <span className="text-[10px] text-ink-muted-48 uppercase tracking-wider font-bold">Còn phải thu</span>
-          <span className="text-xl font-bold text-orange-600">{(totalAmount - totalPaid).toLocaleString()}đ</span>
+          <span className="text-xl font-bold text-orange-600">{Math.max(0, totalAmount - totalPaid - totalCredit).toLocaleString()}đ</span>
         </div>
       </div>
 
@@ -191,14 +225,25 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
           <tbody>
             {aggList.length === 0 ? (
               <tr><td colSpan={8} className="text-center py-8 text-ink-muted-48">Chưa có dữ liệu. Hãy bấm "Tính học phí" ở trang trước.</td></tr>
-            ) : aggList.map((item) => (
+            ) : aggList.map((item) => {
+              const credit = creditByStudent.get(item.studentId) ?? 0;
+              return (
               <tr key={item.id} className="border-b border-divider-soft last:border-0 hover:bg-surface-pearl/50">
                 <td className="px-4 py-3.5 font-semibold text-ink">{item.student.user.name}</td>
                 <td className="px-4 py-3.5 text-center text-ink-muted-80">{item.periods}</td>
                 <td className="px-4 py-3.5 text-right font-semibold text-ink">{item.amount.toLocaleString()}đ</td>
                 <td className="px-4 py-3.5 text-right text-green-700 font-semibold">{item.paid.toLocaleString()}đ</td>
                 <td className="px-4 py-3.5 text-right text-orange-600 font-semibold">{Math.max(0, item.amount - item.paid).toLocaleString()}đ</td>
-                <td className="px-4 py-3.5 text-center">{statusBadge(item.status)}</td>
+                <td className="px-4 py-3.5 text-center">
+                  <div className="flex flex-col items-center gap-1">
+                    {statusBadge(item.status)}
+                    {credit > 0 && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-teal-300 text-teal-700 bg-teal-50">
+                        Có dư {credit.toLocaleString()}đ — trừ vào kỳ sau
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-4 py-3.5 text-center">
                   <button
                     onClick={() => loadDetail(item.studentId, item.student.user.name)}
@@ -220,25 +265,35 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
                 </td>
                 <td className="px-4 py-3.5 text-center">
                   <button
-                    onClick={() => setPayModal({ tuitionId: item.id, studentName: item.student.user.name, owed: item.amount - item.paid })}
+                    onClick={() => openPayModal(item)}
                     className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-primary/30 text-primary hover:bg-primary/5 transition-colors"
                   >
                     <DollarSign className="h-3 w-3" /> Thu tiền
                   </button>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         {/* Mobile card list */}
         <div className="md:hidden flex flex-col gap-3 p-4">
           {aggList.length === 0 ? (
             <p className="text-center py-8 text-ink-muted-48 text-xs">Chưa có dữ liệu. Hãy bấm "Tính học phí" ở trang trước.</p>
-          ) : aggList.map((item) => (
+          ) : aggList.map((item) => {
+            const credit = creditByStudent.get(item.studentId) ?? 0;
+            return (
             <div key={item.id} className="border border-hairline rounded-lg p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-sm text-ink">{item.student.user.name}</span>
-                {statusBadge(item.status)}
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-sm text-ink truncate">{item.student.user.name}</span>
+                <div className="flex flex-col items-end gap-1">
+                  {statusBadge(item.status)}
+                  {credit > 0 && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-teal-300 text-teal-700 bg-teal-50">
+                      Có dư {credit.toLocaleString()}đ
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="flex flex-col">
@@ -267,13 +322,14 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
                   className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold px-2 py-1.5 rounded-full border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors">
                   <Clock className="h-3 w-3" /> Lịch sử
                 </button>
-                <button onClick={() => setPayModal({ tuitionId: item.id, studentName: item.student.user.name, owed: item.amount - item.paid })}
+                <button onClick={() => openPayModal(item)}
                   className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold px-2 py-1.5 rounded-full border border-primary/30 text-primary hover:bg-primary/5 transition-colors">
                   <DollarSign className="h-3 w-3" /> Thu tiền
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -377,6 +433,12 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
             <div className="p-5 flex flex-col gap-4">
               <p className="text-xs text-ink-muted-80">Học sinh: <strong className="text-ink">{payModal.studentName}</strong></p>
               <p className="text-xs text-ink-muted-80">Còn nợ: <strong className="text-orange-600">{payModal.owed.toLocaleString()}đ</strong></p>
+              {payModal.credit > 0 && (
+                <p className="text-xs text-ink-muted-80">
+                  Số dư trả trước: <strong className="text-teal-700">{payModal.credit.toLocaleString()}đ</strong>{" "}
+                  <span className="text-ink-muted-48">— sẽ tự trừ khi tính kỳ sau</span>
+                </p>
+              )}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-semibold text-ink-muted-48">Số tiền</label>
                 <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} className="bg-canvas border border-hairline rounded-lg px-3 py-2 text-xs text-ink outline-none" />
@@ -392,11 +454,56 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
                 <label className="text-[10px] font-semibold text-ink-muted-48">Ghi chú</label>
                 <input type="text" value={payNote} onChange={e => setPayNote(e.target.value)} className="bg-canvas border border-hairline rounded-lg px-3 py-2 text-xs text-ink outline-none" />
               </div>
-              <button onClick={handleRecordPayment} disabled={paying}
-                className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold px-4 py-2.5 rounded-pill w-full disabled:opacity-60 flex items-center justify-center gap-1.5">
+              <button
+                onClick={() => {
+                  const amount = parseFloat(payAmount);
+                  if (isNaN(amount) || amount <= 0) { showToast("Số tiền không hợp lệ", "warning"); return; }
+                  setConfirmModal(true);
+                }}
+                disabled={paying}
+                className="bg-primary hover:bg-primary-focus text-white text-xs font-semibold px-4 py-2.5 rounded-pill w-full disabled:opacity-60 flex items-center justify-center gap-1.5"
+              >
                 {paying && <span className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                 Xác nhận thu
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Confirmation Modal */}
+      {confirmModal && payModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-canvas border border-hairline rounded-xl shadow-product w-full max-w-sm flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-divider-soft">
+              <h3 className="text-sm font-bold text-ink">Xác nhận thu tiền</h3>
+              <button onClick={() => setConfirmModal(false)} className="h-7 w-7 rounded-md text-ink-muted-80 hover:bg-surface-pearl flex items-center justify-center"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="p-5 flex flex-col gap-3">
+              <p className="text-xs text-ink-muted-80">Học sinh: <strong className="text-ink">{payModal.studentName}</strong></p>
+              <p className="text-xs text-ink-muted-80">
+                Số tiền thu: <strong className="text-green-700">{parseFloat(payAmount).toLocaleString()}đ</strong>
+              </p>
+              <p className="text-xs text-ink-muted-80">
+                Phương thức: <strong className="text-ink">{payMethod === "CASH" ? "Tiền mặt" : "Chuyển khoản"}</strong>
+              </p>
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => setConfirmModal(false)}
+                  disabled={paying}
+                  className="flex-1 border border-hairline hover:bg-surface-pearl text-ink-muted-80 text-xs font-semibold px-4 py-2.5 rounded-pill disabled:opacity-60"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleRecordPayment}
+                  disabled={paying}
+                  className="flex-1 bg-primary hover:bg-primary-focus text-white text-xs font-semibold px-4 py-2.5 rounded-pill disabled:opacity-60 flex items-center justify-center gap-1.5"
+                >
+                  {paying && <span className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                  Xác nhận
+                </button>
+              </div>
             </div>
           </div>
         </div>

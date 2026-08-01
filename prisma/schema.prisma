@@ -96,6 +96,7 @@ model StudentProfile {
   homeworkSubmissions HomeworkSubmission[]
   tuitions            Tuition[]
   tuitionPayments     TuitionPayment[]
+  credits             StudentCredit[]
 }
 
 model ParentProfile {
@@ -118,6 +119,7 @@ model Class {
   quizzes            Quiz[]
   documentVisibility DocumentClassVisibility[]
   tuitions           Tuition[]
+  credits            StudentCredit[]
 }
 
 model Subject {
@@ -252,8 +254,9 @@ model Quiz {
   description      String?
   duration         Int // in minutes
   passingScore     Float
+  deadline         DateTime? // null = không đóng đề; sau deadline vẫn làm được nhưng đánh dấu nộp muộn
   isPublic         Boolean @default(false)
-  answerVisibility String  @default("IMMEDIATELY") // IMMEDIATELY, WHEN_ENDED, NEVER
+  answerVisibility String  @default("IMMEDIATELY") // IMMEDIATELY, WHEN_ENDED, NEVER, AFTER_ALL_SUBMITTED
 
   subjectId String
   subject   Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
@@ -404,6 +407,18 @@ model Reminder {
 }
 
 // ─── Tuition / Học phí ─────────────────────────────────────────────
+
+model StudentCredit {
+  id        String         @id @default(uuid())
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId   String
+  class     Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  credit    Float          @default(0)
+  updatedAt DateTime       @updatedAt
+
+  @@unique([studentId, classId])
+}
 
 model TuitionFeeSetting {
   id             String   @id @default(uuid())

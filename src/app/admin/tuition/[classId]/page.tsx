@@ -33,7 +33,12 @@ export default async function ClassTuitionPage({
   const tuitionList = await db.tuition.findMany({
     where: { classId, month: { gte: fromMonth, lte: toMonth }, year },
     include: {
-      student: { include: { user: { select: { name: true } } } },
+      student: {
+        include: {
+          user: { select: { name: true } },
+          credits: { where: { classId } },
+        },
+      },
       payments: { orderBy: { paidAt: "desc" } },
     },
     orderBy: [{ student: { user: { name: "asc" } } }, { month: "asc" }],
