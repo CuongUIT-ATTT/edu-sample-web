@@ -58,7 +58,7 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
 
       const rows = schedules.map((s) => {
         const dateStr = new Date(s.date).toISOString().split("T")[0];
-        const att = attendance.find((a: any) => new Date(a.date).toISOString().split("T")[0] === dateStr);
+        const att = attendance.find((a: { date: string; status: string }) => new Date(a.date).toISOString().split("T")[0] === dateStr);
         return {
           date: dateStr,
           start: s.startTime,

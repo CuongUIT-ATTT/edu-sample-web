@@ -32,7 +32,7 @@ export async function calculateTuition(classId: string, fromMonth: number, toMon
   });
   if (!classData) return { success: false, error: "Lớp không tồn tại" };
 
-  const allResults: any[] = [];
+  const allResults: { studentId: string; studentName: string; month: number; periods: number; amount: number; markedCount: number }[] = [];
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
   const activeIds = classData.students.map((s) => s.id);

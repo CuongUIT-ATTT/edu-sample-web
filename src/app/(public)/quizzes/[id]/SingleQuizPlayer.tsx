@@ -14,6 +14,7 @@ interface Question {
   options: string[];
   correctAnswer: string;
   score: number;
+  explanation?: string | null;
   imageUrl?: string | null;
 }
 
@@ -251,7 +252,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const renderQuestionPlaying = (q: any, displayIdx: number) => {
+  const renderQuestionPlaying = (q: Question, displayIdx: number) => {
     return (
       <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4 text-left">
         <h3 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
@@ -346,7 +347,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
     );
   };
 
-  const renderQuestionReview = (q: any, displayIdx: number, reviewInfo: any, studentAnsVal: string, correctAnsVal: string, isCorrect: boolean, scoreEarned: number, subCorrectText: string) => {
+  const renderQuestionReview = (q: Question, displayIdx: number, reviewInfo: { id: string; correctAnswer: string; explanation: string | null } | undefined, studentAnsVal: string, correctAnsVal: string, isCorrect: boolean, scoreEarned: number, subCorrectText: string) => {
     return (
       <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4 text-left">
         <div className="flex justify-between items-start gap-2">

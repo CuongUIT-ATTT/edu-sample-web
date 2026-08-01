@@ -12,6 +12,7 @@ interface Question {
   type?: string;
   options: string[];
   score: number;
+  explanation?: string | null;
   imageUrl?: string | null;
 }
 
@@ -203,7 +204,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     (q.description && q.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const renderQuestionPlaying = (q: any, displayIdx: number) => {
+  const renderQuestionPlaying = (q: Question, displayIdx: number) => {
     return (
       <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4 text-left">
         <h3 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
@@ -298,7 +299,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     );
   };
 
-  const renderQuestionReview = (q: any, displayIdx: number, reviewInfo: any, studentAnsVal: string, correctAnsVal: string, isCorrect: boolean, scoreEarned: number, subCorrectText: string) => {
+  const renderQuestionReview = (q: Question, displayIdx: number, reviewInfo: { id: string; correctAnswer: string; explanation: string | null } | undefined, studentAnsVal: string, correctAnsVal: string, isCorrect: boolean, scoreEarned: number, subCorrectText: string) => {
     return (
       <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4 text-left">
         <div className="flex justify-between items-start gap-2">

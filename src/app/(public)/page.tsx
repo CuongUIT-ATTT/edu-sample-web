@@ -21,6 +21,7 @@ export default function HomePage() {
     totalSubmissions: 0,
     totalCourses: 0,
   });
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
     const examDate = new Date("2027-06-25T07:30:00").getTime();
@@ -53,8 +54,6 @@ export default function HomePage() {
 
     return () => clearInterval(interval);
   }, []);
-
-  const [loadingStats, setLoadingStats] = useState(true);
 
   const stats = [
     { value: loadingStats ? "..." : `${realStats.totalQuizzes}`, label: "Đề thi thử trực tuyến" },

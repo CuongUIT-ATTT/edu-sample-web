@@ -158,7 +158,6 @@ export default function CalendarApp({
 
     load();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     currentView,
     currentDate.toISOString().slice(0, 10),

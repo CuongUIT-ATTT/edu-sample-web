@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const results: any[] = [];
+  const results: { id: string; publicId: string; status: string }[] = [];
   const AUTH = Buffer.from(
     `${process.env.CLOUDINARY_API_KEY}:${process.env.CLOUDINARY_API_SECRET}`
   ).toString("base64");
