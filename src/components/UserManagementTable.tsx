@@ -214,6 +214,72 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
   };
 
   // CSV Parsing Logic
+  // Đọc file CSV với encoding đúng để hiển thị tiếng Việt không bị lỗi phông.
+  // Excel VN xuất CSV thường dùng UTF-8 (có/không BOM) hoặc ANSI Windows-1258.
+  // TextDecoder WHATWG không map đúng Windows-1258 cho tiếng Việt → decode thủ công.
+
+  // Bảng byte → ký tự tiếng Việt trong Windows-1258 (Vietnamese ANSI).
+  // Chỉ map các byte tiếng Việt (khác cp1252). Dựa trên bảng chuẩn Windows-1258.
+  const WIN1258_VIET: Record<number, string> = {
+    0x80: "Ạ", 0x81: "Ắ", 0x82: "Ằ", 0x83: "Ẳ", 0x84: "Ẵ", 0x85: "Ặ",
+    0x86: "Ấ", 0x87: "Ầ", 0x88: "Ẩ", 0x89: "Ẫ", 0x8A: "Ậ",
+    0x8B: "Ẽ", 0x8C: "Ẹ", 0x8D: "Ế", 0x8E: "Ề", 0x8F: "Ể",
+    0x90: "Ễ", 0x91: "Ệ", 0x92: "Ố", 0x93: "Ồ", 0x94: "Ổ",
+    0x95: "Ỗ", 0x96: "Ộ", 0x97: "Ớ", 0x98: "Ờ", 0x99: "Ở",
+    0x9A: "Ỡ", 0x9B: "Ợ", 0x9C: "Ụ", 0x9D: "Ủ", 0x9E: "Ứ",
+    0x9F: "Ừ",
+    0xA0: "Ử", 0xA1: "ơ", 0xA2: "Ữ", 0xA3: "Ự", 0xA4: "Ỳ",
+    0xA5: "Ỵ", 0xA6: "Ỷ", 0xA7: "Ỹ", 0xA8: "ề", 0xA9: "ế",
+    0xAA: "ệ", 0xAB: "ị", 0xAC: "ỉ", 0xAD: "ĩ", 0xAE: "ỏ",
+    0xAF: "ọ", 0xB0: "ố", 0xB1: "ồ", 0xB2: "ổ", 0xB3: "ỗ",
+    0xB4: "ộ", 0xB5: "ớ", 0xB6: "ờ", 0xB7: "ở", 0xB8: "ỡ",
+    0xB9: "ợ", 0xBA: "ụ", 0xBB: "ủ", 0xBC: "ứ", 0xBD: "ừ",
+    0xBE: "ử", 0xBF: "ữ",
+    0xC0: "ự", 0xC1: "ỳ", 0xC2: "ý", 0xC3: "ỵ", 0xC4: "ỷ",
+    0xC5: "ỹ", 0xC6: "ấ", 0xC7: "ầ", 0xC8: "ẩ", 0xC9: "ẫ",
+    0xCA: "ậ", 0xCB: "ắ", 0xCC: "ằ", 0xCD: "ẳ", 0xCE: "ẵ",
+    0xCF: "ặ", 0xD0: "đ", 0xD1: "ư", 0xD2: "ạ", 0xD3: "ả",
+    0xD4: "ấ", 0xD5: "ầ", 0xD6: "ẩ", 0xD7: "ẫ", 0xD8: "ậ",
+    0xD9: "ắ", 0xDA: "ằ", 0xDB: "ẳ", 0xDC: "ẵ", 0xDD: "ặ",
+    0xDE: "ẹ", 0xDF: "ẻ", 0xE0: "ẽ", 0xE1: "ế", 0xE2: "ề",
+    0xE3: "ể", 0xE4: "ễ", 0xE5: "ệ", 0xE6: "ă", 0xE7: "ị",
+    0xE8: "ĩ", 0xE9: "í", 0xEA: "ì", 0xEB: "ỉ", 0xEC: "ỗ",
+    0xED: "ộ", 0xEE: "ớ", 0xEF: "ờ", 0xF0: "ở", 0xF1: "ỡ",
+    0xF2: "ợ", 0xF3: "ụ", 0xF4: "ủ", 0xF5: "ứ", 0xF6: "ừ",
+    0xF7: "ử", 0xF8: "ữ", 0xF9: "ự", 0xFA: "ỳ", 0xFB: "ỷ",
+    0xFC: "ỵ", 0xFD: "ỹ", 0xFE: "ỷ", 0xFF: "ỹ",
+  };
+
+  const decodeCsvBuffer = (buf: ArrayBuffer): string => {
+    // Detect BOM
+    const bytes = new Uint8Array(buf);
+    if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+      // UTF-8 BOM
+      return new TextDecoder("utf-8").decode(bytes.subarray(3));
+    }
+    if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+      // UTF-16LE BOM
+      return new TextDecoder("utf-16le").decode(bytes.subarray(2));
+    }
+    if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+      // UTF-16BE BOM
+      return new TextDecoder("utf-16be").decode(bytes.subarray(2));
+    }
+    // Không có BOM: thử UTF-8 trước (fatal → throw nếu có byte không hợp lệ)
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(buf);
+    } catch {
+      // UTF-8 không hợp lệ → ANSI Windows-1258 (Vietnamese): decode thủ công
+      let out = "";
+      for (let i = 0; i < bytes.length; i++) {
+        const b = bytes[i];
+        if (b < 0x80) out += String.fromCharCode(b);
+        else out += WIN1258_VIET[b] ?? "?";
+      }
+      return out;
+    }
+  };
+
   const handleCsvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -221,15 +287,16 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const rows = text.split("\n").map((r) => r.trim()).filter((r) => r.length > 0);
+      const buf = event.target?.result as ArrayBuffer;
+      const text = decodeCsvBuffer(buf).replace(/^﻿/, "");
+      const rows = text.split(/\r?\n/).map((r) => r.trim()).filter((r) => r.length > 0);
       if (rows.length < 2) return;
 
       const parsed: any[] = [];
       const headers = rows[0].split(",").map((h) => h.trim().toLowerCase());
-      
+
       for (let i = 1; i < rows.length; i++) {
-        const cols = rows[i].split(",").map((c) => c.trim());
+        const cols = rows[i].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
         const rowData: any = {};
         headers.forEach((h, index) => {
           rowData[h] = cols[index] || "";
@@ -238,7 +305,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
       }
       setParsedPreview(parsed);
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
   const handleImportSubmit = async () => {
