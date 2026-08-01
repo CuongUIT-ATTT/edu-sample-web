@@ -12,10 +12,32 @@ interface MathRendererProps {
  * Render a single segment of text that may contain LaTeX math ($...$).
  * Returns an array of React nodes (plain spans + KaTeX spans).
  */
+// Ký tự đặc trưng công thức — khi text không bọc $...$ nhưng có vẻ là toán
+const MATH_CHARS = /[\^_\\{}]|frac|int|sqrt|sum|log|leq|geq|cdot|mathbb|vec|begin|end/;
+
 function renderMathSegment(segment: string, baseKey: string): React.ReactNode {
   if (!segment) return null;
   const parts = segment.split("$");
   if (parts.length === 1) {
+    // Không có $...$: nếu text chứa ký tự công thức (vd "u_4 = u_1 . q^4")
+    // thì render qua KaTeX để hiển thị đúng dạng toán học; text thường giữ nguyên.
+    if (MATH_CHARS.test(segment)) {
+      try {
+        const html = katex.renderToString(segment, {
+          throwOnError: false,
+          displayMode: false,
+        });
+        return (
+          <span
+            key={baseKey}
+            className="inline-block mx-0.5"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        );
+      } catch {
+        return <span key={baseKey}>{segment}</span>;
+      }
+    }
     return <span key={baseKey}>{segment}</span>;
   }
   return (

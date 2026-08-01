@@ -19,7 +19,11 @@ export const showToast = (
   const id = Math.random().toString(36).substring(2, 9);
   const newToast: ToastInfo = { id, message, type };
   toastsList = [...toastsList, newToast];
-  toastListeners.forEach((listener) => listener(toastsList));
+  // Trì hoãn để tránh setState đồng bộ trong render phase
+  // (gây lỗi "Cannot update a component while rendering a different component")
+  queueMicrotask(() => {
+    toastListeners.forEach((listener) => listener(toastsList));
+  });
 
   // Auto remove after 5 seconds
   setTimeout(() => {
