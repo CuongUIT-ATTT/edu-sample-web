@@ -232,13 +232,6 @@ export default function CalendarApp({
     setModalOpen(true);
   };
 
-  const handleCreateEvent = () => {
-    setEditingEvent(null);
-    setInitialStart(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 9, 0));
-    setInitialEnd(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 10, 0));
-    setModalOpen(true);
-  };
-
   const handleEventDragEnd = async (event: CalendarEvent, newStart: Date, newEnd: Date) => {
     if (event.isSchedule) {
       showToast("Không thể di chuyển lịch học. Vào phần đăng ký lịch để chỉnh sửa.", "warning");
@@ -351,7 +344,6 @@ export default function CalendarApp({
           onViewChange={setCurrentView}
           onDateChange={setCurrentDate}
           onToday={() => setCurrentDate(new Date())}
-          onCreateEvent={handleCreateEvent}
           onCreateSchedule={() => setScheduleModalOpen(true)}
           role={role}
         />

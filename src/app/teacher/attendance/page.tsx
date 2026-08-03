@@ -25,6 +25,7 @@ interface ScheduleItem {
   startTime: string;
   endTime: string;
   room?: string | null;
+  date?: string | null; // ngày thật của buổi học (ISO từ API)
   class: {
     id: string;
     name: string;
@@ -44,6 +45,22 @@ const DAYS_NAME: Record<number, string> = {
   6: "Thứ Bảy",
   7: "Chủ Nhật",
 };
+
+// YYYY-MM-DD theo ngày lịch local — khớp markAttendance (local midnight) và GET /api/admin/attendance
+function toLocalDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// Label option: hiển thị NGÀY THẬT của buổi học (s.date), không còn suy từ dayOfWeek
+function formatScheduleLabel(s: ScheduleItem): string {
+  const dateLabel = s.date
+    ? new Date(s.date).toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })
+    : DAYS_NAME[s.dayOfWeek];
+  return `${dateLabel} — ${DAYS_NAME[s.dayOfWeek]} — ${s.class.name} • ${s.subject.name} (${s.startTime} - ${s.endTime})`;
+}
 
 export default function TeacherAttendancePage() {
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
@@ -69,7 +86,15 @@ export default function TeacherAttendancePage() {
       .then((data) => {
         setSchedules(data.schedules || []);
         if (data.schedules && data.schedules.length > 0) {
-          setSelectedScheduleId(data.schedules[0].id);
+          // Tự chọn ca có ngày GẦN HÔM NAY nhất (không phải ca đầu danh sách = 3 tuần trước)
+          const todayMs = new Date();
+          todayMs.setHours(0, 0, 0, 0);
+          const closest = [...data.schedules].sort((a, b) => {
+            const da = a.date ? Math.abs(new Date(a.date).getTime() - todayMs.getTime()) : Infinity;
+            const db = b.date ? Math.abs(new Date(b.date).getTime() - todayMs.getTime()) : Infinity;
+            return da - db;
+          })[0];
+          setSelectedScheduleId(closest?.id ?? data.schedules[0].id);
         }
       })
       .catch((err) => console.error("Error loading schedules:", err))
@@ -78,16 +103,6 @@ export default function TeacherAttendancePage() {
 
   // Find currently selected schedule object
   const activeSchedule = schedules.find((s) => s.id === selectedScheduleId);
-
-  // Tính ngày cụ thể (tuần này) của 1 ca học theo dayOfWeek — hiển thị trong dropdown
-  const getScheduleDate = (dayOfWeek: number): string => {
-    const today = new Date();
-    const todayDay = today.getDay() === 0 ? 7 : today.getDay();
-    const diff = dayOfWeek - todayDay;
-    const target = new Date(today);
-    target.setDate(today.getDate() + diff);
-    return target.toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" });
-  };
 
   const checkTimeWindow = () => {
     if (!activeSchedule || !selectedDate)
@@ -126,18 +141,10 @@ export default function TeacherAttendancePage() {
 
   const { isAllowed, reason } = checkTimeWindow();
 
-  // 2. Khi đổi ca học: tự đề xuất ngày của ca đó trong tuần này
+  // 2. Khi đổi ca học: lấy NGÀY THẬT của ca đó từ s.date (không suy từ dayOfWeek)
   useEffect(() => {
-    if (!activeSchedule) return;
-
-    // activeSchedule.dayOfWeek: 1 = Mon, ..., 7 = Sun
-    // JS getDay(): 0 = Sun, 1 = Mon, ..., 6 = Sat
-    const today = new Date();
-    const todayDay = today.getDay() === 0 ? 7 : today.getDay();
-    const diff = activeSchedule.dayOfWeek - todayDay;
-    const target = new Date(today);
-    target.setDate(today.getDate() + diff);
-    setSelectedDate(target.toISOString().split("T")[0]);
+    if (!activeSchedule?.date) return;
+    setSelectedDate(toLocalDateString(new Date(activeSchedule.date)));
   }, [selectedScheduleId, activeSchedule]);
 
   // 3. Load students when class of active schedule changes
@@ -263,8 +270,7 @@ export default function TeacherAttendancePage() {
             ) : (
               schedules.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {getScheduleDate(s.dayOfWeek)} — {DAYS_NAME[s.dayOfWeek]} —{" "}
-                  {s.class.name} • {s.subject.name} ({s.startTime} - {s.endTime})
+                  {formatScheduleLabel(s)}
                 </option>
               ))
             )}

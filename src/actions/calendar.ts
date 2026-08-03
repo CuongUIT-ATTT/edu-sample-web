@@ -394,7 +394,7 @@ export async function getSchedulesForCalendar(
         teacher: { include: { user: true } },
         homeworkQuiz: { select: { id: true, title: true } },
       },
-      orderBy: { dayOfWeek: "asc" },
+      orderBy: [{ dayOfWeek: "asc" }, { date: "asc" }],
     });
   } else {
     schedules = await db.schedule.findMany({
@@ -404,18 +404,36 @@ export async function getSchedulesForCalendar(
         teacher: { include: { user: true } },
         homeworkQuiz: { select: { id: true, title: true } },
       },
-      orderBy: { dayOfWeek: "asc" },
+      orderBy: [{ dayOfWeek: "asc" }, { date: "asc" }],
     });
   }
 
   const events: ScheduleEventDisplay[] = [];
 
+  // Dedup: một lịch học WEEKLY được lưu thành nhiều row (1 row/ngày, cùng recurrenceGroupId).
+  // Tránh hiện nhiều event giống hệt cùng 1 ca trong cùng 1 ngày.
+  const emittedOccurrences = new Set<string>();
+
   for (const schedule of schedules) {
+    // Định danh "cùng một ca học": theo recurrenceGroupId nếu có; legacy không group thì
+    // fallback theo (class, subject, dayOfWeek, giờ, phòng) — ca khác nhau sẽ có key khác.
+    const sessionKey = schedule.recurrenceGroupId
+      ? `group:${schedule.recurrenceGroupId}`
+      : `${schedule.classId}|${schedule.subjectId}|${schedule.dayOfWeek}|${schedule.startTime}|${schedule.endTime}|${schedule.room ?? ""}`;
+
     // Find all occurrences of this schedule in the [from, to] range
     const firstOccurrence = getNextDayOfWeek(from, schedule.dayOfWeek);
     const occurrence = new Date(firstOccurrence);
 
     while (occurrence <= to) {
+      const emitKey = `${sessionKey}|${occurrence.toISOString().slice(0, 10)}`;
+      if (emittedOccurrences.has(emitKey)) {
+        // Ca này đã được hiển thị cho ngày đó (row trùng từ lịch lặp) → bỏ qua
+        occurrence.setDate(occurrence.getDate() + 7);
+        continue;
+      }
+      emittedOccurrences.add(emitKey);
+
       const start = timeStringToDate(occurrence, schedule.startTime);
       const end = timeStringToDate(occurrence, schedule.endTime);
 

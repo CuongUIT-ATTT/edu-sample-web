@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useMemo, useTransition } from "react";
 import {
   CheckSquare,
   RefreshCw,
@@ -25,6 +25,44 @@ interface AdminClass {
   name: string;
   gradeLevel: number;
   students: AdminStudent[];
+}
+
+interface AdminSchedule {
+  id: string;
+  dayOfWeek: number; // 1 = Mon, ..., 7 = Sun
+  startTime: string;
+  endTime: string;
+  room?: string | null;
+  date?: string | null; // ngày thật (ISO từ API); null = legacy hàng tuần
+  class: { id: string; name: string };
+  subject: { id: string; name: string };
+}
+
+const DAYS_NAME: Record<number, string> = {
+  1: "Thứ Hai",
+  2: "Thứ Ba",
+  3: "Thứ Tư",
+  4: "Thứ Năm",
+  5: "Thứ Sáu",
+  6: "Thứ Bảy",
+  7: "Chủ Nhật",
+};
+
+// Label buổi học: hiển thị ngày thật (s.date); legacy không date → "Hàng tuần"
+function scheduleLabel(s: AdminSchedule): string {
+  const dateLabel = s.date
+    ? new Date(s.date).toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })
+    : "Hàng tuần";
+  return `${dateLabel} — ${DAYS_NAME[s.dayOfWeek]} — ${s.subject.name} (${s.startTime} - ${s.endTime})`;
+}
+
+// Fallback cho buổi legacy (không date): ánh xạ dayOfWeek sang ngày trong tuần này (local)
+function scheduleDowToDate(dayOfWeek: number): string {
+  const today = new Date();
+  const todayDow = today.getDay() === 0 ? 7 : today.getDay();
+  const target = new Date(today);
+  target.setDate(today.getDate() + (dayOfWeek - todayDow));
+  return toLocalDateString(target);
 }
 
 interface AttendanceRecord {
@@ -81,9 +119,9 @@ export default function AttendanceAdminClient({
   const [selectedClassId, setSelectedClassId] = useState(
     initialClasses[0]?.id ?? "",
   );
-  const [selectedDate, setSelectedDate] = useState(() =>
-    toLocalDateString(new Date()),
-  );
+  const [schedules, setSchedules] = useState<AdminSchedule[]>([]);
+  const [selectedScheduleId, setSelectedScheduleId] = useState("");
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [attendance, setAttendance] = useState<
     Record<string, AttendanceStatus>
   >({});
@@ -97,7 +135,32 @@ export default function AttendanceAdminClient({
 
   const activeClass = initialClasses.find((c) => c.id === selectedClassId);
 
-  // Load existing attendance records for selected class + date
+  // Buổi học đang chọn → suy ra ngày (từ s.date; legacy fallback theo dayOfWeek tuần này)
+  const selectedSchedule = schedules.find((s) => s.id === selectedScheduleId) ?? null;
+  const selectedDate = useMemo(() => {
+    if (!selectedSchedule) return "";
+    return selectedSchedule.date
+      ? toLocalDateString(new Date(selectedSchedule.date))
+      : scheduleDowToDate(selectedSchedule.dayOfWeek);
+  }, [selectedSchedule]);
+
+  // Đổi lớp: fetch toàn bộ ca học của lớp, reset buổi đã chọn + attendance
+  useEffect(() => {
+    setSchedules([]);
+    setSelectedScheduleId("");
+    setAttendance({});
+    setSavedRecords([]);
+    setSubmitResult(null);
+    if (!selectedClassId) return;
+    setLoadingSchedules(true);
+    fetch(`/api/admin/classes/${encodeURIComponent(selectedClassId)}/schedules`)
+      .then((r) => r.json())
+      .then((data) => setSchedules(data.schedules || []))
+      .catch((err) => console.error("Error loading schedules:", err))
+      .finally(() => setLoadingSchedules(false));
+  }, [selectedClassId]);
+
+  // Load existing attendance records for selected class + date (ngày suy từ buổi đã chọn)
   useEffect(() => {
     if (!selectedClassId || !selectedDate) return;
     setLoading(true);
@@ -184,16 +247,31 @@ export default function AttendanceAdminClient({
           </select>
         </div>
 
-        <div className="flex flex-col gap-1.5 min-w-[180px]">
+        <div className="flex flex-col gap-1.5 min-w-[220px]">
           <label className="text-xs font-caption-strong text-ink-muted-80">
-            Chọn ngày
+            Chọn buổi học
           </label>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+          <select
+            value={selectedScheduleId}
+            onChange={(e) => setSelectedScheduleId(e.target.value)}
+            disabled={loadingSchedules}
             className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-11 text-sm text-ink outline-none focus:border-primary-focus w-full"
-          />
+          >
+            {loadingSchedules ? (
+              <option>Đang tải buổi học...</option>
+            ) : schedules.length === 0 ? (
+              <option>Chưa có buổi học</option>
+            ) : (
+              <>
+                <option value="">— Chọn buổi học —</option>
+                {schedules.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {scheduleLabel(s)}
+                  </option>
+                ))}
+              </>
+            )}
+          </select>
         </div>
 
         <div className="flex flex-col gap-1">
@@ -281,6 +359,20 @@ export default function AttendanceAdminClient({
             <CheckSquare className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
             <p className="font-body text-ink-muted-80">
               Chọn lớp học ở trên để tiến hành điểm danh.
+            </p>
+          </div>
+        ) : schedules.length === 0 ? (
+          <div className="p-16 text-center">
+            <Calendar className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
+            <p className="font-body text-ink-muted-80">
+              Lớp này chưa có buổi học nào.
+            </p>
+          </div>
+        ) : !selectedSchedule ? (
+          <div className="p-16 text-center">
+            <Calendar className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
+            <p className="font-body text-ink-muted-80">
+              Chọn buổi học ở trên để tiến hành điểm danh.
             </p>
           </div>
         ) : (
