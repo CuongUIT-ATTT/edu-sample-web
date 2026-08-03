@@ -2,7 +2,7 @@ import React from "react";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import TuitionAdminClient from "./TuitionAdminClient";
+import TuitionClassList from "@/components/TuitionClassList";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,7 @@ export default async function TuitionPage() {
           <p className="font-caption text-ink-muted-80 mt-1">Tính học phí theo buổi học • Giá tiết: {pricePerPeriod.toLocaleString()}đ/45p</p>
         </div>
       </div>
-      <TuitionAdminClient classes={classes} initialPrice={pricePerPeriod} />
+      <TuitionClassList classes={classes} initialPrice={pricePerPeriod} canEditPrice tuitionPath="/admin/tuition" />
     </div>
   );
 }

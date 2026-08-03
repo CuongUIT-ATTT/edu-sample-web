@@ -18,3 +18,6 @@ export const db =
   });
 
 globalForPrisma.prisma = db;
+
+// Export pool để test đếm SQL round-trip thật (Prisma adapter pg không emit $on("query"))
+export { pool };
