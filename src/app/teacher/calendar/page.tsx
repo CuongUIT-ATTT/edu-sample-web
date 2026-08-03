@@ -11,8 +11,25 @@ export default async function TeacherCalendarPage() {
     where: { userId: session.userId },
   });
 
+  // Giáo viên chỉ đăng ký lịch cho lớp mình phụ trách: chủ nhiệm HOẶC có dạy
+  const teacherClassIds = teacherProfile
+    ? (
+        await db.class.findMany({
+          where: {
+            OR: [
+              { formTeacherId: teacherProfile.id },
+              { schedules: { some: { teacherId: teacherProfile.id } } },
+            ],
+          },
+          select: { id: true },
+        })
+      ).map((c) => c.id)
+    : [];
+
   const [classes, subjects, rooms] = await Promise.all([
-    db.class.findMany({ orderBy: { name: "asc" } }),
+    teacherClassIds.length > 0
+      ? db.class.findMany({ where: { id: { in: teacherClassIds } }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
     db.subject.findMany({ orderBy: { name: "asc" } }),
     db.room.findMany({ orderBy: { name: "asc" } }),
   ]);

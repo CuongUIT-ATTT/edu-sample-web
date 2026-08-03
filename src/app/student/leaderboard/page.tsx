@@ -1,5 +1,7 @@
 import React from "react";
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { Trophy } from "lucide-react";
 import LeaderboardClient from "./LeaderboardClient";
 
@@ -10,8 +12,18 @@ export const metadata = {
 };
 
 export default async function StudentLeaderboardPage() {
+  const session = await getSession();
+  if (!session || session.role !== "STUDENT") redirect("/login");
+
+  // Chỉ hiện các lớp mà học viên đang theo học, không hiện toàn bộ lớp trong hệ thống
+  const studentProfile = await db.studentProfile.findUnique({
+    where: { userId: session.userId },
+    include: { classes: true },
+  });
+  const myClassIds = studentProfile?.classes.map((c) => c.id) ?? [];
+
   const [classes, subjects] = await Promise.all([
-    db.class.findMany({ orderBy: { name: "asc" } }),
+    db.class.findMany({ where: { id: { in: myClassIds } }, orderBy: { name: "asc" } }),
     db.subject.findMany({ orderBy: { name: "asc" } }),
   ]);
 

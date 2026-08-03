@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
+import { teacherOwnsClass } from "@/lib/teacher-classes";
 
 interface CreateScheduleInput {
   classId: string;
@@ -44,6 +45,19 @@ export async function createSchedule(input: CreateScheduleInput) {
     const normalizedActual = actualDow === 0 ? 7 : actualDow;
     if (normalizedActual !== dayOfWeek) {
       return { success: false, error: "Ngày bắt đầu không khớp với thứ đã chọn" };
+    }
+
+    // Giáo viên chỉ được đăng ký lịch cho lớp mình phụ trách và cho chính mình
+    const isTeacher = session.role === "TEACHER";
+    let currentTeacherProfileId = "";
+    if (isTeacher) {
+      const teacherProfile = await db.teacherProfile.findUnique({ where: { userId: session.userId } });
+      currentTeacherProfileId = teacherProfile?.id || "";
+      if (!currentTeacherProfileId) return { success: false, error: "Không tìm thấy hồ sơ giảng viên." };
+      if (!(await teacherOwnsClass(session.userId, classId)))
+        return { success: false, error: "Bạn không được phép đăng ký lịch cho lớp này." };
+      if (teacherId !== currentTeacherProfileId)
+        return { success: false, error: "Bạn không thể đăng ký lịch cho giảng viên khác." };
     }
 
     // 1. Auto-create room if it doesn't exist in the Room table
@@ -106,17 +120,6 @@ export async function createSchedule(input: CreateScheduleInput) {
         }
       }
     });
-
-    const isTeacher = session.role === "TEACHER";
-    
-    // Find current teacher profile id if teacher is adding it
-    let currentTeacherProfileId = "";
-    if (isTeacher) {
-      const teacherProfile = await db.teacherProfile.findUnique({
-        where: { userId: session.userId }
-      });
-      currentTeacherProfileId = teacherProfile?.id || "";
-    }
 
     for (const existing of sameDaySchedules) {
       const existingStart = parseTimeToMinutes(existing.startTime);
@@ -246,6 +249,14 @@ export async function deleteSchedule(
       return { success: false, error: "Không tìm thấy ca lịch học." };
     }
 
+    // Giáo viên chỉ xóa lịch của chính mình
+    if (session.role === "TEACHER") {
+      const teacherProfile = await db.teacherProfile.findUnique({ where: { userId: session.userId } });
+      const currentTeacherProfileId = teacherProfile?.id || "";
+      if (!currentTeacherProfileId || schedule.teacherId !== currentTeacherProfileId)
+        return { success: false, error: "Bạn không được phép xóa lịch của giảng viên khác." };
+    }
+
     // Guard: prevent deletion if student submissions exist for target schedules
     const checkSubmissionsExist = async (whereCondition: any) => {
       const count = await db.homeworkSubmission.count({
@@ -347,6 +358,21 @@ export async function updateSchedule(input: UpdateScheduleInput) {
       return { success: false, error: "Không tìm thấy ca lịch học cần cập nhật." };
     }
 
+    // Giáo viên chỉ sửa lịch của chính mình, cho lớp mình phụ trách
+    const isTeacher = session.role === "TEACHER";
+    let currentTeacherProfileId = "";
+    if (isTeacher) {
+      const teacherProfile = await db.teacherProfile.findUnique({ where: { userId: session.userId } });
+      currentTeacherProfileId = teacherProfile?.id || "";
+      if (!currentTeacherProfileId) return { success: false, error: "Không tìm thấy hồ sơ giảng viên." };
+      if (targetSchedule.teacherId !== currentTeacherProfileId)
+        return { success: false, error: "Bạn không được phép chỉnh sửa lịch của giảng viên khác." };
+      if (!(await teacherOwnsClass(session.userId, classId)))
+        return { success: false, error: "Bạn không được phép đăng ký lịch cho lớp này." };
+      if (teacherId !== currentTeacherProfileId)
+        return { success: false, error: "Bạn không thể gán lịch cho giảng viên khác." };
+    }
+
     // Determine target schedules to update
     const schedulesToUpdate: any[] = [];
     const dateDiffs: number[] = []; // differences in time to shift each date
@@ -381,14 +407,6 @@ export async function updateSchedule(input: UpdateScheduleInput) {
 
     // Check overlap for each updated schedule
     const idsToExclude = schedulesToUpdate.map((s) => s.id);
-    const isTeacher = session.role === "TEACHER";
-    let currentTeacherProfileId = "";
-    if (isTeacher) {
-      const teacherProfile = await db.teacherProfile.findUnique({
-        where: { userId: session.userId }
-      });
-      currentTeacherProfileId = teacherProfile?.id || "";
-    }
 
     for (let i = 0; i < schedulesToUpdate.length; i++) {
       const targetDate = new Date(dateDiffs[i]);

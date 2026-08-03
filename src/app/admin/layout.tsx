@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LogoutButton from "@/components/LogoutButton";
+import { getCurrentUser } from "@/actions/session";
 import {
   Users,
   BookOpen,
@@ -40,6 +41,14 @@ export default function AdminDashboardLayout({
   }, [closeSidebar]);
 
   const isActive = (href: string) => pathname === href;
+
+  // Email thật của người đang đăng nhập (layout client không gọi được getSession() trực tiếp)
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  useEffect(() => {
+    getCurrentUser()
+      .then((u) => setUserEmail(u?.email ?? null))
+      .catch(() => setUserEmail(null));
+  }, []);
 
   const linkClass = (href: string) =>
     `flex items-center gap-3 px-2 md:px-4 py-2.5 rounded-sm text-sm transition-colors apple-active-scale ${
@@ -207,7 +216,7 @@ export default function AdminDashboardLayout({
           </div>
           <div className="flex items-center gap-4">
             <span className="text-xs text-ink-muted-48 hidden sm:inline">
-              Quản trị viên: admin@eduweb.vn
+              Quản trị viên: {userEmail ?? ""}
             </span>
             <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
               AD

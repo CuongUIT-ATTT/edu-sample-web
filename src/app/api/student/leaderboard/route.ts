@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,19 @@ export async function GET(req: NextRequest) {
 
     if (!classId || !subjectId) {
       return NextResponse.json({ error: "classId và subjectId là bắt buộc" }, { status: 400 });
+    }
+
+    // Chỉ học viên mới xem được bảng xếp hạng, và chỉ cho lớp mình đang học
+    const session = await getSession();
+    if (!session || session.role !== "STUDENT") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const studentProfile = await db.studentProfile.findUnique({
+      where: { userId: session.userId },
+      include: { classes: true },
+    });
+    if (!studentProfile || !studentProfile.classes.some((c) => c.id === classId)) {
+      return NextResponse.json({ error: "Bạn không có quyền xem bảng xếp hạng lớp này" }, { status: 403 });
     }
 
     // Get all students in the class

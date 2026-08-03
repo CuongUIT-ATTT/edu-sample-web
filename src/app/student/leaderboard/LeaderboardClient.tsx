@@ -28,14 +28,14 @@ interface LeaderboardClientProps {
 
 const MEDAL_COLORS = [
   "text-yellow-500",
-  "text-slate-400",
   "text-amber-600",
+  "text-slate-400",
 ];
 
 const MEDAL_BG = [
   "bg-yellow-50 border-yellow-200",
-  "bg-slate-50 border-slate-200",
   "bg-amber-50 border-amber-200",
+  "bg-slate-50 border-slate-200",
 ];
 
 export default function LeaderboardClient({ classes, subjects }: LeaderboardClientProps) {
@@ -137,7 +137,7 @@ export default function LeaderboardClient({ classes, subjects }: LeaderboardClie
             <div className="grid grid-cols-3 gap-3 mb-2">
               {/* 2nd place */}
               <div className={`flex flex-col items-center gap-2 p-4 rounded-lg border ${MEDAL_BG[1]}`}>
-                <span className="text-3xl font-black text-slate-400">#2</span>
+                <span className="text-3xl font-black text-amber-600">#2</span>
                 <Medal className={`h-6 w-6 ${MEDAL_COLORS[1]}`} />
                 <p className="text-xs font-semibold text-ink text-center line-clamp-2">{ranking[1]?.name}</p>
                 <p className="text-lg font-black text-ink">{ranking[1]?.avgScore?.toFixed(1) ?? "—"}</p>
@@ -153,7 +153,7 @@ export default function LeaderboardClient({ classes, subjects }: LeaderboardClie
               </div>
               {/* 3rd place */}
               <div className={`flex flex-col items-center gap-2 p-4 rounded-lg border ${MEDAL_BG[2]}`}>
-                <span className="text-3xl font-black text-amber-600">#3</span>
+                <span className="text-3xl font-black text-slate-400">#3</span>
                 <Medal className={`h-6 w-6 ${MEDAL_COLORS[2]}`} />
                 <p className="text-xs font-semibold text-ink text-center line-clamp-2">{ranking[2]?.name}</p>
                 <p className="text-lg font-black text-ink">{ranking[2]?.avgScore?.toFixed(1) ?? "—"}</p>
@@ -182,7 +182,7 @@ export default function LeaderboardClient({ classes, subjects }: LeaderboardClie
                       className={`border-b border-divider-soft last:border-0 hover:bg-surface-pearl transition-colors ${idx < 3 ? "font-semibold" : ""}`}
                     >
                       <td className="px-5 py-3.5">
-                        <span className={`font-black text-sm ${idx === 0 ? "text-yellow-500" : idx === 1 ? "text-slate-400" : idx === 2 ? "text-amber-600" : "text-ink-muted-48"}`}>
+                        <span className={`font-black text-sm ${idx === 0 ? "text-yellow-500" : idx === 1 ? "text-amber-600" : idx === 2 ? "text-slate-400" : "text-ink-muted-48"}`}>
                           #{idx + 1}
                         </span>
                       </td>

@@ -260,7 +260,7 @@ export default async function StudentDashboardPage() {
         </Link>
 
         <Link
-          href="/student/schedules"
+          href="/student/calendar"
           className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-purple-600 transition-all duration-200 apple-active-scale cursor-pointer group"
         >
           <div className="h-10 w-10 rounded-sm bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
@@ -279,7 +279,7 @@ export default async function StudentDashboardPage() {
 
       {/* Class Schedule detail view */}
       <Link
-        href="/student/schedules"
+        href="/student/calendar"
         className="bg-canvas border border-hairline rounded-lg p-6 hover:border-primary transition-all duration-200 cursor-pointer block"
       >
         <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4 flex justify-between items-center">

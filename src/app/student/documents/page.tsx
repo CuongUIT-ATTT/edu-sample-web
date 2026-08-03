@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getDocumentsForStudent } from "@/actions/documents";
-import { ExternalLink, BookOpen, GraduationCap, FileText } from "lucide-react";
+import { BookOpen } from "lucide-react";
+import DocumentsClient from "./DocumentsClient";
 
 export const dynamic = "force-dynamic";
 
@@ -42,15 +43,17 @@ export default async function StudentDocumentsPage() {
   const classDocs = classDocsResult.success ? classDocsResult.data ?? [] : [];
 
   interface DocItem {
+    id: string;
     type: "material" | "homework" | "class_doc";
     title: string;
     url: string;
+    classId: string | null; // null = doc public (dùng chung mọi lớp)
     className: string;
     subjectName: string;
     teacherName: string;
     dayLabel: string;
     time: string;
-    uploadedAt: Date;
+    isPublic: boolean;
   }
 
   const DAYS = ["", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
@@ -59,105 +62,83 @@ export default async function StudentDocumentsPage() {
   for (const schedule of schedules) {
     if (schedule.materials) {
       docs.push({
+        id: `${schedule.id}-material`,
         type: "material",
         title: `${schedule.subject.name} - Bài giảng`,
         url: schedule.materials,
+        classId: schedule.classId,
         className: schedule.class.name,
         subjectName: schedule.subject.name,
         teacherName: schedule.teacher.user.name,
         dayLabel: DAYS[schedule.dayOfWeek] || "",
         time: `${schedule.startTime} - ${schedule.endTime}`,
-        uploadedAt: new Date(),
+        isPublic: false,
       });
     }
     if (schedule.homework) {
       docs.push({
+        id: `${schedule.id}-homework`,
         type: "homework",
         title: `${schedule.subject.name} - BTVN`,
         url: schedule.homework,
+        classId: schedule.classId,
         className: schedule.class.name,
         subjectName: schedule.subject.name,
         teacherName: schedule.teacher.user.name,
         dayLabel: DAYS[schedule.dayOfWeek] || "",
         time: `${schedule.startTime} - ${schedule.endTime}`,
-        uploadedAt: new Date(),
+        isPublic: false,
       });
     }
   }
 
-  // Add class-specific documents
+  // Class documents: published → 1 item public (dùng chung mọi lớp); không published → 1 item mỗi lớp student được gán
+  const myClassIdSet = new Set(classIds);
   for (const doc of classDocs) {
-    const classNames = doc.classVisibility?.map((cv: { class: { name: string } }) => cv.class.name).join(", ") || "Lớp học";
-    docs.push({
-      type: "class_doc",
-      title: doc.title,
-      url: doc.fileUrl,
-      className: classNames,
-      subjectName: doc.category,
-      teacherName: "",
-      dayLabel: "",
-      time: "",
-      uploadedAt: new Date(doc.createdAt),
-    });
-  }
-
-  const byClass: Record<string, DocItem[]> = {};
-  for (const doc of docs) {
-    if (!byClass[doc.className]) byClass[doc.className] = [];
-    byClass[doc.className].push(doc);
+    if (doc.published) {
+      docs.push({
+        id: `${doc.id}-public`,
+        type: "class_doc",
+        title: doc.title,
+        url: doc.fileUrl,
+        classId: null,
+        className: "",
+        subjectName: doc.category,
+        teacherName: "",
+        dayLabel: "",
+        time: "",
+        isPublic: true,
+      });
+    } else {
+      for (const cv of doc.classVisibility ?? []) {
+        if (myClassIdSet.has(cv.class.id)) {
+          docs.push({
+            id: `${doc.id}-${cv.class.id}`,
+            type: "class_doc",
+            title: doc.title,
+            url: doc.fileUrl,
+            classId: cv.class.id,
+            className: cv.class.name,
+            subjectName: doc.category,
+            teacherName: "",
+            dayLabel: "",
+            time: "",
+            isPublic: false,
+          });
+        }
+      }
+    }
   }
 
   return (
     <div className="p-6 md:p-10 max-w-4xl mx-auto">
       <h1 className="text-xl font-bold text-ink mb-6">Tài liệu học tập của tôi</h1>
-
-      {docs.length === 0 ? (
-        <div className="text-center py-16">
-          <BookOpen className="w-12 h-12 text-ink-muted-48 mx-auto mb-3" />
-          <p className="text-sm text-ink-muted-48">Chưa có tài liệu nào cho lớp của bạn.</p>
-        </div>
-      ) : (
-        Object.entries(byClass).map(([className, classDocs]) => (
-          <div key={className} className="mb-8">
-            <h2 className="text-base font-semibold text-ink mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-500" />
-              {className}
-            </h2>
-            <div className="space-y-2">
-              {classDocs.map((doc, i) => (
-                <a
-                  key={i}
-                  href={doc.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 rounded-lg border border-hairline hover:shadow-sm hover:border-blue-200 transition-all group"
-                >
-                  <div className={`p-2 rounded-lg ${doc.type === "material" ? "bg-blue-50" : doc.type === "homework" ? "bg-amber-50" : "bg-violet-50"}`}>
-                    {doc.type === "material" ? (
-                      <BookOpen className="w-4 h-4 text-blue-500" />
-                    ) : doc.type === "homework" ? (
-                      <GraduationCap className="w-4 h-4 text-amber-500" />
-                    ) : (
-                      <FileText className="w-4 h-4 text-violet-500" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-ink truncate group-hover:text-blue-600 transition-colors">
-                      {doc.title}
-                    </p>
-                    <p className="text-[11px] text-ink-muted-48 mt-0.5">
-                      {doc.type === "class_doc"
-                        ? `Danh mục: ${doc.subjectName} - ${doc.className}`
-                        : `${doc.subjectName} - ${doc.teacherName} - ${doc.dayLabel} ${doc.time}`}
-                    </p>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-ink-muted-48 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </a>
-              ))}
-            </div>
-          </div>
-        ))
-      )}
+      <DocumentsClient
+        classes={[...studentProfile.classes]
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((c) => ({ id: c.id, name: c.name }))}
+        docs={docs}
+      />
     </div>
   );
 }

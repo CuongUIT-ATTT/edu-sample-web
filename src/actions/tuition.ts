@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { computePayment, applyCreditToPeriod } from "@/lib/tuition-utils";
+import { teacherOwnsClass } from "@/lib/teacher-classes";
 
 export async function getFeeSettings() {
   let setting = await db.tuitionFeeSetting.findFirst({ orderBy: { updatedAt: "desc" } });
@@ -19,22 +20,6 @@ export async function updateFeeSettings(pricePerPeriod: number) {
   await db.tuitionFeeSetting.create({ data: { pricePerPeriod, updatedBy: session.userId } });
   revalidatePath("/admin/tuition");
   return { success: true };
-}
-
-// TEACHER chỉ được quản lý học phí cho lớp mình phụ trách (chủ nhiệm hoặc có dạy)
-async function teacherOwnsClass(userId: string, classId: string): Promise<boolean> {
-  const teacher = await db.teacherProfile.findUnique({ where: { userId } });
-  if (!teacher) return false;
-  const cls = await db.class.findFirst({
-    where: {
-      id: classId,
-      OR: [
-        { formTeacherId: teacher.id },
-        { schedules: { some: { teacherId: teacher.id } } },
-      ],
-    },
-  });
-  return !!cls;
 }
 
 export async function calculateTuition(classId: string, fromMonth: number, toMonth: number, year: number) {
