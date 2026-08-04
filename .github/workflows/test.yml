@@ -108,7 +108,7 @@ jobs:
       # DB sạch mỗi lần chạy → dùng `db push` (không migrate deploy — repo vốn dùng db-push workflow)
       - name: Push schema + seed
         run: |
-          npx prisma db push --skip-generate --accept-data-loss
+          npx prisma db push --accept-data-loss
           npx prisma db seed
 
       - name: Unit & Integration tests
@@ -166,7 +166,7 @@ jobs:
 
       - name: Push schema + seed
         run: |
-          npx prisma db push --skip-generate --accept-data-loss
+          npx prisma db push --accept-data-loss
           npx prisma db seed
 
       - name: Install Playwright browsers
