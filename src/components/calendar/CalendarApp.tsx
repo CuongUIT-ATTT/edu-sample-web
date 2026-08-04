@@ -12,7 +12,7 @@ import AgendaView from "./AgendaView";
 import EventModal, { type EventFormData } from "./EventModal";
 import ScheduleModal from "./ScheduleModal";
 import SessionDetailModal from "./SessionDetailModal";
-import { getCalendars, getEvents, getSchedulesForCalendar, createEvent, updateEvent, deleteEvent, createCalendar, deleteCalendar, type ScheduleEventDisplay } from "@/actions/calendar";
+import { getCalendars, getEvents, getSchedulesForCalendar, createEvent, updateEvent, deleteEvent, type ScheduleEventDisplay } from "@/actions/calendar";
 import { createRecurrenceRule } from "@/lib/recurrence";
 import { showToast } from "@/components/Toast";
 
@@ -279,35 +279,6 @@ export default function CalendarApp({
     setScheduleModalOpen(true);
   };
 
-  const handleCalendarToggle = (calId: string) => {
-    setCalendars((prev) => prev.map((c) => (c.id === calId ? { ...c, isVisible: !c.isVisible } : c)));
-  };
-
-  const handleCreateCalendar = async (name: string, color: string) => {
-    try {
-      await createCalendar({ name, color }, userId);
-      showToast("Đã tạo lịch mới", "success");
-      const cals = await getCalendars(userId);
-      setCalendars(cals);
-      calendarsRef.current = cals;
-    } catch {
-      showToast("Lỗi tạo lịch", "error");
-    }
-  };
-
-  const handleDeleteCalendar = async (calId: string) => {
-    try {
-      await deleteCalendar(calId);
-      showToast("Đã xóa lịch", "success");
-      if (selectedCalendarId === calId) setSelectedCalendarId(undefined);
-      const cals = await getCalendars(userId);
-      setCalendars(cals);
-      calendarsRef.current = cals;
-    } catch {
-      showToast("Lỗi xóa lịch", "error");
-    }
-  };
-
   const renderView = () => {
     switch (currentView) {
       case "day":
@@ -331,14 +302,8 @@ export default function CalendarApp({
       {/* Sidebar */}
       <div className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:static inset-y-0 left-0 z-50 transition-transform`}>
         <CalendarSidebar
-          calendars={calendars}
           selectedDate={currentDate}
           onDateSelect={(d) => { setCurrentDate(d); setCurrentView("day"); setSidebarOpen(false); }}
-          onCalendarToggle={handleCalendarToggle}
-          onCreateCalendar={handleCreateCalendar}
-          onDeleteCalendar={handleDeleteCalendar}
-          onCalendarSelect={setSelectedCalendarId}
-          selectedCalendarId={selectedCalendarId}
         />
       </div>
 
