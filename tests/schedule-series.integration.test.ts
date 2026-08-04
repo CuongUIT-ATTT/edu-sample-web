@@ -22,8 +22,12 @@ vi.mocked(getSession).mockResolvedValue(adminSession);
 let classId1 = "";
 let classId2 = "";
 let subjectId = "";
-let teacherId1 = "";
-let teacherId2 = "";
+// Teacher dùng RIÊNG cho test (không phải seed teacher) → không conflict với seed data
+// (seed P101 07:30 dùng teacher đầu tiên; dùng teacher seed sẽ báo trùng GV trước trùng phòng).
+let teacherTestId = "";
+let teacherTestUserId = "";
+let teacherTestId2 = "";
+let teacherTestUserId2 = "";
 let studentA = "";
 
 async function clearAll() {
@@ -65,10 +69,17 @@ describe("ScheduleSeries CRUD integration", () => {
   });
 
   beforeAll(async () => {
-    teacherId1 = (await db.teacherProfile.findFirstOrThrow()).id;
-    const allTeachers = await db.teacherProfile.findMany();
-    teacherId2 = allTeachers.length > 1 ? allTeachers[1].id : teacherId1;
     subjectId = (await db.subject.findFirstOrThrow()).id;
+    // Tạo 1 teacher riêng cho test — không phải seed teacher
+    const tU = await db.user.create({ data: { email: unique("srT") + "@t.local", name: "Sr Teacher", passwordHash: "x", role: "TEACHER" } });
+    const tP = await db.teacherProfile.create({ data: { userId: tU.id } });
+    teacherTestId = tP.id;
+    teacherTestUserId = tU.id;
+    // Teacher 2: dùng cho test trùng học sinh (cần 2 teacher khác nhau để không bị block trùng GV trước)
+    const tU2 = await db.user.create({ data: { email: unique("srT2") + "@t.local", name: "Sr Teacher 2", passwordHash: "x", role: "TEACHER" } });
+    const tP2 = await db.teacherProfile.create({ data: { userId: tU2.id } });
+    teacherTestId2 = tP2.id;
+    teacherTestUserId2 = tU2.id;
 
     const c1 = await db.class.create({ data: { name: unique("SR-C1"), gradeLevel: 10 } });
     classId1 = c1.id;
@@ -83,6 +94,15 @@ describe("ScheduleSeries CRUD integration", () => {
 
   afterAll(async () => {
     await clearAll();
+    // Cleanup teacher riêng của test
+    if (teacherTestUserId) {
+      await db.teacherProfile.deleteMany({ where: { userId: teacherTestUserId } }).catch(() => {});
+      await db.user.deleteMany({ where: { id: teacherTestUserId } }).catch(() => {});
+    }
+    if (teacherTestUserId2) {
+      await db.teacherProfile.deleteMany({ where: { userId: teacherTestUserId2 } }).catch(() => {});
+      await db.user.deleteMany({ where: { id: teacherTestUserId2 } }).catch(() => {});
+    }
   });
 
   it("1. createSchedule tạo 1 ScheduleSeries + expand ra đúng số buổi", async () => {
@@ -90,7 +110,7 @@ describe("ScheduleSeries CRUD integration", () => {
     const res = await createSchedule({
       classId: classId1,
       subjectId,
-      teacherId: teacherId1,
+      teacherId: teacherTestId,
       dayOfWeek: 2,
       startTime: "08:00",
       endTime: "09:30",
@@ -109,7 +129,7 @@ describe("ScheduleSeries CRUD integration", () => {
   it("2. trùng phòng → block (không tạo)", async () => {
     // Tạo series ở SERIES-B trước
     const first = await createSchedule({
-      classId: classId1, subjectId, teacherId: teacherId1,
+      classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 3, startTime: "08:00", endTime: "09:30", room: "SERIES-B",
       startDate: "2026-08-05",
     });
@@ -117,7 +137,7 @@ describe("ScheduleSeries CRUD integration", () => {
 
     // Tạo series khác cùng phòng SERIES-B, cùng thứ, trùng giờ
     const clash = await createSchedule({
-      classId: classId2, subjectId, teacherId: teacherId2,
+      classId: classId2, subjectId, teacherId: teacherTestId,
       dayOfWeek: 3, startTime: "08:30", endTime: "10:00", room: "SERIES-B",
       startDate: "2026-08-05",
     });
@@ -128,15 +148,15 @@ describe("ScheduleSeries CRUD integration", () => {
   it("3. trùng học sinh → warning (không block) khi 2 lớp cùng giờ, học sinh chung", async () => {
     // Học sinh A thuộc cả 2 lớp. Tạo series class1
     const first = await createSchedule({
-      classId: classId1, subjectId, teacherId: teacherId1,
+      classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 4, startTime: "14:00", endTime: "15:30", room: "SERIES-C",
       startDate: "2026-08-06",
     });
     expect(first.success).toBe(true);
 
-    // Cùng giờ, khác phòng, lớp 2 (có chung học sinh A) → warning
+    // Cùng giờ, khác phòng + khác GV, lớp 2 (có chung học sinh A) → warning trùng học sinh
     const warning = await createSchedule({
-      classId: classId2, subjectId, teacherId: teacherId2,
+      classId: classId2, subjectId, teacherId: teacherTestId2,
       dayOfWeek: 4, startTime: "14:00", endTime: "15:30", room: "SERIES-D",
       startDate: "2026-08-06",
     });
@@ -146,7 +166,7 @@ describe("ScheduleSeries CRUD integration", () => {
 
     // Với ignoreWarning=true → tạo thành công
     const forced = await createSchedule({
-      classId: classId2, subjectId, teacherId: teacherId2,
+      classId: classId2, subjectId, teacherId: teacherTestId2,
       dayOfWeek: 4, startTime: "14:00", endTime: "15:30", room: "SERIES-D",
       startDate: "2026-08-06",
       ignoreWarning: true,
@@ -156,7 +176,7 @@ describe("ScheduleSeries CRUD integration", () => {
 
   it("4. updateSchedule ONLY_THIS tạo exception MODIFIED, các buổi khác giữ nguyên", async () => {
     const res = await createSchedule({
-      classId: classId1, subjectId, teacherId: teacherId1,
+      classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 2, startTime: "09:00", endTime: "10:30", room: "SERIES-E",
       startDate: "2026-08-04",
     });
@@ -167,7 +187,7 @@ describe("ScheduleSeries CRUD integration", () => {
     const upd = await updateSchedule({
       seriesId,
       instanceDate: "2026-08-11",
-      classId: classId1, subjectId, teacherId: teacherId1,
+      classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 2, startTime: "11:00", endTime: "12:30", room: "SERIES-E",
       updateMode: "ONLY_THIS",
     });
@@ -191,7 +211,7 @@ describe("ScheduleSeries CRUD integration", () => {
 
   it("5. updateSchedule ALL_FUTURE cắt series + tạo series mới + di dời + guard bài nộp", async () => {
     const res = await createSchedule({
-      classId: classId1, subjectId, teacherId: teacherId1,
+      classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 2, startTime: "07:00", endTime: "08:30", room: "SERIES-F",
       startDate: "2026-08-04",
     });
@@ -205,7 +225,7 @@ describe("ScheduleSeries CRUD integration", () => {
 
     const blocked = await updateSchedule({
       seriesId: oldSeriesId, instanceDate: "2026-08-11",
-      classId: classId1, subjectId, teacherId: teacherId1,
+      classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 2, startTime: "07:00", endTime: "08:30", room: "SERIES-F",
       updateMode: "ALL_FUTURE",
     });
@@ -217,7 +237,7 @@ describe("ScheduleSeries CRUD integration", () => {
 
     const ok = await updateSchedule({
       seriesId: oldSeriesId, instanceDate: "2026-08-11",
-      classId: classId1, subjectId, teacherId: teacherId1,
+      classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 2, startTime: "16:00", endTime: "17:30", room: "SERIES-F",
       updateMode: "ALL_FUTURE",
     });
@@ -237,7 +257,7 @@ describe("ScheduleSeries CRUD integration", () => {
 
   it("6. deleteSchedule ONLY_THIS tạo exception CANCELLED", async () => {
     const res = await createSchedule({
-      classId: classId1, subjectId, teacherId: teacherId1,
+      classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 5, startTime: "10:00", endTime: "11:30", room: "SERIES-G",
       startDate: "2026-08-07",
     });
@@ -266,7 +286,7 @@ describe("ScheduleSeries CRUD integration", () => {
 
   it("7. deleteSchedule ALL_FUTURE cắt endDate", async () => {
     const res = await createSchedule({
-      classId: classId1, subjectId, teacherId: teacherId1,
+      classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 2, startTime: "15:00", endTime: "16:30", room: "SERIES-H",
       startDate: "2026-08-04", endDate: "2026-08-25",
     });
@@ -285,7 +305,7 @@ describe("ScheduleSeries CRUD integration", () => {
 
   it("8. guard: deleteSchedule ONLY_THIS bị chặn khi có bài nộp cho buổi đó", async () => {
     const res = await createSchedule({
-      classId: classId1, subjectId, teacherId: teacherId1,
+      classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 6, startTime: "10:00", endTime: "11:30", room: "SERIES-I",
       startDate: "2026-08-08",
     });
@@ -305,7 +325,7 @@ describe("ScheduleSeries CRUD integration", () => {
 
   it("9. updateSchedule ALL đổi endDate rút ngắn có bài nộp → bị chặn", async () => {
     const res = await createSchedule({
-      classId: classId1, subjectId, teacherId: teacherId1,
+      classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 2, startTime: "14:00", endTime: "15:30", room: "SERIES-J",
       startDate: "2026-08-04", endDate: "2026-09-01",
     });
@@ -318,7 +338,7 @@ describe("ScheduleSeries CRUD integration", () => {
 
     const upd = await updateSchedule({
       seriesId, instanceDate: "2026-08-04",
-      classId: classId1, subjectId, teacherId: teacherId1,
+      classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 2, startTime: "14:00", endTime: "15:30", room: "SERIES-J",
       endDate: "2026-08-18",
       updateMode: "ALL",
@@ -331,7 +351,7 @@ describe("ScheduleSeries CRUD integration", () => {
     // Không có bài nộp → rút ngắn thành công
     const ok = await updateSchedule({
       seriesId, instanceDate: "2026-08-04",
-      classId: classId1, subjectId, teacherId: teacherId1,
+      classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 2, startTime: "14:00", endTime: "15:30", room: "SERIES-J",
       endDate: "2026-08-18",
       updateMode: "ALL",
