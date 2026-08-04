@@ -23,10 +23,10 @@ describe("Homework - Deadline", () => {
     const id = await sid("hs002@email.com");
     const hw = await db.homeworkSubmission.findFirst({
       where: { studentId: id },
-      include: { schedule: true },
+      include: { series: true },
     });
     expect(hw).not.toBeNull();
-    expect(hw!.submittedAt.getTime()).toBeGreaterThan(hw!.schedule.homeworkDueDate!.getTime());
+    expect(hw!.submittedAt.getTime()).toBeGreaterThan(hw!.series.homeworkDueDate!.getTime());
   });
 
   it("hs003 nộp nhưng chưa chấm (grade=null)", async () => {

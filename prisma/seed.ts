@@ -3,6 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 import bcryptjs from "bcryptjs";
 import dotenv from "dotenv";
+import { expandSeriesToInstances, normalizeDateUtc, jsDayToDow } from "@/lib/schedule-expand";
 dotenv.config({ path: ".env" });
 
 const connectionString = process.env.DATABASE_URL!;
@@ -43,7 +44,7 @@ async function main() {
   await prisma.documentClassVisibility.deleteMany();
   await prisma.document.deleteMany();
   await prisma.room.deleteMany();
-  await prisma.schedule.deleteMany();
+  await prisma.scheduleSeries.deleteMany();
   await prisma.class.deleteMany();
   await prisma.subject.deleteMany();
   await prisma.adminProfile.deleteMany();
@@ -125,21 +126,36 @@ async function main() {
   for (let i = 25; i < 30; i++) await prisma.studentProfile.update({ where: { id: sp[i] }, data: { classes: { connect: { id: c4.id } } } });
   // sp[30] chưa xếp lớp — CASE biên
 
-  // ── 4. SCHEDULES ─────────────────────────────
+  // ── 4. SCHEDULES (Master + Exception — ScheduleSeries) ──
+  // Helper: series 1 buổi (single occurrence) — dayOfWeek tự khớp với ngày để expansion ra đúng 1 instance.
+  const oneOff = (
+    data: { classId: string; subjectId: string; teacherId: string; startTime: string; endTime: string; room?: string },
+    date: Date
+  ) => ({
+    ...data,
+    dayOfWeek: jsDayToDow(normalizeDateUtc(date).getUTCDay()),
+    startDate: normalizeDateUtc(date),
+    endDate: normalizeDateUtc(date),
+  });
   await Promise.all([
-    prisma.schedule.create({ data: { classId: c1.id, subjectId: s1.id, teacherId: tp1.id, dayOfWeek: 2, startTime: "07:30", endTime: "09:00", room: "P101", date: g(1) } }),
-    prisma.schedule.create({ data: { classId: c1.id, subjectId: s3.id, teacherId: tp3.id, dayOfWeek: 3, startTime: "09:00", endTime: "10:30", room: "P102", date: g(2) } }),
+    prisma.scheduleSeries.create({ data: oneOff({ classId: c1.id, subjectId: s1.id, teacherId: tp1.id, startTime: "07:30", endTime: "09:00", room: "P101" }, g(1)) }),
+    prisma.scheduleSeries.create({ data: oneOff({ classId: c1.id, subjectId: s3.id, teacherId: tp3.id, startTime: "09:00", endTime: "10:30", room: "P102" }, g(2)) }),
     // CASE: TRÙNG PHÒNG + GIỜ (P101, 10:30-12:00)
-    prisma.schedule.create({ data: { classId: c2.id, subjectId: s2.id, teacherId: tp2.id, dayOfWeek: 3, startTime: "10:30", endTime: "12:00", room: "P101", date: g(2) } }),
-    prisma.schedule.create({ data: { classId: c3.id, subjectId: s4.id, teacherId: tp4.id, dayOfWeek: 3, startTime: "10:30", endTime: "12:00", room: "P101", date: g(2) } }),
+    prisma.scheduleSeries.create({ data: oneOff({ classId: c2.id, subjectId: s2.id, teacherId: tp2.id, startTime: "10:30", endTime: "12:00", room: "P101" }, g(2)) }),
+    prisma.scheduleSeries.create({ data: oneOff({ classId: c3.id, subjectId: s4.id, teacherId: tp4.id, startTime: "10:30", endTime: "12:00", room: "P101" }, g(2)) }),
     // CASE: CÙNG TEACHER TRÙNG GIỜ (thầy Dung 07:30-09:00 ở 2 lớp)
-    prisma.schedule.create({ data: { classId: c2.id, subjectId: s1.id, teacherId: tp1.id, dayOfWeek: 4, startTime: "07:30", endTime: "09:00", room: "P201", date: g(3) } }),
-    prisma.schedule.create({ data: { classId: c3.id, subjectId: s1.id, teacherId: tp1.id, dayOfWeek: 4, startTime: "07:30", endTime: "09:00", room: "P202", date: g(3) } }),
-    // CASE: RECURRING GROUP
-    prisma.schedule.create({ data: { classId: c2.id, subjectId: s6.id, teacherId: tp5.id, dayOfWeek: 2, startTime: "13:30", endTime: "15:00", room: "P301", date: g(-7), recurrenceGroupId: "rg-001" } }),
-    prisma.schedule.create({ data: { classId: c2.id, subjectId: s6.id, teacherId: tp5.id, dayOfWeek: 2, startTime: "13:30", endTime: "15:00", room: "P301", date: g(0), recurrenceGroupId: "rg-001" } }),
-    prisma.schedule.create({ data: { classId: c2.id, subjectId: s6.id, teacherId: tp5.id, dayOfWeek: 2, startTime: "13:30", endTime: "15:00", room: "P301", date: g(7), recurrenceGroupId: "rg-001" } }),
-    prisma.schedule.create({ data: { classId: c4.id, subjectId: s5_.id, teacherId: tp4.id, dayOfWeek: 5, startTime: "07:30", endTime: "09:00", room: "P401", date: g(4) } }),
+    prisma.scheduleSeries.create({ data: oneOff({ classId: c2.id, subjectId: s1.id, teacherId: tp1.id, startTime: "07:30", endTime: "09:00", room: "P201" }, g(3)) }),
+    prisma.scheduleSeries.create({ data: oneOff({ classId: c3.id, subjectId: s1.id, teacherId: tp1.id, startTime: "07:30", endTime: "09:00", room: "P202" }, g(3)) }),
+    // CASE: SERIES LẶP HÀNG TUẦN (recurring — endDate null = vô hạn)
+    prisma.scheduleSeries.create({
+      data: {
+        classId: c2.id, subjectId: s6.id, teacherId: tp5.id,
+        dayOfWeek: jsDayToDow(normalizeDateUtc(g(-7)).getUTCDay()),
+        startTime: "13:30", endTime: "15:00", room: "P301",
+        startDate: normalizeDateUtc(g(-7)), endDate: null,
+      },
+    }),
+    prisma.scheduleSeries.create({ data: oneOff({ classId: c4.id, subjectId: s5_.id, teacherId: tp4.id, startTime: "07:30", endTime: "09:00", room: "P401" }, g(4)) }),
   ]);
 
   // ── 5. ATTENDANCE ────────────────────────────
@@ -159,16 +175,20 @@ async function main() {
   // g(0): buổi đã qua nhưng chưa điểm danh — implicit
 
   // ── 6. HOMEWORK ──────────────────────────────
-  const hwSch = await prisma.schedule.findFirst({ where: { classId: c1.id, subjectId: s1.id } })!;
-  if (hwSch) {
-    await prisma.schedule.update({ where: { id: hwSch.id }, data: { homeworkDueDate: new Date(yr, mo, now.getDate() - 5) } });
-    // CASE: nộp đúng hạn + đã chấm
-    await prisma.homeworkSubmission.create({ data: { scheduleId: hwSch.id, studentId: sp[0], fileUrl: "https://drive.google.com/hw-1", fileName: "Bai_tap_Toan_sp001.pdf", submittedAt: new Date(yr, mo, now.getDate() - 2), grade: 8.5, feedback: "Bài tốt!" } });
-    // CASE: nộp trễ hạn
-    await prisma.homeworkSubmission.create({ data: { scheduleId: hwSch.id, studentId: sp[1], fileUrl: "https://drive.google.com/hw-2", fileName: "Bai_tap_Toan_sp002.pdf", submittedAt: new Date(yr, mo, now.getDate() - 3), grade: 5.0, feedback: "Nộp muộn!" } });
-    // CASE: nộp nhưng chưa chấm
-    await prisma.homeworkSubmission.create({ data: { scheduleId: hwSch.id, studentId: sp[2], fileUrl: "https://drive.google.com/hw-3", fileName: "Bai_tap_Toan_sp003.pdf", submittedAt: new Date(yr, mo, now.getDate() - 1), grade: null, feedback: null } });
-    // sp[3] không nộp — implicit
+  const hwSeries = await prisma.scheduleSeries.findFirst({ where: { classId: c1.id, subjectId: s1.id } });
+  if (hwSeries) {
+    // instanceDate phải khớp 1 occurrence thực của series (tính runtime qua expandSeriesToInstances).
+    const hwInstance = expandSeriesToInstances(hwSeries, [], normalizeDateUtc(g(1)), normalizeDateUtc(g(1)))[0];
+    if (hwInstance) {
+      await prisma.scheduleSeries.update({ where: { id: hwSeries.id }, data: { homeworkDueDate: new Date(yr, mo, now.getDate() - 5) } });
+      // CASE: nộp đúng hạn + đã chấm
+      await prisma.homeworkSubmission.create({ data: { seriesId: hwSeries.id, instanceDate: hwInstance.instanceDate, studentId: sp[0], fileUrl: "https://drive.google.com/hw-1", fileName: "Bai_tap_Toan_sp001.pdf", submittedAt: new Date(yr, mo, now.getDate() - 2), grade: 8.5, feedback: "Bài tốt!" } });
+      // CASE: nộp trễ hạn
+      await prisma.homeworkSubmission.create({ data: { seriesId: hwSeries.id, instanceDate: hwInstance.instanceDate, studentId: sp[1], fileUrl: "https://drive.google.com/hw-2", fileName: "Bai_tap_Toan_sp002.pdf", submittedAt: new Date(yr, mo, now.getDate() - 3), grade: 5.0, feedback: "Nộp muộn!" } });
+      // CASE: nộp nhưng chưa chấm
+      await prisma.homeworkSubmission.create({ data: { seriesId: hwSeries.id, instanceDate: hwInstance.instanceDate, studentId: sp[2], fileUrl: "https://drive.google.com/hw-3", fileName: "Bai_tap_Toan_sp003.pdf", submittedAt: new Date(yr, mo, now.getDate() - 1), grade: null, feedback: null } });
+      // sp[3] không nộp — implicit
+    }
   }
 
   // ── 7. GRADES ────────────────────────────────
@@ -290,7 +310,7 @@ async function main() {
   console.log("📊 Counts:", {
     users: await prisma.user.count(),
     classes: await prisma.class.count(),
-    schedules: await prisma.schedule.count(),
+    scheduleSeries: await prisma.scheduleSeries.count(),
     attendances: await prisma.attendance.count(),
     grades: await prisma.grade.count(),
     quizzes: await prisma.quiz.count(),

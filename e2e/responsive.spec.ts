@@ -76,8 +76,8 @@ test.describe('Responsive Layout & Visual Regression Tests', () => {
         
         await page.goto('/student/schedules')
         
-        // Verify WeeklyTimetable component root is visible
-        const timetable = page.locator('h2, div:has-text("Lịch học"), [class*="WeeklyTimetable"]').first()
+        // Verify the student schedule/calendar portal root is visible
+        const timetable = page.locator('h2, div:has-text("Lịch học")').first()
         await expect(timetable).toBeVisible()
 
         // Verify weekly/monthly switches can be tapped

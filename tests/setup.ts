@@ -24,10 +24,30 @@ export const mockDb = {
     delete: vi.fn(),
     deleteMany: vi.fn(),
   },
+  scheduleSeries: {
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+    delete: vi.fn(),
+    deleteMany: vi.fn(),
+  },
+  scheduleException: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    upsert: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    deleteMany: vi.fn(),
+  },
   homeworkSubmission: {
     findFirst: vi.fn(),
     findMany: vi.fn(),
     count: vi.fn(),
+    upsert: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
   },
   quiz: {
     findUnique: vi.fn(),
@@ -42,6 +62,7 @@ export const mockDb = {
   },
   grade: {
     create: vi.fn(),
+    upsert: vi.fn(),
   },
   class: {
     findUnique: vi.fn(),
@@ -51,7 +72,8 @@ export const mockDb = {
   },
   $transaction: vi.fn(async (arg) => {
     if (typeof arg === 'function') {
-      return arg(mockDb)
+      const tx = { ...mockDb, $executeRaw: vi.fn(), $queryRaw: vi.fn() }
+      return arg(tx)
     }
     return Promise.all(arg)
   }),
