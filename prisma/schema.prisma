@@ -43,6 +43,11 @@ enum ReminderMethod {
   NOTIFICATION
 }
 
+enum ExceptionStatus {
+  MODIFIED
+  CANCELLED
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -75,6 +80,7 @@ model TeacherProfile {
   subjects  Subject[] // Many-to-many relationship with subjects they teach
   classes   Class[] // Classes they are the form teacher of
   schedules Schedule[] // Schedules they teach
+  scheduleSeries ScheduleSeries[] // Schedules (series) they teach
   grades    Grade[] // Grades they recorded
   quizzes   Quiz[]
 }
@@ -116,6 +122,7 @@ model Class {
 
   students           StudentProfile[]
   schedules          Schedule[]
+  scheduleSeries     ScheduleSeries[]
   quizzes            Quiz[]
   documentVisibility DocumentClassVisibility[]
   tuitions           Tuition[]
@@ -128,6 +135,7 @@ model Subject {
   code      String           @unique // e.g., "MATH101"
   teachers  TeacherProfile[]
   schedules Schedule[]
+  scheduleSeries ScheduleSeries[]
   grades    Grade[]
   quizzes   Quiz[]
 }
@@ -153,23 +161,89 @@ model Schedule {
   homeworkDueDate   DateTime? // Deadline for homework submission
   homeworkQuizId    String?
   homeworkQuiz      Quiz?                @relation(fields: [homeworkQuizId], references: [id], onDelete: SetNull)
-  submissions       HomeworkSubmission[]
+}
+
+// ─── Lịch học (Master + Exception — Google Calendar model) ──────────
+// ScheduleSeries: 1 chuỗi lặp (master). Instance hiển thị trên calendar được tính runtime.
+// ScheduleException: ngoại lệ (override/hủy) cho 1 buổi cụ thể trong series.
+
+model ScheduleSeries {
+  id        String         @id @default(uuid())
+  classId   String
+  class     Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId String
+  teacher   TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  dayOfWeek Int // 1 = Monday, ..., 7 = Sunday
+  startTime String // "08:00"
+  endTime   String // "09:30"
+  room      String? // e.g., "Room 302"
+
+  startDate DateTime // Bắt buộc — ngày đầu tiên trong chuỗi
+  endDate   DateTime? // nullable = lặp vô hạn
+
+  materials       String?
+  homework        String?
+  homeworkDueDate DateTime?
+  homeworkQuizId  String?
+  homeworkQuiz    Quiz?                @relation(fields: [homeworkQuizId], references: [id], onDelete: SetNull)
+
+  exceptions  ScheduleException[]
+  submissions HomeworkSubmission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([classId, dayOfWeek])
+  @@index([teacherId, dayOfWeek])
+  @@index([room, dayOfWeek])
+  @@index([startDate])
+}
+
+model ScheduleException {
+  id           String         @id @default(uuid())
+  seriesId     String
+  series       ScheduleSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  originalDate DateTime // Ngày gốc của occurrence bị override (UTC midnight)
+
+  status ExceptionStatus // MODIFIED = sửa, CANCELLED = hủy
+
+  // Override fields (chỉ dùng khi MODIFIED; null = giữ nguyên từ series)
+  classId   String?
+  subjectId String?
+  teacherId String?
+  room      String?
+  startTime String?
+  endTime   String?
+
+  materials       String?
+  homework        String?
+  homeworkDueDate DateTime?
+  homeworkQuizId  String?
+
+  @@unique([seriesId, originalDate])
+  @@index([seriesId])
+  @@index([originalDate])
 }
 
 model HomeworkSubmission {
-  id            String         @id @default(uuid())
-  scheduleId    String
-  schedule      Schedule       @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  studentId     String
-  student       StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  fileUrl       String // The submitted homework document link
-  fileName      String? // Human readable filename
-  submittedAt   DateTime       @default(now())
-  grade         Float? // Optional grade given by teacher
-  feedback      String? // Teacher feedback
+  id           String         @id @default(uuid())
+  seriesId     String
+  series       ScheduleSeries @relation(fields: [seriesId], references: [id], onDelete: Restrict)
+  instanceDate DateTime       // Ngày cụ thể của buổi học trong chuỗi (UTC midnight)
+  studentId    String
+  student      StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fileUrl      String // The submitted homework document link
+  fileName     String? // Human readable filename
+  submittedAt  DateTime       @default(now())
+  grade        Float? // Optional grade given by teacher
+  feedback     String? // Teacher feedback
   gradeRelation Grade?
 
-  @@unique([scheduleId, studentId])
+  @@unique([seriesId, instanceDate, studentId])
+  @@index([seriesId, instanceDate])
 }
 
 model Attendance {
@@ -269,6 +343,7 @@ model Quiz {
   questions   Question[]
   submissions QuizSubmission[]
   schedules   Schedule[]
+  scheduleSeries ScheduleSeries[]
 }
 
 model Question {
