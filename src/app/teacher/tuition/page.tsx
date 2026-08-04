@@ -1,6 +1,7 @@
 import React from "react";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { teacherClassIds as getTeacherClassIds } from "@/lib/teacher-classes";
 import { redirect } from "next/navigation";
 import TuitionClassList from "@/components/TuitionClassList";
 
@@ -15,17 +16,8 @@ export default async function TeacherTuitionPage() {
   });
   if (!teacherProfile) redirect("/login");
 
-  // Lớp giáo viên phụ trách: chủ nhiệm HOẶC có dạy
-  const taughtClasses = await db.class.findMany({
-    where: {
-      OR: [
-        { formTeacherId: teacherProfile.id },
-        { schedules: { some: { teacherId: teacherProfile.id } } },
-      ],
-    },
-    select: { id: true },
-  });
-  const teacherClassIds = taughtClasses.map((c) => c.id);
+  // Lớp giáo viên phụ trách: chủ nhiệm HOẶC có dạy (scheduleSeries) — dùng helper chung
+  const teacherClassIds = await getTeacherClassIds(session.userId);
 
   const classes = await db.class.findMany({
     where: { id: { in: teacherClassIds } },

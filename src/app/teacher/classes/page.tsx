@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import ClassManagementList from "@/components/ClassManagementList";
 import { getSession } from "@/lib/auth";
+import { teacherClassIds as getTeacherClassIds } from "@/lib/teacher-classes";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -22,17 +23,8 @@ export default async function TeacherClassesPage() {
     redirect("/login");
   }
 
-  // Find class IDs for classes taught/managed by this teacher
-  const taughtClasses = await db.class.findMany({
-    where: {
-      OR: [
-        { formTeacherId: teacherProfile.id },
-        { schedules: { some: { teacherId: teacherProfile.id } } }
-      ]
-    },
-    select: { id: true }
-  });
-  const teacherClassIds = taughtClasses.map(c => c.id);
+  // Lớp phụ trách: chủ nhiệm HOẶC có dạy (scheduleSeries) — dùng helper chung
+  const teacherClassIds = await getTeacherClassIds(session.userId);
 
   const classesList = await db.class.findMany({
     where: {

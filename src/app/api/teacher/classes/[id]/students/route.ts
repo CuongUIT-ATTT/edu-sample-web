@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { teacherOwnsClass } from "@/lib/teacher-classes";
 
 export async function GET(
   request: Request,
@@ -13,6 +14,11 @@ export async function GET(
     }
 
     const { id: classId } = await params;
+
+    // TEACHER: chỉ xem học sinh lớp mình phụ trách
+    if (session.role === "TEACHER" && !(await teacherOwnsClass(session.userId, classId))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const students = await db.studentProfile.findMany({
       where: {

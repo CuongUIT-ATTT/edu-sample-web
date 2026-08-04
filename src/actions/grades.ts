@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { teacherClassIds } from "@/lib/teacher-classes";
 import { revalidatePath } from "next/cache";
 
 interface SubmitGradeInput {
@@ -25,6 +26,17 @@ export async function submitGrade(input: SubmitGradeInput) {
     const { role, userId } = session;
     if (role !== "TEACHER" && role !== "ADMIN") {
       return { success: false, error: "Bạn không có quyền hạn ghi nhận điểm số." };
+    }
+
+    // 2b. TEACHER: chỉ chấm điểm học sinh thuộc lớp mình phụ trách
+    if (role === "TEACHER") {
+      const ownedClassIds = await teacherClassIds(userId);
+      const student = await db.studentProfile.findFirst({
+        where: { id: input.studentId, classes: { some: { id: { in: ownedClassIds } } } },
+      });
+      if (!student) {
+        return { success: false, error: "Bạn không được chấm điểm học sinh lớp không phụ trách." };
+      }
     }
 
     // 3. If teacher, verify the teacher profile exists
