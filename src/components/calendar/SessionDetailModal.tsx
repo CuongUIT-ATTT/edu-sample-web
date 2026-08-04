@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   X, ExternalLink, BookOpen, GraduationCap, Upload,
-  CheckCircle, XCircle, Clock, Users, Trash2, Edit3,
+  CheckCircle, XCircle, Clock, Users, Trash2, Edit3, FileText, ClipboardList,
 } from "lucide-react";
 import {
   updateScheduleFiles,
@@ -12,6 +12,8 @@ import {
   getStudentSubmission,
 } from "@/actions/homework";
 import { deleteSchedule } from "@/actions/schedules";
+import { getAllQuizzesForHomework } from "@/actions/quizzes";
+import { getDocuments } from "@/actions/documents";
 import { showToast } from "@/components/Toast";
 
 interface ScheduleBlock {
@@ -21,6 +23,8 @@ interface ScheduleBlock {
     scheduleId: string; // seriesId
     instanceDate: string; // YYYY-MM-DD
     seriesEndDate?: string | null; // YYYY-MM-DD hoặc null (vô hạn)
+    classId: string;
+    subjectId: string;
     className: string;
     subjectName: string;
     teacherName: string;
@@ -84,6 +88,12 @@ export default function SessionDetailModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Picker: tài liệu đã tải lên + bài test đã tạo
+  const [documents, setDocuments] = useState<{ id: string; title: string; fileUrl: string; fileType?: string }[]>([]);
+  const [quizzes, setQuizzes] = useState<{ id: string; title: string; subjectId: string; classId: string | null }[]>([]);
+  const [selectedQuizId, setSelectedQuizId] = useState("");
+  const [quizTitle, setQuizTitle] = useState("");
+
   const isTeacherOrAdmin = role === "ADMIN" || role === "TEACHER";
   const isStudent = role === "STUDENT";
 
@@ -132,9 +142,29 @@ export default function SessionDetailModal({
       setSubmitFileName("");
       setSubmissions([]);
       setStudentSubmission(null);
+      setSelectedQuizId(schedule.scheduleMeta.homeworkQuizId || "");
+      setQuizTitle(schedule.scheduleMeta.homeworkQuizTitle || "");
       loadSubmissions(schedule.scheduleMeta.scheduleId, schedule.scheduleMeta.instanceDate);
     }
   }, [schedule]);
+
+  // Load danh sách tài liệu + quiz cho picker (chỉ teacher/admin)
+  useEffect(() => {
+    if (!isTeacherOrAdmin) return;
+    let cancelled = false;
+    (async () => {
+      const [docsRes, quizRes] = await Promise.all([getDocuments(), getAllQuizzesForHomework()]);
+      if (!cancelled) {
+        if (docsRes.success && docsRes.data) {
+          setDocuments(docsRes.data.map((d) => ({ id: d.id, title: d.title, fileUrl: d.fileUrl, fileType: d.fileType })));
+        }
+        if (quizRes.success && quizRes.data) {
+          setQuizzes(quizRes.data.map((q) => ({ id: q.id, title: q.title, subjectId: q.subjectId, classId: q.classId })));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [schedule?.scheduleMeta.scheduleId, isTeacherOrAdmin]);
 
   if (!isOpen || !schedule) return null;
 
@@ -166,6 +196,7 @@ export default function SessionDetailModal({
         instanceDate: meta.instanceDate,
         homework,
         homeworkDueDate: dueDate || null,
+        homeworkQuizId: selectedQuizId || null,
       });
       if (result.success) {
         showToast("Đã cập nhật BTVN!", "success");
@@ -303,18 +334,37 @@ export default function SessionDetailModal({
               <span className="text-sm font-semibold text-ink">Bài giảng / Tài liệu</span>
             </div>
             {isTeacherOrAdmin ? (
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  placeholder="Dán link tài liệu (Google Drive, OneDrive...)"
-                  value={materials}
-                  onChange={(e) => setMaterials(e.target.value)}
-                  className="flex-1 text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500"
-                />
-                <button onClick={handleSaveMaterials} disabled={saving}
-                  className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                  {saving ? "..." : "Lưu"}
-                </button>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-[11px] text-ink-muted-48">
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Chọn từ tài liệu đã tải lên (hoặc dán link bên dưới):</span>
+                </div>
+                <select
+                  value={materials ? documents.find((d) => d.fileUrl === materials)?.id ?? "" : ""}
+                  onChange={(e) => {
+                    const doc = documents.find((d) => d.id === e.target.value);
+                    setMaterials(doc?.fileUrl || "");
+                  }}
+                  className="w-full text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500"
+                >
+                  <option value="">Chọn tài liệu...</option>
+                  {documents.map((d) => (
+                    <option key={d.id} value={d.id}>{d.title}</option>
+                  ))}
+                </select>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    placeholder="Dán link tài liệu (Google Drive, OneDrive...)"
+                    value={materials}
+                    onChange={(e) => setMaterials(e.target.value)}
+                    className="flex-1 text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500"
+                  />
+                  <button onClick={handleSaveMaterials} disabled={saving}
+                    className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                    {saving ? "..." : "Lưu"}
+                  </button>
+                </div>
               </div>
             ) : meta.materials ? (
               <a href={meta.materials} target="_blank" rel="noopener noreferrer"
@@ -340,6 +390,23 @@ export default function SessionDetailModal({
 
             {isTeacherOrAdmin ? (
               <div className="space-y-2">
+                <div className="flex items-center gap-2 text-[11px] text-ink-muted-48">
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Chọn bài tập từ tài liệu đã tải lên (hoặc dán link bên dưới):</span>
+                </div>
+                <select
+                  value={homework ? documents.find((d) => d.fileUrl === homework)?.id ?? "" : ""}
+                  onChange={(e) => {
+                    const doc = documents.find((d) => d.id === e.target.value);
+                    setHomework(doc?.fileUrl || "");
+                  }}
+                  className="w-full text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500"
+                >
+                  <option value="">Chọn tài liệu...</option>
+                  {documents.map((d) => (
+                    <option key={d.id} value={d.id}>{d.title}</option>
+                  ))}
+                </select>
                 <input
                   type="url"
                   placeholder="Link bài tập (Google Drive, OneDrive...)"
@@ -356,8 +423,28 @@ export default function SessionDetailModal({
                     className="flex-1 text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500"
                   />
                 </div>
-                {meta.homeworkQuizId && (
-                  <p className="text-[11px] text-ink-muted-48">Linked quiz: <strong>{meta.homeworkQuizTitle}</strong></p>
+                {/* Chọn bài test (quiz) cùng môn làm BTVN */}
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="w-3.5 h-3.5 text-ink-muted-48 shrink-0" />
+                  <select
+                    value={selectedQuizId}
+                    onChange={(e) => {
+                      const q = quizzes.find((x) => x.id === e.target.value);
+                      setSelectedQuizId(q?.id || "");
+                      setQuizTitle(q?.title || "");
+                    }}
+                    className="flex-1 text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500"
+                  >
+                    <option value="">Không gắn bài test</option>
+                    {quizzes
+                      .filter((q) => q.subjectId === meta.subjectId)
+                      .map((q) => (
+                        <option key={q.id} value={q.id}>{q.title}</option>
+                      ))}
+                  </select>
+                </div>
+                {quizTitle && (
+                  <p className="text-[11px] text-ink-muted-48">Linked quiz: <strong>{quizTitle}</strong></p>
                 )}
                 <button onClick={handleSaveHomework} disabled={saving}
                   className="px-3 py-1.5 text-xs font-medium bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50">
