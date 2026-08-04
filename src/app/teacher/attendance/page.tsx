@@ -428,11 +428,7 @@ export default function TeacherAttendancePage() {
                     </p>
                   </div>
                 </div>
-<<<<<<< HEAD
                 <div className="flex flex-wrap justify-end gap-1.5">
-=======
-                <div className="flex flex-wrap justify-start sm:justify-end gap-1.5 shrink-0">
->>>>>>> 64fcbf8 (feat: giới hạn giáo viên chỉ thấy/thao tác lớp mình phụ trách)
                   {statusButtons.map(
                     ({ status, label, icon, classes: btnClasses }) => (
                       <button
