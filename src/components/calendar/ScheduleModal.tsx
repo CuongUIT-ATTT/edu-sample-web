@@ -80,6 +80,7 @@ export default function ScheduleModal({
   const [endDate, setEndDate] = useState("");
   const [updateMode, setUpdateMode] = useState<"ONLY_THIS" | "ALL_FUTURE" | "ALL">("ALL_FUTURE");
   const [endDateUnlimited, setEndDateUnlimited] = useState(false);
+  const [rescheduledDate, setRescheduledDate] = useState("");
   const [ignoreWarning, setIgnoreWarning] = useState(false);
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -99,6 +100,7 @@ export default function ScheduleModal({
       setEndDate(editSchedule.endDate || "");
       setEndDateUnlimited(!editSchedule.endDate);
       setUpdateMode(editSchedule.recurrence === "WEEKLY" ? "ALL_FUTURE" : "ALL");
+      setRescheduledDate("");
     } else if (isOpen && !editSchedule) {
       // Reset form for new schedule
       setClassId("");
@@ -113,6 +115,7 @@ export default function ScheduleModal({
       setEndDate("");
       setUpdateMode("ALL_FUTURE");
       setEndDateUnlimited(false);
+      setRescheduledDate("");
       setIgnoreWarning(false);
       setWarningMsg(null);
     }
@@ -172,6 +175,7 @@ export default function ScheduleModal({
           endTime,
           room: selectedRoom,
           endDate: resolvedEndDate,
+          rescheduledDate: updateMode === "ONLY_THIS" ? rescheduledDate || null : undefined,
           updateMode,
           ignoreWarning,
         });
@@ -383,6 +387,23 @@ export default function ScheduleModal({
                   </button>
                 </div>
               </div>
+
+              {updateMode === "ONLY_THIS" && (
+                <div>
+                  <label className="text-xs font-medium text-ink-muted-80 block mb-1">
+                    Dời buổi này tới ngày <span className="text-ink-muted-48">(để trống nếu giữ nguyên)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={rescheduledDate}
+                    onChange={(e) => setRescheduledDate(e.target.value)}
+                    className="w-full text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500"
+                  />
+                  <p className="text-[10px] text-ink-muted-48 mt-1">
+                    Buổi hiện tại ({editSchedule.instanceDate}) sẽ được chuyển sang ngày mới. Không cho dời nếu ngày mới trùng buổi khác trong chuỗi.
+                  </p>
+                </div>
+              )}
 
               {(updateMode === "ALL_FUTURE" || updateMode === "ALL") && (
                 <div>

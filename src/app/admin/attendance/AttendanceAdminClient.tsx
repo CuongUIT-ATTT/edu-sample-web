@@ -53,7 +53,7 @@ function scheduleLabel(s: AdminSchedule): string {
   const dateLabel = s.date
     ? new Date(s.date).toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })
     : "Hàng tuần";
-  return `${dateLabel} — ${DAYS_NAME[s.dayOfWeek]} — ${s.subject.name} (${s.startTime} - ${s.endTime})`;
+  return `${dateLabel} • ${s.subject.name} (${s.startTime} - ${s.endTime})`;
 }
 
 // Fallback cho buổi legacy (không date): ánh xạ dayOfWeek sang ngày trong tuần này (local)

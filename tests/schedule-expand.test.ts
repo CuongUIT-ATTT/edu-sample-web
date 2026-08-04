@@ -214,3 +214,55 @@ describe("combineDateAndTimeHcm — fix timezone +7h", () => {
     expect(result.toISOString()).toBe("2026-08-04T00:00:00.000Z");
   });
 });
+
+describe("expandSeriesToInstances — reschedule (dời ngày buổi)", () => {
+  const series = makeSeries({ dayOfWeek: 2, startDate: utc("2026-08-03"), endDate: null });
+
+  it("MODIFIED + rescheduledDate → buổi gốc biến mất, buổi mới sinh tại ngày dời", () => {
+    const exceptions: ExceptionLike[] = [
+      {
+        originalDate: utc("2026-08-11"),
+        status: "MODIFIED",
+        rescheduledDate: utc("2026-08-14"), // Thứ 6 — ngoài lưới Thứ 3 của series
+        room: "Room 999",
+        startTime: "10:00",
+      },
+    ];
+    const instances = expandSeriesToInstances(series, exceptions, utc("2026-08-01"), utc("2026-08-31"));
+    const dates = instances.map((i) => dateToUtcStr(i.instanceDate));
+    // Buổi gốc 11/08 không còn
+    expect(dates).not.toContain("2026-08-11");
+    // Buổi dời 14/08 xuất hiện với override
+    expect(dates).toContain("2026-08-14");
+    const moved = instances.find((i) => dateToUtcStr(i.instanceDate) === "2026-08-14")!;
+    expect(moved.isModified).toBe(true);
+    expect(moved.room).toBe("Room 999");
+    expect(moved.startTime).toBe("10:00");
+    // Các buổi Thứ 3 khác giữ nguyên
+    expect(dates).toContain("2026-08-04");
+    expect(dates).toContain("2026-08-18");
+  });
+
+  it("buổi dời trùng ngày với instance gốc khác → buổi dời thắng (1 instance duy nhất)", () => {
+    // Dời 11/08 (Thứ 3) sang 18/08 (Thứ 3 tuần sau — vốn đã có instance)
+    const exceptions: ExceptionLike[] = [
+      { originalDate: utc("2026-08-11"), status: "MODIFIED", rescheduledDate: utc("2026-08-18") },
+    ];
+    const instances = expandSeriesToInstances(series, exceptions, utc("2026-08-01"), utc("2026-08-31"));
+    const dates = instances.map((i) => dateToUtcStr(i.instanceDate));
+    // 18/08 chỉ có 1 instance (buổi dời thắng, không trùng)
+    expect(dates.filter((d) => d === "2026-08-18")).toHaveLength(1);
+    // 11/08 biến mất
+    expect(dates).not.toContain("2026-08-11");
+  });
+
+  it("rescheduledDate ngoài [from, to] → không sinh buổi dời", () => {
+    const exceptions: ExceptionLike[] = [
+      { originalDate: utc("2026-08-11"), status: "MODIFIED", rescheduledDate: utc("2026-09-01") },
+    ];
+    const instances = expandSeriesToInstances(series, exceptions, utc("2026-08-01"), utc("2026-08-31"));
+    const dates = instances.map((i) => dateToUtcStr(i.instanceDate));
+    expect(dates).not.toContain("2026-09-01");
+    expect(dates).not.toContain("2026-08-11"); // buổi gốc vẫn bị skip dù dời ngoài window
+  });
+});
