@@ -5,7 +5,7 @@ import React, { useState, useMemo } from "react";
 import { 
   Users, UserPlus, Shield, User, GraduationCap, Users2, 
   Trash2, Edit3, Search, Filter, CheckSquare, Square, 
-  Upload, FileSpreadsheet, X, HelpCircle, CheckCircle, AlertCircle
+  Upload, FileSpreadsheet, X, HelpCircle, CheckCircle, AlertCircle, Eye, EyeOff
 } from "lucide-react";
 import { createUser, updateUser, deleteUser, bulkDeleteUsers, importUsers } from "@/actions/users";
 import Link from "next/link";
@@ -53,6 +53,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
   const [formEmail, setFormEmail] = useState("");
   const [formRole, setFormRole] = useState<"ADMIN" | "TEACHER" | "STUDENT" | "PARENT">("STUDENT");
   const [formPassword, setFormPassword] = useState("");
+  const [showFormPassword, setShowFormPassword] = useState(false);
   const [formClassIds, setFormClassIds] = useState<string[]>([]);
   const [formParentId, setFormParentId] = useState("");
 
@@ -703,13 +704,23 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
                 <label className="text-xs font-caption-strong text-ink-muted-80">
                   {editingUser ? "Mật khẩu mới (bỏ trống nếu giữ nguyên)" : "Mật khẩu khởi tạo"}
                 </label>
-                <input
-                  type="password"
-                  value={formPassword}
-                  onChange={(e) => setFormPassword(e.target.value)}
-                  placeholder={editingUser ? "••••••••" : "Mặc định: Password@2026"}
-                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                />
+                <div className="relative">
+                  <input
+                    type={showFormPassword ? "text" : "password"}
+                    value={formPassword}
+                    onChange={(e) => setFormPassword(e.target.value)}
+                    placeholder={editingUser ? "••••••••" : "Mặc định: Password@2026"}
+                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowFormPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-10 cursor-pointer text-ink-muted-48 hover:text-primary transition-colors"
+                    aria-label={showFormPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  >
+                    {showFormPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-col gap-1.5">

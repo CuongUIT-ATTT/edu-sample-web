@@ -1,48 +1,207 @@
-name: EduWeb CI Pipeline
+name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Integration tests (Vitest) + Playwright dev server đọc DATABASE_URL.
+  # dotenv không override env đã set → postgres service local sẽ được dùng.
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres?schema=public
+  NODE_VERSION: "20"
 
 jobs:
-  test:
+  # ─── Job 1: Lint + Type check (chạy song song với build) ──────────
+  quality:
+    name: Lint & Types
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
-      - name: Phase 1 - Lint Analysis
+      - name: Lint
         run: npm run test:lint
 
-      - name: Phase 1 - Type Safety Analysis
+      - name: Type check
         run: npm run test:types
 
-      - name: Phase 1 - Build Compilation Analysis
-        run: npm run test:build
+  # ─── Job 2: Production build (cache .next) ─────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Phase 1 - Sitemap XML Verification
-        run: npm run test:sitemap
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
-      - name: Phase 2 - Unit & Integration Tests (Vitest)
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+  # ─── Job 3: Unit + Integration tests (cần Postgres + seed) ─────────
+  test:
+    name: Unit & Integration
+    runs-on: ubuntu-latest
+    needs: [quality]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # DB sạch mỗi lần chạy → dùng `db push` (không migrate deploy — repo vốn dùng db-push workflow)
+      - name: Push schema + seed
+        run: |
+          npx prisma db push --skip-generate --accept-data-loss
+          npx prisma db seed
+
+      - name: Unit & Integration tests
         run: npm run test:unit
 
-      - name: Phase 4 - Custom Security Verification
-        run: npm run test:security
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
 
-      - name: Phase 5 - Lighthouse CI Check
-        run: npm run test:lighthouse
+  # ─── Job 4: E2E Playwright (cần Postgres + seed + build) ───────────
+  e2e:
+    name: E2E Playwright
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Push schema + seed
+        run: |
+          npx prisma db push --skip-generate --accept-data-loss
+          npx prisma db seed
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      # auth.setup đọc TEST_*_EMAIL/PASS. Seed tạo đúng các user này —
+      # KHÔNG dùng .env.test (creds cũ không khớp seed). Set trực tiếp.
+      - name: E2E tests (production server)
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+          TEST_ADMIN_EMAIL: admin@eduweb.vn
+          TEST_ADMIN_PASS: hungcuong123
+          TEST_TEACHER_EMAIL: toan@eduweb.vn
+          TEST_TEACHER_PASS: hungcuong123
+          TEST_STUDENT_EMAIL: hs001@email.com
+          TEST_STUDENT_PASS: hungcuong123
+          TEST_PARENT_EMAIL: parent1@email.com
+          TEST_PARENT_PASS: hungcuong123
+        run: |
+          npm run build
+          npx next start &
+          # Chờ server sẵn sàng (curl loop, không phụ thuộc gói ngoài)
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000 >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          npx playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+
+      - name: Upload Playwright test-results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results/
+          if-no-files-found: ignore

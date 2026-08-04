@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { GraduationCap, AlertCircle, RefreshCw } from "lucide-react";
+import { GraduationCap, AlertCircle, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { login } from "@/actions/auth";
 
 /** Decode JWT payload từ cookie session_token để biết role */
@@ -28,6 +28,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [homeHref, setHomeHref] = useState("/");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Nếu đã đăng nhập, "Quay lại trang chủ" sẽ về dashboard role thay vì trang khách
   useEffect(() => {
@@ -97,13 +98,23 @@ export default function LoginPage() {
               <label className="font-caption-strong text-ink text-xs select-none">Mật khẩu</label>
               <Link href="#" className="text-xs text-primary hover:underline select-none">Quên mật khẩu?</Link>
             </div>
-            <input 
-              type="password" 
-              name="password"
-              placeholder="••••••••" 
-              className="bg-canvas border border-hairline rounded-pill px-5 py-2.5 h-11 text-ink text-sm outline-none focus:border-primary-focus transition-colors w-full"
-              required 
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                placeholder="••••••••"
+                className="bg-canvas border border-hairline rounded-pill px-5 py-2.5 h-11 text-ink text-sm outline-none focus:border-primary-focus transition-colors w-full pr-11"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 z-10 cursor-pointer text-ink-muted-48 hover:text-primary transition-colors"
+                aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              >
+                {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">

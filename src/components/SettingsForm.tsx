@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { updateProfileSettings } from "@/actions/settings";
-import { User, Shield, GraduationCap, Users2, Key, CheckCircle, AlertCircle } from "lucide-react";
+import { User, Shield, GraduationCap, Users2, Key, CheckCircle, AlertCircle, Eye, EyeOff } from "lucide-react";
 
 interface SettingsFormProps {
   user: {
@@ -17,6 +17,8 @@ export default function SettingsForm({ user, backUrl }: SettingsFormProps) {
   const [name, setName] = useState(user.name);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -129,23 +131,43 @@ export default function SettingsForm({ user, backUrl }: SettingsFormProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-caption-strong text-ink-muted-80">Mật khẩu hiện tại</label>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                />
+                <div className="relative">
+                  <input
+                    type={showCurrent ? "text" : "password"}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrent((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-10 cursor-pointer text-ink-muted-48 hover:text-primary transition-colors"
+                    aria-label={showCurrent ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  >
+                    {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-caption-strong text-ink-muted-80">Mật khẩu mới</label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Tối thiểu 6 ký tự"
-                  className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                />
+                <div className="relative">
+                  <input
+                    type={showNew ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Tối thiểu 6 ký tự"
+                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNew((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-10 cursor-pointer text-ink-muted-48 hover:text-primary transition-colors"
+                    aria-label={showNew ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  >
+                    {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
