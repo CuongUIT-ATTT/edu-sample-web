@@ -117,6 +117,8 @@ export interface ExceptionLike {
   homework?: string | null;
   homeworkDueDate?: Date | null;
   homeworkQuizId?: string | null;
+  /** Dời ngày: buổi gốc tại originalDate chuyển sang đây (khác ngày). null = giữ nguyên ngày. */
+  rescheduledDate?: Date | null;
 }
 
 /**
@@ -152,8 +154,31 @@ export function expandSeriesToInstances(
     excByDate.set(key, exc);
   }
 
-  const instances: ScheduleInstance[] = [];
+  // instances theo date string để buổi dời (rescheduled) thắng instance trùng ngày
+  const instancesByDate = new Map<string, ScheduleInstance>();
   const jsDay = dowToJsDay(series.dayOfWeek);
+
+  const pushInstance = (instanceDate: Date, exc: ExceptionLike | undefined, isModified: boolean) => {
+    const dateStr = dateToUtcStr(instanceDate);
+    instancesByDate.set(dateStr, {
+      seriesId: series.id,
+      instanceDate: new Date(instanceDate),
+      classId: exc?.classId ?? series.classId,
+      subjectId: exc?.subjectId ?? series.subjectId,
+      teacherId: exc?.teacherId ?? series.teacherId,
+      dayOfWeek: series.dayOfWeek,
+      startTime: exc?.startTime ?? series.startTime,
+      endTime: exc?.endTime ?? series.endTime,
+      room: exc?.room !== undefined ? exc.room : series.room,
+      materials: exc?.materials !== undefined ? exc.materials : series.materials,
+      homework: exc?.homework !== undefined ? exc.homework : series.homework,
+      homeworkDueDate:
+        exc?.homeworkDueDate !== undefined ? exc.homeworkDueDate : series.homeworkDueDate,
+      homeworkQuizId:
+        exc?.homeworkQuizId !== undefined ? exc.homeworkQuizId : series.homeworkQuizId,
+      isModified,
+    });
+  };
 
   // Dịch start lên đúng ngày khớp dayOfWeek (>= start)
   const first = new Date(start);
@@ -169,30 +194,23 @@ export function expandSeriesToInstances(
 
     if (exc && exc.status === "CANCELLED") {
       // bỏ qua ngày này
+    } else if (exc && exc.status === "MODIFIED" && exc.rescheduledDate) {
+      // Buổi này đã bị DỜI ngày → bỏ qua tại originalDate, sẽ sinh ở rescheduledDate sau
     } else {
       const isModified = !!exc && exc.status === "MODIFIED";
-      instances.push({
-        seriesId: series.id,
-        instanceDate: new Date(cur),
-        classId: exc?.classId ?? series.classId,
-        subjectId: exc?.subjectId ?? series.subjectId,
-        teacherId: exc?.teacherId ?? series.teacherId,
-        dayOfWeek: series.dayOfWeek,
-        startTime: exc?.startTime ?? series.startTime,
-        endTime: exc?.endTime ?? series.endTime,
-        room: exc?.room !== undefined ? exc.room : series.room,
-        materials: exc?.materials !== undefined ? exc.materials : series.materials,
-        homework: exc?.homework !== undefined ? exc.homework : series.homework,
-        homeworkDueDate:
-          exc?.homeworkDueDate !== undefined ? exc.homeworkDueDate : series.homeworkDueDate,
-        homeworkQuizId:
-          exc?.homeworkQuizId !== undefined ? exc.homeworkQuizId : series.homeworkQuizId,
-        isModified,
-      });
+      pushInstance(cur, exc, isModified);
     }
 
     cur.setUTCDate(cur.getUTCDate() + 7);
   }
 
-  return instances;
+  // Sinh các buổi đã được dời ngày (rescheduled) — 1 buổi đặc biệt tại rescheduledDate, không lặp tuần.
+  for (const exc of exceptions) {
+    if (exc.status !== "MODIFIED" || !exc.rescheduledDate) continue;
+    const newDate = normalizeDateUtc(exc.rescheduledDate);
+    if (newDate < from || newDate > to) continue;
+    pushInstance(newDate, exc, true); // thắng instance trùng ngày (nếu có) nhờ instancesByDate.set
+  }
+
+  return Array.from(instancesByDate.values());
 }

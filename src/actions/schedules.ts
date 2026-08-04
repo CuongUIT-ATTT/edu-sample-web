@@ -42,6 +42,8 @@ export interface UpdateScheduleInput {
   endTime: string;
   room?: string;
   endDate?: string | null; // null = vô hạn (mode ALL / ALL_FUTURE)
+  /** Dời buổi ONLY_THIS tới ngày khác (YYYY-MM-DD). null/absent = giữ nguyên ngày. */
+  rescheduledDate?: string | null;
   updateMode: UpdateMode;
   ignoreWarning?: boolean;
 }
@@ -389,7 +391,7 @@ export async function updateSchedule(input: UpdateScheduleInput) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
     }
 
-    const { seriesId, instanceDate, classId, subjectId, teacherId, dayOfWeek, startTime, endTime, room, endDate, updateMode, ignoreWarning } = input;
+    const { seriesId, instanceDate, classId, subjectId, teacherId, dayOfWeek, startTime, endTime, room, endDate, rescheduledDate, updateMode, ignoreWarning } = input;
 
     if (!seriesId || !classId || !subjectId || !teacherId || isNaN(dayOfWeek) || !startTime || !endTime || !room || !instanceDate) {
       return { success: false, error: "Vui lòng nhập đầy đủ thông tin lịch học." };
@@ -446,42 +448,92 @@ export async function updateSchedule(input: UpdateScheduleInput) {
     // ─── Mode ONLY_THIS: tạo/update exception MODIFIED ───
     if (updateMode === "ONLY_THIS") {
       // ONLY_THIS chỉ tạo 1 exception (không cắt/ghi series). Conflict check chạy trên db trực tiếp.
-      const existing = await loadInstancesForConflictCheck(db, {
-        dayOfWeek,
-        fromDate: targetDate,
-        toDate: targetDate,
-        excludeSeriesIds: [seriesId],
-      });
+      const reschedChanged = "rescheduledDate" in input;
+      const newReschedDate = reschedChanged && rescheduledDate ? toUtc(rescheduledDate) : null;
 
-      const candidate = {
-        seriesId,
-        instanceDate: targetDate,
-        classId, subjectId, teacherId, dayOfWeek, startTime, endTime,
-        room: room.trim(),
-      };
-      const candidateClass = await db.class.findUnique({
-        where: { id: classId },
-        include: { students: { include: { user: true } } },
-      });
-      const candidateStudents = (candidateClass?.students as any[]) ?? [];
-      const conflict = findConflicts(candidate, existing, isTeacher, currentTeacherProfileId, ignoreWarning ?? false, "cập nhật", candidateStudents);
-      if (conflict) return conflict;
+      // Nếu DỜI ngày: kiểm tra (1) ngày mới trùng instance trong chuỗi, (2) conflict tại ngày mới.
+      if (newReschedDate) {
+        // (1) Ngày dời không được trùng 1 buổi còn tồn tại của chính chuỗi
+        const seriesFull = await db.scheduleSeries.findUnique({
+          where: { id: seriesId },
+          include: { exceptions: true },
+        });
+        if (seriesFull) {
+          const existingInstances = expandSeriesToInstances(
+            seriesFull as any,
+            seriesFull.exceptions,
+            newReschedDate,
+            newReschedDate
+          );
+          if (existingInstances.length > 0) {
+            return {
+              success: false,
+              error: "Ngày này đã có buổi học trong chuỗi. Không thể dời buổi tới ngày trùng.",
+            };
+          }
+        }
+
+        // (2) Conflict tại ngày dời (phòng/GV/lớp) với buổi khác
+        const existingAtNew = await loadInstancesForConflictCheck(db, {
+          dayOfWeek,
+          fromDate: newReschedDate,
+          toDate: newReschedDate,
+          excludeSeriesIds: [seriesId],
+        });
+        const candidateAtNew = {
+          seriesId,
+          instanceDate: newReschedDate,
+          classId, subjectId, teacherId, dayOfWeek, startTime, endTime,
+          room: room.trim(),
+        };
+        const candidateClass2 = await db.class.findUnique({
+          where: { id: classId },
+          include: { students: { include: { user: true } } },
+        });
+        const candidateStudents2 = (candidateClass2?.students as any[]) ?? [];
+        const conflictAtNew = findConflicts(candidateAtNew, existingAtNew, isTeacher, currentTeacherProfileId, ignoreWarning ?? false, "cập nhật", candidateStudents2);
+        if (conflictAtNew) return conflictAtNew;
+      } else {
+        // Không dời ngày → conflict check tại ngày gốc như cũ
+        const existing = await loadInstancesForConflictCheck(db, {
+          dayOfWeek,
+          fromDate: targetDate,
+          toDate: targetDate,
+          excludeSeriesIds: [seriesId],
+        });
+
+        const candidate = {
+          seriesId,
+          instanceDate: targetDate,
+          classId, subjectId, teacherId, dayOfWeek, startTime, endTime,
+          room: room.trim(),
+        };
+        const candidateClass = await db.class.findUnique({
+          where: { id: classId },
+          include: { students: { include: { user: true } } },
+        });
+        const candidateStudents = (candidateClass?.students as any[]) ?? [];
+        const conflict = findConflicts(candidate, existing, isTeacher, currentTeacherProfileId, ignoreWarning ?? false, "cập nhật", candidateStudents);
+        if (conflict) return conflict;
+      }
 
       await db.scheduleException.upsert({
         where: { seriesId_originalDate: { seriesId, originalDate: targetDate } },
         create: {
           seriesId, originalDate: targetDate, status: "MODIFIED",
           classId, subjectId, teacherId, room: room.trim(), startTime, endTime,
+          rescheduledDate: newReschedDate,
         },
         update: {
           status: "MODIFIED",
           classId, subjectId, teacherId, room: room.trim(), startTime, endTime,
+          rescheduledDate: newReschedDate,
         },
       });
 
       revalidatePath("/admin/calendar");
       revalidatePath("/teacher/calendar");
-      return { success: true, message: "Cập nhật buổi học thành công." };
+      return { success: true, message: newReschedDate ? "Đã dời buổi học tới ngày mới." : "Cập nhật buổi học thành công." };
     }
 
     // ─── Mode ALL_FUTURE: cắt series cũ + tạo series mới ───
