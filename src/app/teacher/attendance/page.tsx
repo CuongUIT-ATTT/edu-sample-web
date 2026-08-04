@@ -54,12 +54,13 @@ function toLocalDateString(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-// Label option: hiển thị NGÀY THẬT của buổi học (s.date), không còn suy từ dayOfWeek
+// Label option ngắn gọn (tránh bị cắt/viết tắt trên mobile):
+// "12/08 • Toán (07:00-09:00)" — chi tiết đầy đủ hiển thị ở block "Ca học điểm danh" bên dưới.
 function formatScheduleLabel(s: ScheduleItem): string {
   const dateLabel = s.date
     ? new Date(s.date).toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })
     : DAYS_NAME[s.dayOfWeek];
-  return `${dateLabel} — ${DAYS_NAME[s.dayOfWeek]} — ${s.class.name} • ${s.subject.name} (${s.startTime} - ${s.endTime})`;
+  return `${dateLabel} • ${s.subject.name} (${s.startTime} - ${s.endTime})`;
 }
 
 export default function TeacherAttendancePage() {
@@ -427,15 +428,15 @@ export default function TeacherAttendancePage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap justify-end gap-1.5">
                   {statusButtons.map(
                     ({ status, label, icon, classes: btnClasses }) => (
                       <button
                         key={status}
                         onClick={() => setStatus(student.id, status)}
-                        className={`flex items-center gap-1 px-3 py-1.5 rounded-pill border text-xs font-caption-strong transition-all ${btnClasses} ${attendance[student.id] === status ? "ring-2 ring-offset-1 ring-current scale-105 shadow-sm" : "opacity-60"}`}
+                        className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-pill border text-[11px] sm:text-xs font-caption-strong transition-all ${btnClasses} ${attendance[student.id] === status ? "ring-2 ring-offset-1 ring-current scale-105 shadow-sm" : "opacity-60"}`}
                       >
-                        {icon} {label}
+                        {icon} <span>{label}</span>
                       </button>
                     ),
                   )}
