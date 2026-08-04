@@ -4,6 +4,12 @@ import { db } from "@/lib/db";
 import { expandRecurrence, generateRecurrenceId } from "@/lib/recurrence";
 import type { RecurrenceException } from "@/lib/recurrence";
 import type { EventStatus } from "@prisma/client";
+import {
+  expandSeriesToInstances,
+  normalizeDateUtc,
+  dateToUtcStr,
+  combineDateAndTimeHcm,
+} from "@/lib/schedule-expand";
 
 // ─── Calendar CRUD ─────────────────────────────────────────────────
 
@@ -334,7 +340,9 @@ export interface ScheduleEventDisplay {
     user: { id: string; name: string; email: string };
   }>;
   scheduleMeta?: {
-    scheduleId: string;
+    scheduleId: string; // = seriesId (chuỗi lịch)
+    instanceDate: string; // YYYY-MM-DD của buổi cụ thể
+    seriesEndDate: string | null; // YYYY-MM-DD hoặc null (vô hạn)
     className: string;
     subjectName: string;
     teacherName: string;
@@ -351,24 +359,7 @@ export interface ScheduleEventDisplay {
 }
 
 function timeStringToDate(date: Date, timeStr: string): Date {
-  const [h, m] = timeStr.split(":").map(Number);
-  const result = new Date(date);
-  result.setHours(h, m, 0, 0);
-  return result;
-}
-
-function getNextDayOfWeek(fromDate: Date, dayOfWeek: number): Date {
-  // dayOfWeek: 1=Mon ... 7=Sun
-  const date = new Date(fromDate);
-  const currentDay = date.getDay(); // 0=Sun ... 6=Sat
-  const currentIso = currentDay === 0 ? 7 : currentDay; // convert to 1=Mon ... 7=Sun
-  const diff = dayOfWeek - currentIso;
-  if (diff >= 0) {
-    date.setDate(date.getDate() + diff);
-  } else {
-    date.setDate(date.getDate() + diff + 7);
-  }
-  return date;
+  return combineDateAndTimeHcm(date, timeStr);
 }
 
 /**
@@ -383,65 +374,39 @@ export async function getSchedulesForCalendar(
   from: Date,
   to: Date
 ): Promise<ScheduleEventDisplay[]> {
-  let schedules;
-
+  const where: { classId?: { in: string[] } } = {};
   if (role === "STUDENT" && studentClassIds.length > 0) {
-    schedules = await db.schedule.findMany({
-      where: { classId: { in: studentClassIds } },
-      include: {
-        class: true,
-        subject: true,
-        teacher: { include: { user: true } },
-        homeworkQuiz: { select: { id: true, title: true } },
-      },
-      orderBy: [{ dayOfWeek: "asc" }, { date: "asc" }],
-    });
-  } else {
-    schedules = await db.schedule.findMany({
-      include: {
-        class: true,
-        subject: true,
-        teacher: { include: { user: true } },
-        homeworkQuiz: { select: { id: true, title: true } },
-      },
-      orderBy: [{ dayOfWeek: "asc" }, { date: "asc" }],
-    });
+    where.classId = { in: studentClassIds };
   }
+
+  const series = await db.scheduleSeries.findMany({
+    where,
+    include: {
+      class: true,
+      subject: true,
+      teacher: { include: { user: true } },
+      homeworkQuiz: { select: { id: true, title: true } },
+      exceptions: true,
+    },
+    orderBy: [{ dayOfWeek: "asc" }, { startDate: "asc" }],
+  });
 
   const events: ScheduleEventDisplay[] = [];
 
-  // Dedup: một lịch học WEEKLY được lưu thành nhiều row (1 row/ngày, cùng recurrenceGroupId).
-  // Tránh hiện nhiều event giống hệt cùng 1 ca trong cùng 1 ngày.
-  const emittedOccurrences = new Set<string>();
+  for (const s of series) {
+    // Expand runtime trong [from, to] — mỗi ngày sinh đúng 1 instance, không cần dedup.
+    const instances = expandSeriesToInstances(s, s.exceptions, from, to);
 
-  for (const schedule of schedules) {
-    // Định danh "cùng một ca học": theo recurrenceGroupId nếu có; legacy không group thì
-    // fallback theo (class, subject, dayOfWeek, giờ, phòng) — ca khác nhau sẽ có key khác.
-    const sessionKey = schedule.recurrenceGroupId
-      ? `group:${schedule.recurrenceGroupId}`
-      : `${schedule.classId}|${schedule.subjectId}|${schedule.dayOfWeek}|${schedule.startTime}|${schedule.endTime}|${schedule.room ?? ""}`;
-
-    // Find all occurrences of this schedule in the [from, to] range
-    const firstOccurrence = getNextDayOfWeek(from, schedule.dayOfWeek);
-    const occurrence = new Date(firstOccurrence);
-
-    while (occurrence <= to) {
-      const emitKey = `${sessionKey}|${occurrence.toISOString().slice(0, 10)}`;
-      if (emittedOccurrences.has(emitKey)) {
-        // Ca này đã được hiển thị cho ngày đó (row trùng từ lịch lặp) → bỏ qua
-        occurrence.setDate(occurrence.getDate() + 7);
-        continue;
-      }
-      emittedOccurrences.add(emitKey);
-
-      const start = timeStringToDate(occurrence, schedule.startTime);
-      const end = timeStringToDate(occurrence, schedule.endTime);
+    for (const inst of instances) {
+      const dateStr = dateToUtcStr(inst.instanceDate);
+      const start = timeStringToDate(inst.instanceDate, inst.startTime);
+      const end = timeStringToDate(inst.instanceDate, inst.endTime);
 
       events.push({
-        id: `schedule-${schedule.id}-${occurrence.toISOString().slice(0, 10)}`,
-        title: schedule.subject.name,
-        description: schedule.materials ?? null,
-        location: schedule.room ?? null,
+        id: `schedule-${s.id}-${dateStr}`,
+        title: s.subject.name,
+        description: inst.materials ?? null,
+        location: inst.room ?? null,
         start,
         end,
         isAllDay: false,
@@ -449,34 +414,33 @@ export async function getSchedulesForCalendar(
         color: "#34A853", // Green for schedules
         status: "CONFIRMED",
         calendarId: "schedule",
-        ownerId: schedule.teacherId,
-        recurrenceRule: null,
-        recurrenceId: `schedule-${schedule.id}-${occurrence.toISOString()}`,
-        isException: false,
+        ownerId: inst.teacherId,
+        recurrenceRule: s.endDate ? "FREQ=WEEKLY" : "FREQ=WEEKLY;UNTIL=2499-12-31", // đánh dấu là lịch lặp
+        recurrenceId: `schedule-${s.id}-${dateStr}`,
+        isException: inst.isModified,
         isRecurrenceInstance: true,
         isSchedule: true,
-        originalEventId: schedule.id,
+        originalEventId: s.id,
         reminders: [],
         participants: [],
         scheduleMeta: {
-          scheduleId: schedule.id,
-          className: schedule.class.name,
-          subjectName: schedule.subject.name,
-          teacherName: schedule.teacher.user.name,
-          room: schedule.room,
-          dayOfWeek: schedule.dayOfWeek,
-          startTime: schedule.startTime,
-          endTime: schedule.endTime,
-          materials: schedule.materials,
-          homework: schedule.homework,
-          homeworkQuizId: schedule.homeworkQuizId,
-          homeworkQuizTitle: schedule.homeworkQuiz?.title ?? null,
-          homeworkDueDate: schedule.homeworkDueDate ?? null,
+          scheduleId: s.id, // seriesId
+          instanceDate: dateStr,
+          seriesEndDate: s.endDate ? dateToUtcStr(s.endDate) : null,
+          className: s.class.name,
+          subjectName: s.subject.name,
+          teacherName: s.teacher.user.name,
+          room: inst.room,
+          dayOfWeek: s.dayOfWeek,
+          startTime: inst.startTime,
+          endTime: inst.endTime,
+          materials: inst.materials,
+          homework: inst.homework,
+          homeworkQuizId: inst.homeworkQuizId,
+          homeworkQuizTitle: s.homeworkQuiz?.title ?? null,
+          homeworkDueDate: inst.homeworkDueDate,
         },
       });
-
-      // Move to next week
-      occurrence.setDate(occurrence.getDate() + 7);
     }
   }
 

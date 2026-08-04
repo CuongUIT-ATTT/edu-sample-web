@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { expandSeriesToInstances, normalizeDateUtc, dateToUtcStr } from "@/lib/schedule-expand";
 
 export async function GET() {
   try {
@@ -17,32 +18,49 @@ export async function GET() {
       return NextResponse.json({ error: "Teacher profile not found" }, { status: 404 });
     }
 
-    // Chỉ hiện các ca học trong cửa sổ [-21 ngày, +7 ngày] so với hôm nay (local).
-    // Dựng biên qua UTC-midnight của ngày lịch local để khớp chính xác cách createSchedule
-    // lưu Schedule.date = new Date("YYYY-MM-DD") (parse thành UTC midnight) — tránh lệch +7h.
-    const dateOnly = (d: Date): string => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${y}-${m}-${day}`;
-    };
+    // Cửa sổ [-21 ngày, +7 ngày] so với hôm nay. Dùng normalizeDateUtc để khớp quy ước
+    // lưu date (UTC midnight) — tránh lệch +7h.
     const today = new Date();
-    const windowStart = new Date(dateOnly(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 21)));
-    const windowEnd = new Date(dateOnly(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7)));
+    const todayUtc = normalizeDateUtc(today);
+    const windowStart = new Date(todayUtc);
+    windowStart.setUTCDate(windowStart.getUTCDate() - 21);
+    const windowEnd = new Date(todayUtc);
+    windowEnd.setUTCDate(windowEnd.getUTCDate() + 7);
 
-    const schedules = await db.schedule.findMany({
-      where: {
-        teacherId: teacherProfile.id,
-        date: { gte: windowStart, lte: windowEnd },
-      },
+    const series = await db.scheduleSeries.findMany({
+      where: { teacherId: teacherProfile.id },
       include: {
         class: true,
         subject: true,
+        teacher: { include: { user: true } },
+        exceptions: true,
       },
-      orderBy: [
-        { date: "asc" },
-        { startTime: "asc" },
-      ],
+      orderBy: [{ dayOfWeek: "asc" }, { startDate: "asc" }],
+    });
+
+    // Expand runtime → trả các occurrence thật trong window
+    const schedules = series.flatMap((s) =>
+      expandSeriesToInstances(s, s.exceptions, windowStart, windowEnd).map((inst) => ({
+        id: s.id,
+        classId: inst.classId,
+        subjectId: inst.subjectId,
+        teacherId: inst.teacherId,
+        dayOfWeek: s.dayOfWeek,
+        startTime: inst.startTime,
+        endTime: inst.endTime,
+        room: inst.room,
+        date: inst.instanceDate,
+        instanceDate: dateToUtcStr(inst.instanceDate),
+        class: s.class,
+        subject: s.subject,
+      }))
+    );
+
+    schedules.sort((a, b) => {
+      const da = a.date.getTime();
+      const dbT = b.date.getTime();
+      if (da !== dbT) return da - dbT;
+      return a.startTime.localeCompare(b.startTime);
     });
 
     return NextResponse.json({ schedules });

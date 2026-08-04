@@ -3,9 +3,11 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { normalizeDateUtc, dateToUtcStr } from "@/lib/schedule-expand";
 
 interface UpdateScheduleFilesInput {
-  scheduleId: string;
+  seriesId: string;
+  instanceDate: string; // YYYY-MM-DD
   materials?: string | null;
   homework?: string | null;
   homeworkDueDate?: string | null;
@@ -19,8 +21,15 @@ export async function updateScheduleFiles(input: UpdateScheduleFilesInput) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
     }
 
-    const { scheduleId, materials, homework, homeworkDueDate, homeworkQuizId } = input;
+    const { seriesId, instanceDate, materials, homework, homeworkDueDate, homeworkQuizId } = input;
 
+    if (!seriesId || !instanceDate) {
+      return { success: false, error: "Thiếu thông tin buổi học." };
+    }
+
+    const targetDate = normalizeDateUtc(instanceDate);
+
+    // Tài liệu/BTVN gắn với 1 buổi cụ thể → tạo exception MODIFIED (chỉ override field liên quan)
     const data: { materials?: string | null; homework?: string | null; homeworkDueDate?: Date | null; homeworkQuizId?: string | null } = {};
     if (materials !== undefined) data.materials = materials;
     if (homework !== undefined) data.homework = homework;
@@ -29,14 +38,30 @@ export async function updateScheduleFiles(input: UpdateScheduleFilesInput) {
       data.homeworkDueDate = homeworkDueDate ? new Date(homeworkDueDate) : null;
     }
 
-    await db.schedule.update({
-      where: { id: scheduleId },
-      data,
+    // Upsert exception MODIFIED, giữ các field khác (class/subject/teacher/room/time) không đổi
+    const existing = await db.scheduleException.findUnique({
+      where: { seriesId_originalDate: { seriesId, originalDate: targetDate } },
     });
 
-    revalidatePath("/admin/schedules");
-    revalidatePath("/teacher/schedules");
-    revalidatePath("/student/schedules");
+    if (existing && existing.status === "CANCELLED") {
+      // Không ghi tài liệu vào buổi đã hủy
+      return { success: false, error: "Buổi học này đã bị hủy, không thể cập nhật tài liệu." };
+    }
+
+    await db.scheduleException.upsert({
+      where: { seriesId_originalDate: { seriesId, originalDate: targetDate } },
+      create: {
+        seriesId,
+        originalDate: targetDate,
+        status: "MODIFIED",
+        ...data,
+      },
+      update: data,
+    });
+
+    revalidatePath("/admin/calendar");
+    revalidatePath("/teacher/calendar");
+    revalidatePath("/student/calendar");
     return { success: true, message: "Cập nhật tài liệu ca học thành công." };
   } catch (error) {
     console.error("Error updating schedule files:", error);
@@ -45,7 +70,8 @@ export async function updateScheduleFiles(input: UpdateScheduleFilesInput) {
 }
 
 interface SubmitHomeworkInput {
-  scheduleId: string;
+  seriesId: string;
+  instanceDate: string; // YYYY-MM-DD
   fileUrl: string;
   fileName: string;
 }
@@ -65,21 +91,25 @@ export async function submitHomework(input: SubmitHomeworkInput) {
       return { success: false, error: "Hồ sơ học viên của bạn không tồn tại." };
     }
 
-    const { scheduleId, fileUrl, fileName } = input;
+    const { seriesId, instanceDate, fileUrl, fileName } = input;
 
-    if (!scheduleId || !fileUrl || !fileName) {
+    if (!seriesId || !instanceDate || !fileUrl || !fileName) {
       return { success: false, error: "Vui lòng đính kèm tệp làm bài tập." };
     }
 
+    const targetDate = normalizeDateUtc(instanceDate);
+
     const submission = await db.homeworkSubmission.upsert({
       where: {
-        scheduleId_studentId: {
-          scheduleId,
+        seriesId_instanceDate_studentId: {
+          seriesId,
+          instanceDate: targetDate,
           studentId: studentProfile.id,
         },
       },
       create: {
-        scheduleId,
+        seriesId,
+        instanceDate: targetDate,
         studentId: studentProfile.id,
         fileUrl,
         fileName,
@@ -91,7 +121,7 @@ export async function submitHomework(input: SubmitHomeworkInput) {
       },
     });
 
-    revalidatePath("/student/schedules");
+    revalidatePath("/student/calendar");
     return { success: true, message: "Nộp bài tập về nhà thành công!", data: submission };
   } catch (error) {
     console.error("Error submitting homework:", error);
@@ -121,7 +151,7 @@ export async function gradeHomework(input: GradeHomeworkInput) {
     const submission = await db.homeworkSubmission.findUnique({
       where: { id: submissionId },
       include: {
-        schedule: true,
+        series: true,
         student: true,
       },
     });
@@ -140,9 +170,7 @@ export async function gradeHomework(input: GradeHomeworkInput) {
     });
 
     // 2. Sync with Grade table to show in report sheets
-    const dateLabel = submission.schedule.date 
-      ? new Date(submission.schedule.date).toLocaleDateString("vi-VN") 
-      : "";
+    const dateLabel = dateToUtcStr(submission.instanceDate);
 
     await db.grade.upsert({
       where: {
@@ -151,8 +179,8 @@ export async function gradeHomework(input: GradeHomeworkInput) {
       create: {
         id: submissionId,
         studentId: submission.studentId,
-        subjectId: submission.schedule.subjectId,
-        teacherId: submission.schedule.teacherId,
+        subjectId: submission.series.subjectId,
+        teacherId: submission.series.teacherId,
         homeworkSubmissionId: submissionId,
         type: "QUIZ", // Map to existing type enum or column
         score: grade,
@@ -175,15 +203,17 @@ export async function gradeHomework(input: GradeHomeworkInput) {
   }
 }
 
-export async function getScheduleSubmissions(scheduleId: string) {
+export async function getScheduleSubmissions(seriesId: string, instanceDate: string) {
   try {
     const session = await getSession();
     if (!session || (session.role !== "ADMIN" && session.role !== "TEACHER")) {
       return { success: false, error: "Bạn không có quyền xem danh sách bài nộp." };
     }
 
+    const targetDate = normalizeDateUtc(instanceDate);
+
     const submissions = await db.homeworkSubmission.findMany({
-      where: { scheduleId },
+      where: { seriesId, instanceDate: targetDate },
       include: {
         student: {
           include: {
@@ -201,7 +231,7 @@ export async function getScheduleSubmissions(scheduleId: string) {
   }
 }
 
-export async function getStudentSubmission(scheduleId: string) {
+export async function getStudentSubmission(seriesId: string, instanceDate: string) {
   try {
     const session = await getSession();
     if (!session || session.role !== "STUDENT") {
@@ -216,10 +246,13 @@ export async function getStudentSubmission(scheduleId: string) {
       return { success: false, error: "Không tìm thấy hồ sơ học sinh." };
     }
 
+    const targetDate = normalizeDateUtc(instanceDate);
+
     const submission = await db.homeworkSubmission.findUnique({
       where: {
-        scheduleId_studentId: {
-          scheduleId,
+        seriesId_instanceDate_studentId: {
+          seriesId,
+          instanceDate: targetDate,
           studentId: studentProfile.id,
         },
       },
@@ -233,17 +266,19 @@ export async function getStudentSubmission(scheduleId: string) {
 }
 
 /**
- * Get all students in the class for a schedule, with their submission status.
+ * Get all students in the class for a schedule instance, with their submission status.
  */
-export async function getHomeworkSubmissionsWithStudents(scheduleId: string) {
+export async function getHomeworkSubmissionsWithStudents(seriesId: string, instanceDate: string) {
   try {
     const session = await getSession();
     if (!session || (session.role !== "ADMIN" && session.role !== "TEACHER")) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
     }
 
-    const schedule = await db.schedule.findUnique({
-      where: { id: scheduleId },
+    const targetDate = normalizeDateUtc(instanceDate);
+
+    const series = await db.scheduleSeries.findUnique({
+      where: { id: seriesId },
       include: {
         class: {
           include: {
@@ -255,14 +290,14 @@ export async function getHomeworkSubmissionsWithStudents(scheduleId: string) {
       },
     });
 
-    if (!schedule) {
-      return { success: false, error: "Không tìm thấy ca học." };
+    if (!series) {
+      return { success: false, error: "Không tìm thấy buổi học." };
     }
 
-    const allStudents = schedule.class.students;
+    const allStudents = series.class.students;
 
     const submissions = await db.homeworkSubmission.findMany({
-      where: { scheduleId },
+      where: { seriesId, instanceDate: targetDate },
     });
 
     const result = allStudents.map((student) => {
@@ -292,15 +327,15 @@ export async function getHomeworkSubmissionsWithStudents(scheduleId: string) {
   }
 }
 
-export async function getClassSessionQuizSubmissions(scheduleId: string, quizId: string) {
+export async function getClassSessionQuizSubmissions(seriesId: string, quizId: string) {
   try {
     const session = await getSession();
     if (!session || (session.role !== "TEACHER" && session.role !== "ADMIN")) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
     }
 
-    const schedule = await db.schedule.findUnique({
-      where: { id: scheduleId },
+    const series = await db.scheduleSeries.findUnique({
+      where: { id: seriesId },
       include: {
         class: {
           include: {
@@ -314,11 +349,11 @@ export async function getClassSessionQuizSubmissions(scheduleId: string, quizId:
       }
     });
 
-    if (!schedule) {
-      return { success: false, error: "Không tìm thấy thông tin ca học." };
+    if (!series) {
+      return { success: false, error: "Không tìm thấy thông tin buổi học." };
     }
 
-    const students = schedule.class.students;
+    const students = series.class.students;
     const studentIds = students.map(s => s.id);
 
     // Fetch quiz submissions for this quiz by students in this class
