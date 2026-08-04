@@ -34,19 +34,18 @@ export default async function AdminDashboardPage() {
     studentsCount = await db.studentProfile.count();
     classesCount = await db.class.count();
 
-    // Count schedules for today only
+    // Count schedule series active today (1 series = 1 ca học trong ngày)
     const jsDay = new Date().getDay(); // 0=Sun, 1=Mon...
     const todayDow = jsDay === 0 ? 7 : jsDay; // Convert to Prisma dayOfWeek (1=Mon, 7=Sun)
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
-    todaySchedulesCount = await db.schedule.count({
+    todaySchedulesCount = await db.scheduleSeries.count({
       where: {
-        OR: [
-          { dayOfWeek: todayDow },
-          { date: { gte: todayStart, lte: todayEnd } },
-        ],
+        dayOfWeek: todayDow,
+        startDate: { lte: todayEnd },
+        OR: [{ endDate: null }, { endDate: { gte: todayStart } }],
       },
     });
 
@@ -86,7 +85,7 @@ export default async function AdminDashboardPage() {
       orderBy: { submittedAt: "desc" },
       take: 5,
       include: {
-        schedule: {
+        series: {
           include: { class: true }
         },
         student: {
@@ -122,7 +121,7 @@ export default async function AdminDashboardPage() {
 
     recentHomeworkSubmissions.forEach((hs) => {
       activitiesList.push({
-        title: `Nộp bài tập về nhà lớp ${hs.schedule.class.name}`,
+        title: `Nộp bài tập về nhà lớp ${hs.series.class.name}`,
         actor: `Thực hiện bởi ${hs.student.user.name}`,
         timestamp: hs.submittedAt,
       });

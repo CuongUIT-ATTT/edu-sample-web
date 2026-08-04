@@ -28,7 +28,7 @@ export default async function StudentDocumentsPage() {
   const classIds = studentProfile.classes.map((c) => c.id);
 
   const [schedules, classDocsResult] = await Promise.all([
-    db.schedule.findMany({
+    db.scheduleSeries.findMany({
       where: { classId: { in: classIds } },
       include: {
         class: true,

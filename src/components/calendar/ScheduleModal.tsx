@@ -17,7 +17,8 @@ interface ScheduleModalProps {
   teachers: { id: string; user: { name: string } }[];
   rooms: { id: string; name: string; capacity?: number | null }[];
   editSchedule?: {
-    scheduleId: string;
+    seriesId: string;
+    instanceDate: string; // YYYY-MM-DD của buổi đang sửa
     classId: string;
     subjectId: string;
     teacherId: string;
@@ -26,7 +27,7 @@ interface ScheduleModalProps {
     endTime: string;
     room: string;
     startDate: string;
-    endDate?: string;
+    endDate?: string | null;
     recurrence: "NONE" | "WEEKLY" | null;
   } | null;
 }
@@ -77,6 +78,8 @@ export default function ScheduleModal({
   const [selectedRoom, setSelectedRoom] = useState("");
   const [recurrence, setRecurrence] = useState<"NONE" | "WEEKLY">("NONE");
   const [endDate, setEndDate] = useState("");
+  const [updateMode, setUpdateMode] = useState<"ONLY_THIS" | "ALL_FUTURE" | "ALL">("ALL_FUTURE");
+  const [endDateUnlimited, setEndDateUnlimited] = useState(false);
   const [ignoreWarning, setIgnoreWarning] = useState(false);
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -94,6 +97,8 @@ export default function ScheduleModal({
       setSelectedRoom(editSchedule.room);
       setRecurrence(editSchedule.recurrence === "WEEKLY" ? "WEEKLY" : "NONE");
       setEndDate(editSchedule.endDate || "");
+      setEndDateUnlimited(!editSchedule.endDate);
+      setUpdateMode(editSchedule.recurrence === "WEEKLY" ? "ALL_FUTURE" : "ALL");
     } else if (isOpen && !editSchedule) {
       // Reset form for new schedule
       setClassId("");
@@ -106,6 +111,8 @@ export default function ScheduleModal({
       setSelectedRoom("");
       setRecurrence("NONE");
       setEndDate("");
+      setUpdateMode("ALL_FUTURE");
+      setEndDateUnlimited(false);
       setIgnoreWarning(false);
       setWarningMsg(null);
     }
@@ -150,9 +157,13 @@ export default function ScheduleModal({
     setSubmitting(true);
     try {
       if (editSchedule) {
-        // Update existing schedule
+        // Update existing schedule — endDate: null = vô hạn, undefined = giữ nguyên series
+        const resolvedEndDate = endDateUnlimited
+          ? null
+          : endDate || undefined;
         const result = await updateSchedule({
-          scheduleId: editSchedule.scheduleId,
+          seriesId: editSchedule.seriesId,
+          instanceDate: editSchedule.instanceDate,
           classId,
           subjectId,
           teacherId: isTeacher ? currentTeacherProfileId ?? "" : teacherId,
@@ -160,8 +171,8 @@ export default function ScheduleModal({
           startTime,
           endTime,
           room: selectedRoom,
-          date: startDate,
-          updateMode: "ALL_FUTURE",
+          endDate: resolvedEndDate,
+          updateMode,
           ignoreWarning,
         });
         if (result.success) {
@@ -184,8 +195,7 @@ export default function ScheduleModal({
           endTime,
           room: selectedRoom,
           startDate,
-          endDate: recurrence === "WEEKLY" ? endDate : undefined,
-          recurrence,
+          endDate: recurrence === "WEEKLY" && endDate ? endDate : undefined,
           ignoreWarning,
         });
 
@@ -344,6 +354,64 @@ export default function ScheduleModal({
               <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
                 className="w-full text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500" />
             </div>
+          )}
+
+          {/* Chỉ khi EDIT: chọn phạm vi cập nhật + sửa endDate */}
+          {editSchedule && (
+            <>
+              <p className="text-[11px] text-ink-muted-48">
+                Chuỗi lặp {editSchedule.recurrence === "WEEKLY" ? "hàng tuần" : ""} —{" "}
+                {editSchedule.endDate
+                  ? `kết thúc ${editSchedule.endDate}`
+                  : "lặp vô hạn (chưa có ngày kết thúc)"}
+                . Đang sửa buổi {editSchedule.instanceDate}.
+              </p>
+              <div>
+                <label className="text-xs font-medium text-ink-muted-80 block mb-1">Áp dụng cho</label>
+                <div className="flex flex-col gap-2">
+                  <button type="button" onClick={() => setUpdateMode("ONLY_THIS")}
+                    className={`text-left text-sm px-3 py-2 rounded-lg border transition-colors ${updateMode === "ONLY_THIS" ? "bg-blue-600 text-white border-blue-600" : "border-hairline text-ink-muted-80 hover:border-blue-300"}`}>
+                    Chỉ buổi học này
+                  </button>
+                  <button type="button" onClick={() => setUpdateMode("ALL_FUTURE")}
+                    className={`text-left text-sm px-3 py-2 rounded-lg border transition-colors ${updateMode === "ALL_FUTURE" ? "bg-blue-600 text-white border-blue-600" : "border-hairline text-ink-muted-80 hover:border-blue-300"}`}>
+                    Buổi này và các buổi sau
+                  </button>
+                  <button type="button" onClick={() => setUpdateMode("ALL")}
+                    className={`text-left text-sm px-3 py-2 rounded-lg border transition-colors ${updateMode === "ALL" ? "bg-blue-600 text-white border-blue-600" : "border-hairline text-ink-muted-80 hover:border-blue-300"}`}>
+                    Tất cả các buổi trong chuỗi
+                  </button>
+                </div>
+              </div>
+
+              {(updateMode === "ALL_FUTURE" || updateMode === "ALL") && (
+                <div>
+                  <label className="text-xs font-medium text-ink-muted-80 block mb-1">Ngày kết thúc mới</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      disabled={endDateUnlimited}
+                      className="flex-1 w-full text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 disabled:bg-surface-pearl disabled:text-ink-muted-48"
+                    />
+                    <label className="flex items-center gap-1.5 text-xs text-ink-muted-80 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={endDateUnlimited}
+                        onChange={(e) => setEndDateUnlimited(e.target.checked)}
+                      />
+                      Không giới hạn
+                    </label>
+                  </div>
+                  <p className="text-[10px] text-ink-muted-48 mt-1">
+                    {updateMode === "ALL_FUTURE"
+                      ? "Chuỗi lặp mới bắt đầu từ buổi này tới ngày kết thúc. Rút ngắn sẽ cắt bỏ các buổi sau (chặn nếu có bài nộp)."
+                      : "Đổi ngày kết thúc của toàn bộ chuỗi. Rút ngắn sẽ cắt bỏ các buổi sau (chặn nếu có bài nộp)."}
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
 

@@ -41,7 +41,7 @@ export default async function ParentChildrenPage() {
       if (child) {
         // Fetch child subjects from all classes
         const classIds = child.classes.map((c) => c.id);
-        const schedules = await db.schedule.findMany({
+        const schedules = await db.scheduleSeries.findMany({
           where: { classId: { in: classIds } },
           include: { subject: true },
         });

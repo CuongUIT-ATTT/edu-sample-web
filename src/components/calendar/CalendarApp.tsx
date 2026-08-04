@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 import CalendarHeader from "./CalendarHeader";
 import CalendarSidebar from "./CalendarSidebar";
 import DayView from "./DayView";
@@ -85,10 +86,11 @@ export default function CalendarApp({
   const [selectedSchedule, setSelectedSchedule] = useState<CalendarEvent | null>(null);
   const [editScheduleData, setEditScheduleData] = useState<Record<string, unknown> | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // refreshKey: đổi giá trị → trigger load lại events (sau create/update/delete/drag). Cơ chế re-fetch duy nhất.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const calendarsRef = useRef<CalendarItem[]>([]);
   const eventsRef = useRef<CalendarEvent[]>([]);
-  const loadCountRef = useRef(0);
 
   // Load calendars once
   useEffect(() => {
@@ -105,34 +107,36 @@ export default function CalendarApp({
     load();
   }, [userId]);
 
-  // Load events when view/date changes
+  // Load events when view/date/refreshKey changes. Dev strict-mode double-fire được
+  // xử lý bằng `cancelled` flag + cleanup — không cần loadCountRef guard (bug cumulative).
   useEffect(() => {
-    // Guard: prevent double-fire in dev strict mode
-    loadCountRef.current++;
-    if (loadCountRef.current > 10) return;
-
     let cancelled = false;
 
     async function load() {
       const visibleCals = calendarsRef.current.filter((c) => c.isVisible).map((c) => c.id);
 
+      // Build window theo UTC-midnight (khớp cách server coi "ngày" trong schedule-expand).
+      // Ngày của currentDate lấy theo timezone Asia/Ho_Chi_Minh rồi chuyển về UTC-midnight đúng ngày đó.
+      const currentDateStr = toZonedTime(currentDate, "Asia/Ho_Chi_Minh").toISOString().slice(0, 10);
+      const utcMidnight = (ds: string) => new Date(`${ds}T00:00:00.000Z`);
+
       let from: Date;
       let to: Date;
       switch (currentView) {
         case "day":
-          from = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+          from = utcMidnight(currentDateStr);
           to = addDays(from, 1);
           break;
         case "week":
-          from = startOfWeek(currentDate, { weekStartsOn: 1 });
-          to = endOfWeek(from, { weekStartsOn: 1 });
+          from = utcMidnight(startOfWeek(new Date(`${currentDateStr}T00:00:00.000Z`), { weekStartsOn: 1 }).toISOString().slice(0, 10));
+          to = utcMidnight(endOfWeek(new Date(`${currentDateStr}T00:00:00.000Z`), { weekStartsOn: 1 }).toISOString().slice(0, 10));
           break;
         case "month":
-          from = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 });
-          to = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 });
+          from = utcMidnight(startOfWeek(startOfMonth(new Date(`${currentDateStr}T00:00:00.000Z`)), { weekStartsOn: 1 }).toISOString().slice(0, 10));
+          to = utcMidnight(endOfWeek(endOfMonth(new Date(`${currentDateStr}T00:00:00.000Z`)), { weekStartsOn: 1 }).toISOString().slice(0, 10));
           break;
         case "agenda":
-          from = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+          from = utcMidnight(currentDateStr);
           to = addDays(from, 90);
           break;
       }
@@ -162,6 +166,7 @@ export default function CalendarApp({
     currentView,
     currentDate.toISOString().slice(0, 10),
     userId, role, teacherProfileId, studentClassIds.join(","),
+    refreshKey,
   ]);
 
   const handleSaveEvent = async (data: EventFormData) => {
@@ -200,8 +205,8 @@ export default function CalendarApp({
       setEditingEvent(null);
       setInitialStart(undefined);
       setInitialEnd(undefined);
-      // Force re-mount by changing a key — just reload by toggling currentView
-      setEvents([]);
+      // Trigger reload events
+      setRefreshKey((k) => k + 1);
     } catch {
       showToast("Lỗi lưu sự kiện", "error");
     }
@@ -239,8 +244,7 @@ export default function CalendarApp({
     }
     try {
       await updateEvent(event.id, { startTime: newStart, endTime: newEnd }, event.isRecurrenceInstance ? "this" : "all");
-      loadCountRef.current = 0;
-      setEvents([]);
+      setRefreshKey((k) => k + 1);
     } catch {
       showToast("Lỗi di chuyển sự kiện", "error");
     }
@@ -258,7 +262,8 @@ export default function CalendarApp({
     const isWeekly = selectedSchedule.recurrenceRule != null;
 
     setEditScheduleData({
-      scheduleId: meta.scheduleId,
+      seriesId: meta.scheduleId,
+      instanceDate: meta.instanceDate,
       classId: foundClass?.id || "",
       subjectId: foundSubject?.id || "",
       teacherId: foundTeacher?.id || "",
@@ -266,7 +271,8 @@ export default function CalendarApp({
       startTime: meta.startTime,
       endTime: meta.endTime,
       room: foundRoom?.name || meta.room || "",
-      startDate: selectedSchedule.start.toISOString().slice(0, 10),
+      startDate: meta.instanceDate,
+      endDate: meta.seriesEndDate ?? null,
       recurrence: isWeekly ? "WEEKLY" : "NONE",
     } as never);
     setSessionDetailOpen(false);
@@ -362,7 +368,7 @@ export default function CalendarApp({
       <ScheduleModal
         isOpen={scheduleModalOpen}
         onClose={() => { setScheduleModalOpen(false); setEditScheduleData(null); }}
-        onSuccess={() => { loadCountRef.current = 0; setEvents([]); }}
+        onSuccess={() => { setRefreshKey((k) => k + 1); }}
         role={role}
         currentTeacherProfileId={teacherProfileId}
         classes={classes}
@@ -377,7 +383,7 @@ export default function CalendarApp({
         onClose={() => { setSessionDetailOpen(false); setSelectedSchedule(null); }}
         schedule={selectedSchedule as never}
         role={role}
-        onUpdate={() => { loadCountRef.current = 0; setEvents([]); }}
+        onUpdate={() => { setRefreshKey((k) => k + 1); }}
         onEditSchedule={handleEditSchedule}
       />
     </div>

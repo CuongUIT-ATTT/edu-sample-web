@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { expandSeriesToInstances, normalizeDateUtc, dateToUtcStr } from "@/lib/schedule-expand";
 import ClassTuitionDetail from "@/app/admin/tuition/[classId]/ClassTuitionDetail";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ export default async function TeacherClassTuitionPage({
       id: classId,
       OR: [
         { formTeacherId: teacherProfile.id },
-        { schedules: { some: { teacherId: teacherProfile.id } } },
+        { scheduleSeries: { some: { teacherId: teacherProfile.id } } },
       ],
     },
     include: { _count: { select: { students: true } } },
@@ -58,10 +59,24 @@ export default async function TeacherClassTuitionPage({
 
   const now = new Date();
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-  const schedules = await db.schedule.findMany({
-    where: { classId, date: { gte: new Date(year, fromMonth - 1, 1), lte: todayEnd } },
-    orderBy: { date: "asc" },
+  // Đếm buổi học qua ScheduleSeries + mở rộng runtime thành instance trong khoảng tháng.
+  const fromDate = new Date(Date.UTC(year, fromMonth - 1, 1));
+  const toDate = normalizeDateUtc(todayEnd);
+  const seriesList = await db.scheduleSeries.findMany({
+    where: { classId },
+    include: { exceptions: true },
   });
+  const instances = seriesList.flatMap((s) =>
+    expandSeriesToInstances(s, s.exceptions, fromDate, toDate)
+  );
+  instances.sort((a, b) => a.instanceDate.getTime() - b.instanceDate.getTime());
+  const schedules = instances.map((inst) => ({
+    id: `${inst.seriesId}-${dateToUtcStr(inst.instanceDate)}`,
+    date: dateToUtcStr(inst.instanceDate),
+    startTime: inst.startTime,
+    endTime: inst.endTime,
+    room: inst.room,
+  }));
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl">

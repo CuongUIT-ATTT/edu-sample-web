@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { expandSeriesToInstances, normalizeDateUtc, dateToUtcStr } from "@/lib/schedule-expand";
 
 export const dynamic = "force-dynamic";
 
@@ -38,60 +39,56 @@ export default async function TeacherDashboardPage() {
       });
 
       if (teacherProfile) {
-        const schedules = await db.schedule.findMany({
+        const series = await db.scheduleSeries.findMany({
           where: { teacherId: teacherProfile.id },
           include: {
             class: true,
             subject: true,
+            exceptions: true,
           },
           orderBy: { startTime: "asc" },
         });
 
-        const today = new Date();
+        const today = normalizeDateUtc(new Date());
 
-        const getPrismaDayOfWeek = (d: Date) => {
-          const jsDay = d.getDay();
-          return jsDay === 0 ? 7 : jsDay;
-        };
-
-        const todayDayOfWeek = getPrismaDayOfWeek(today);
-
-        // Only today's schedules
-        const filteredSchedules = schedules.filter((s) => {
-          if (s.date) {
-            const sDate = new Date(s.date);
-            return (
-              sDate.getFullYear() === today.getFullYear() &&
-              sDate.getMonth() === today.getMonth() &&
-              sDate.getDate() === today.getDate()
-            );
-          }
-          return s.dayOfWeek === todayDayOfWeek;
-        });
+        // Expand runtime để lấy instance của đúng ngày hôm nay (áp exception)
+        const todayInstances = series.flatMap((s) =>
+          expandSeriesToInstances(s, s.exceptions, today, today).map((inst) => ({
+            id: `${s.id}-${dateToUtcStr(inst.instanceDate)}`,
+            startTime: inst.startTime,
+            endTime: inst.endTime,
+            room: inst.room,
+            subject: s.subject,
+            class: s.class,
+            classId: inst.classId,
+          }))
+        );
 
         // Tính trạng thái theo thời gian thực so với bây giờ
         const now = new Date();
         const nowMinutes = now.getHours() * 60 + now.getMinutes();
-        schedulesList = filteredSchedules.map((s) => {
-          const [sh, sm] = s.startTime.split(":").map(Number);
-          const [eh, em] = s.endTime.split(":").map(Number);
-          const startMin = sh * 60 + sm;
-          const endMin = eh * 60 + em;
-          let status = "Sắp diễn ra";
-          if (nowMinutes > endMin) status = "Đã hoàn thành";
-          else if (nowMinutes >= startMin) status = "Đang diễn ra";
-          return {
-            id: s.id,
-            time: `${s.startTime} - ${s.endTime}`,
-            subjectName: s.subject.name,
-            className: `Lớp ${s.class.name}`,
-            room: s.room || "—",
-            status,
-          };
-        });
+        schedulesList = todayInstances
+          .sort((a, b) => a.startTime.localeCompare(b.startTime))
+          .map((s) => {
+            const [sh, sm] = s.startTime.split(":").map(Number);
+            const [eh, em] = s.endTime.split(":").map(Number);
+            const startMin = sh * 60 + sm;
+            const endMin = eh * 60 + em;
+            let status = "Sắp diễn ra";
+            if (nowMinutes > endMin) status = "Đã hoàn thành";
+            else if (nowMinutes >= startMin) status = "Đang diễn ra";
+            return {
+              id: s.id,
+              time: `${s.startTime} - ${s.endTime}`,
+              subjectName: s.subject.name,
+              className: `Lớp ${s.class.name}`,
+              room: s.room || "—",
+              status,
+            };
+          });
 
         // Fetch students under this teacher
-        const classIds = schedules.map((s) => s.classId);
+        const classIds = series.map((s) => s.classId);
         if (classIds.length > 0) {
           const teacherGrades = await db.grade.findMany({
             where: {

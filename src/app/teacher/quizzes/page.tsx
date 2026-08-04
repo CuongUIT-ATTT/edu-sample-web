@@ -43,7 +43,7 @@ export default async function TeacherQuizzesPage() {
   });
 
   // Fetch classes where the teacher is either form teacher or teaches schedules in them
-  const schedules = await db.schedule.findMany({
+  const schedules = await db.scheduleSeries.findMany({
     where: { teacherId: teacher.id },
     select: { classId: true }
   });

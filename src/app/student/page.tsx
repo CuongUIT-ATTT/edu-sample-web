@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { expandSeriesToInstances, normalizeDateUtc, dateToUtcStr } from "@/lib/schedule-expand";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +18,11 @@ export default async function StudentDashboardPage() {
   const session = await getSession();
 
   let studentName = "Học viên";
-  let className = "Lớp VIP";
-  let gpaString = "8.6 / 10";
-  let attendanceRate = "98.2%";
-  let subjectsCount = 8;
-  let rankingTitle = "Thần Phản Ứng Luyện Thi ⚡";
+  let className = "Chưa xếp lớp";
+  let gpaString = "—";
+  let attendanceRate = "—";
+  let subjectsCount = 0;
+  let rankingTitle = "";
   let schedulesList: {
     id: string;
     time: string;
@@ -49,18 +50,16 @@ export default async function StudentDashboardPage() {
 
         // Calculate GPA
         const grades = studentProfile.grades;
-        let avgScoreVal = 8.6;
         if (grades.length > 0) {
           const sum = grades.reduce((acc, g) => acc + g.score, 0);
-          avgScoreVal = sum / grades.length;
+          const avgScoreVal = sum / grades.length;
           gpaString = `${avgScoreVal.toFixed(1)} / 10`;
-        }
 
-        // Set ranking title dynamically
-        if (avgScoreVal >= 9.0) rankingTitle = "Huyền Thoại Luyện Đề 🏆";
-        else if (avgScoreVal >= 8.0)
-          rankingTitle = "Thần Phản Ứng Luyện Thi ⚡";
-        else rankingTitle = "Chiến Binh Chuyên Đề 🔥";
+          // Set ranking title dynamically (chỉ khi có điểm)
+          if (avgScoreVal >= 9.0) rankingTitle = "Huyền Thoại Luyện Đề 🏆";
+          else if (avgScoreVal >= 8.0) rankingTitle = "Thần Phản Ứng Luyện Thi ⚡";
+          else rankingTitle = "Chiến Binh Chuyên Đề 🔥";
+        }
 
         // Calculate Attendance Rate
         const attendances = studentProfile.attendances;
@@ -74,70 +73,60 @@ export default async function StudentDashboardPage() {
         // Fetch subjects count in their classes
         const classIds = studentProfile.classes.map((c) => c.id);
         if (classIds.length > 0) {
-          const distinctSubjects = await db.schedule.findMany({
+          const distinctSubjects = await db.scheduleSeries.findMany({
             where: { classId: { in: classIds } },
             select: { subjectId: true },
             distinct: ["subjectId"],
           });
-          subjectsCount = distinctSubjects.length || 8;
+          subjectsCount = distinctSubjects.length;
 
-          // Fetch schedules list
-          const schedules = await db.schedule.findMany({
+          // Fetch series + expand runtime → instances hôm nay & ngày mai
+          const seriesList = await db.scheduleSeries.findMany({
             where: { classId: { in: classIds } },
             include: {
               subject: true,
               teacher: { include: { user: true } },
+              exceptions: true,
             },
             orderBy: { startTime: "asc" },
           });
 
-          const today = new Date();
-          const tomorrow = new Date();
-          tomorrow.setDate(today.getDate() + 1);
+          const today = normalizeDateUtc(new Date());
+          const tomorrow = normalizeDateUtc(new Date());
+          tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+          const todayStr = dateToUtcStr(today);
+          const tomorrowStr = dateToUtcStr(tomorrow);
 
-          const getPrismaDayOfWeek = (d: Date) => {
-            const jsDay = d.getDay();
-            return jsDay === 0 ? 7 : jsDay;
-          };
+          const todayTomorrowItems: {
+            id: string;
+            time: string;
+            subjectName: string;
+            teacherName: string;
+            room: string;
+            status: string;
+          }[] = [];
 
-          const todayDayOfWeek = getPrismaDayOfWeek(today);
-          const tomorrowDayOfWeek = getPrismaDayOfWeek(tomorrow);
-
-          const filteredSchedules = schedules.filter((s) => {
-            if (s.date) {
-              const sDate = new Date(s.date);
-              const isTodayDate =
-                sDate.getFullYear() === today.getFullYear() &&
-                sDate.getMonth() === today.getMonth() &&
-                sDate.getDate() === today.getDate();
-              const isTomorrowDate =
-                sDate.getFullYear() === tomorrow.getFullYear() &&
-                sDate.getMonth() === tomorrow.getMonth() &&
-                sDate.getDate() === tomorrow.getDate();
-              return isTodayDate || isTomorrowDate;
+          for (const series of seriesList) {
+            const instances = expandSeriesToInstances(
+              series,
+              series.exceptions,
+              today,
+              tomorrow
+            );
+            for (const inst of instances) {
+              const instDateStr = dateToUtcStr(inst.instanceDate);
+              const dayLabel = instDateStr === todayStr ? "Hôm nay" : "Ngày mai";
+              todayTomorrowItems.push({
+                id: `${inst.seriesId}-${instDateStr}`,
+                time: `${dayLabel}, ${inst.startTime} - ${inst.endTime}`,
+                subjectName: series.subject.name,
+                teacherName: series.teacher.user.name,
+                room: inst.room || "Room 302",
+                status: "Sắp diễn ra",
+              });
             }
-            return s.dayOfWeek === todayDayOfWeek || s.dayOfWeek === tomorrowDayOfWeek;
-          });
-
-          schedulesList = filteredSchedules.map((s) => {
-            let dayLabel = "";
-            if (s.date) {
-              const sDate = new Date(s.date);
-              if (sDate.getDate() === today.getDate()) dayLabel = "Hôm nay";
-              else dayLabel = "Ngày mai";
-            } else {
-              if (s.dayOfWeek === todayDayOfWeek) dayLabel = "Hôm nay";
-              else dayLabel = "Ngày mai";
-            }
-            return {
-              id: s.id,
-              time: `${dayLabel}, ${s.startTime} - ${s.endTime}`,
-              subjectName: s.subject.name,
-              teacherName: s.teacher.user.name,
-              room: s.room || "Room 302",
-              status: "Sắp diễn ra",
-            };
-          });
+          }
+          schedulesList = todayTomorrowItems;
         }
       }
     }
@@ -149,27 +138,7 @@ export default async function StudentDashboardPage() {
   const displayAttendance = attendanceRate;
   const displaySubjectsCount = subjectsCount;
 
-  const displaySchedules =
-    schedulesList.length > 0
-      ? schedulesList
-      : [
-          {
-            id: "1",
-            time: "08:00 - 09:30",
-            subjectName: "Toán học nâng cao",
-            teacherName: "Thầy Nguyễn Văn Bình",
-            room: "Room 302",
-            status: "Đã điểm danh - Có mặt",
-          },
-          {
-            id: "2",
-            time: "10:00 - 11:30",
-            subjectName: "Vật lý lý thuyết",
-            teacherName: "Thầy Nguyễn Văn Bình",
-            room: "Room 401",
-            status: "Chưa bắt đầu",
-          },
-        ];
+  const displaySchedules = schedulesList;
 
   // Calculate static countdown days on the server
   const examDate = new Date("2027-06-25T07:30:00").getTime();
@@ -217,10 +186,12 @@ export default async function StudentDashboardPage() {
             Lớp {className} • Học viên trung tâm.
           </p>
         </div>
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-sm">
-          <span>Học vị:</span>
-          <strong className="text-amber-900">{rankingTitle}</strong>
-        </div>
+        {rankingTitle && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-sm">
+            <span>Học vị:</span>
+            <strong className="text-amber-900">{rankingTitle}</strong>
+          </div>
+        )}
       </div>
 
       {/* Grid of stats */}
@@ -289,6 +260,11 @@ export default async function StudentDashboardPage() {
           </span>
         </h3>
         <div className="flex flex-col gap-4">
+          {displaySchedules.length === 0 && (
+            <p className="text-xs text-ink-muted-48 text-center py-4">
+              Chưa có lịch học trong hôm nay và ngày mai.
+            </p>
+          )}
           {displaySchedules.map((item) => (
             <div
               key={item.id}

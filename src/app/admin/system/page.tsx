@@ -134,7 +134,7 @@ export default async function AdminSystemPage({
         orderBy: { submittedAt: "desc" },
         take: 30,
         include: {
-          schedule: { include: { class: true, subject: true } },
+          series: { include: { class: true, subject: true } },
           student: { include: { user: true } },
         },
       }),
@@ -176,7 +176,7 @@ export default async function AdminSystemPage({
       activities.push({
         id: `hw-${hs.id}`,
         type: "homework",
-        title: `Nộp bài tập: ${hs.schedule.subject?.name || "BTVH"} — Lớp ${hs.schedule.class.name}`,
+        title: `Nộp bài tập: ${hs.series.subject?.name || "BTVH"} — Lớp ${hs.series.class.name}`,
         actor: `${hs.student.user.name} (${hs.student.user.email})`,
         timestamp: hs.submittedAt,
       });

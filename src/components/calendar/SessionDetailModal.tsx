@@ -15,8 +15,12 @@ import { deleteSchedule } from "@/actions/schedules";
 import { showToast } from "@/components/Toast";
 
 interface ScheduleBlock {
+  isRecurrenceInstance?: boolean;
+  recurrenceRule?: string | null;
   scheduleMeta: {
-    scheduleId: string;
+    scheduleId: string; // seriesId
+    instanceDate: string; // YYYY-MM-DD
+    seriesEndDate?: string | null; // YYYY-MM-DD hoặc null (vô hạn)
     className: string;
     subjectName: string;
     teacherName: string;
@@ -83,16 +87,16 @@ export default function SessionDetailModal({
   const isTeacherOrAdmin = role === "ADMIN" || role === "TEACHER";
   const isStudent = role === "STUDENT";
 
-  const loadSubmissions = async (scheduleId: string) => {
+  const loadSubmissions = async (scheduleId: string, instanceDate: string) => {
     setLoadingSubmissions(true);
     try {
       if (isTeacherOrAdmin) {
-        const result = await getHomeworkSubmissionsWithStudents(scheduleId);
+        const result = await getHomeworkSubmissionsWithStudents(scheduleId, instanceDate);
         if (result.success && result.data) {
           setSubmissions(result.data as Submission[]);
         }
       } else if (isStudent) {
-        const result = await getStudentSubmission(scheduleId);
+        const result = await getStudentSubmission(scheduleId, instanceDate);
         if (result.success && result.data) {
           const d = result.data as Record<string, unknown>;
           setStudentSubmission({
@@ -128,7 +132,7 @@ export default function SessionDetailModal({
       setSubmitFileName("");
       setSubmissions([]);
       setStudentSubmission(null);
-      loadSubmissions(schedule.scheduleMeta.scheduleId);
+      loadSubmissions(schedule.scheduleMeta.scheduleId, schedule.scheduleMeta.instanceDate);
     }
   }, [schedule]);
 
@@ -140,7 +144,7 @@ export default function SessionDetailModal({
   const handleSaveMaterials = async () => {
     setSaving(true);
     try {
-      const result = await updateScheduleFiles({ scheduleId: meta.scheduleId, materials });
+      const result = await updateScheduleFiles({ seriesId: meta.scheduleId, instanceDate: meta.instanceDate, materials });
       if (result.success) {
         showToast("Đã cập nhật bài giảng!", "success");
         onUpdate();
@@ -158,7 +162,8 @@ export default function SessionDetailModal({
     setSaving(true);
     try {
       const result = await updateScheduleFiles({
-        scheduleId: meta.scheduleId,
+        seriesId: meta.scheduleId,
+        instanceDate: meta.instanceDate,
         homework,
         homeworkDueDate: dueDate || null,
       });
@@ -183,7 +188,8 @@ export default function SessionDetailModal({
     setSubmitting(true);
     try {
       const result = await submitHomework({
-        scheduleId: meta.scheduleId,
+        seriesId: meta.scheduleId,
+        instanceDate: meta.instanceDate,
         fileUrl: submitUrl,
         fileName: submitFileName || "Bài nộp",
       });
@@ -191,7 +197,7 @@ export default function SessionDetailModal({
         showToast("Nộp bài thành công!", "success");
         setSubmitUrl("");
         setSubmitFileName("");
-        loadSubmissions(meta.scheduleId);
+        loadSubmissions(meta.scheduleId, meta.instanceDate);
         onUpdate();
       } else {
         showToast(result.error || "Lỗi nộp bài", "error");
@@ -212,7 +218,11 @@ export default function SessionDetailModal({
   const handleDeleteSchedule = async (deleteMode: "ONLY_THIS" | "ALL_FUTURE") => {
     setDeleting(true);
     try {
-      const result = await deleteSchedule(meta.scheduleId, deleteMode);
+      const result = await deleteSchedule({
+        seriesId: meta.scheduleId,
+        instanceDate: meta.instanceDate,
+        deleteMode,
+      });
       if (result.success) {
         showToast("Đã xóa lịch học!", "success");
         setShowDeleteConfirm(false);
@@ -239,9 +249,23 @@ export default function SessionDetailModal({
             <p className="text-xs text-ink-muted-48 mt-0.5">
               {DAYS[meta.dayOfWeek]} {meta.startTime} – {meta.endTime} | {meta.room || "Chưa có phòng"}
             </p>
+            {schedule?.isRecurrenceInstance && (
+              <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">
+                Lặp lại hàng tuần
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1">
-            {isTeacherOrAdmin && (
+            {isTeacherOrAdmin && schedule?.isRecurrenceInstance && (
+              <button
+                onClick={() => { onEditSchedule?.(); }}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                title="Chỉnh sửa toàn bộ chuỗi lịch"
+              >
+                Sửa toàn chuỗi
+              </button>
+            )}
+            {isTeacherOrAdmin && !schedule?.isRecurrenceInstance && (
               <button
                 onClick={() => { onEditSchedule?.(); }}
                 className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
