@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { teacherClassIds } from "@/lib/teacher-classes";
 
 export async function GET() {
   try {
@@ -16,24 +17,10 @@ export async function GET() {
         orderBy: { name: "asc" },
       });
     } else {
-      // Find teacher profile
-      const teacherProfile = await db.teacherProfile.findUnique({
-        where: { userId: session.userId },
-      });
-
-      if (!teacherProfile) {
-        return NextResponse.json({ classes: [] });
-      }
-
-      // For simplicity, return classes that have schedules taught by this teacher
-      // or classes they form-manage.
+      // Lớp phụ trách: chủ nhiệm HOẶC có dạy (scheduleSeries)
+      const ids = await teacherClassIds(session.userId);
       classes = await db.class.findMany({
-        where: {
-          OR: [
-            { formTeacherId: teacherProfile.id },
-            { schedules: { some: { teacherId: teacherProfile.id } } }
-          ]
-        },
+        where: { id: { in: ids } },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       });

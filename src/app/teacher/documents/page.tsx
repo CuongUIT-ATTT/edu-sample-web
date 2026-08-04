@@ -1,17 +1,42 @@
 import React from "react";
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { teacherClassIds } from "@/lib/teacher-classes";
 import DocumentManager from "@/components/DocumentManager";
 import { FileText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function TeacherDocumentsPage() {
+  const session = await getSession();
+  if (!session || session.role !== "TEACHER") redirect("/login");
+
+  const teacherProfile = await db.teacherProfile.findUnique({
+    where: { userId: session.userId },
+  });
+  if (!teacherProfile) redirect("/login");
+
+  // GV chỉ thấy documents mình tạo HOẶC thuộc lớp mình phụ trách
+  const ownedClassIds = await teacherClassIds(session.userId);
   const [docs, classes] = await Promise.all([
     db.document.findMany({
+      where: {
+        OR: [
+          { createdById: teacherProfile.id },
+          ...(ownedClassIds.length > 0
+            ? [{ classVisibility: { some: { classId: { in: ownedClassIds } } } }]
+            : []),
+        ],
+      },
       include: { classVisibility: { include: { class: true } } },
       orderBy: { createdAt: "desc" },
     }),
-    db.class.findMany({ orderBy: { name: "asc" } }),
+    // Chỉ các lớp GV phụ trách (để gán tài liệu)
+    db.class.findMany({
+      where: { id: { in: ownedClassIds } },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   return (

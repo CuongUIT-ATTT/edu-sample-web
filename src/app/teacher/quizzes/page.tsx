@@ -2,6 +2,7 @@
 import React from "react";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { teacherClassIds } from "@/lib/teacher-classes";
 import { redirect } from "next/navigation";
 import TeacherQuizManager from "@/components/TeacherQuizManager";
 
@@ -15,6 +16,7 @@ export default async function TeacherQuizzesPage() {
 
   const teacher = await db.teacherProfile.findUnique({
     where: { userId: session.userId },
+    include: { subjects: true },
   });
 
   if (!teacher) {
@@ -38,24 +40,15 @@ export default async function TeacherQuizzesPage() {
     orderBy: { id: "desc" },
   });
 
-  const subjects = await db.subject.findMany({
-    orderBy: { name: "asc" },
-  });
+  // GV chỉ thấy môn mình được gán dạy
+  const subjects = teacher.subjects.length > 0
+    ? await db.subject.findMany({ where: { id: { in: teacher.subjects.map((s) => s.id) } }, orderBy: { name: "asc" } })
+    : [];
 
-  // Fetch classes where the teacher is either form teacher or teaches schedules in them
-  const schedules = await db.scheduleSeries.findMany({
-    where: { teacherId: teacher.id },
-    select: { classId: true }
-  });
-  const scheduledClassIds = schedules.map(s => s.classId);
-
+  // Lớp GV phụ trách: chủ nhiệm HOẶC có dạy (scheduleSeries)
+  const ownedClassIds = await teacherClassIds(session.userId);
   const classes = await db.class.findMany({
-    where: {
-      OR: [
-        { formTeacherId: teacher.id },
-        { id: { in: scheduledClassIds } }
-      ]
-    },
+    where: { id: { in: ownedClassIds } },
     orderBy: { name: "asc" },
   });
 

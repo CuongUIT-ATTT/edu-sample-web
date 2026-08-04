@@ -410,25 +410,29 @@ export default function TeacherAttendancePage() {
             {students.map((student, index) => (
               <div
                 key={student.id}
-                className="flex items-center justify-between px-6 py-4 hover:bg-surface-pearl transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-6 py-4 hover:bg-surface-pearl transition-colors"
               >
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-caption text-ink-muted-48 w-6">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-xs font-caption text-ink-muted-48 w-6 shrink-0">
                     {index + 1}
                   </span>
-                  <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">
+                  <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold shrink-0">
                     {student.name.charAt(0)}
                   </div>
-                  <div>
-                    <p className="text-sm font-body-strong text-ink">
+                  <div className="min-w-0">
+                    <p className="text-sm font-body-strong text-ink truncate">
                       {student.name}
                     </p>
-                    <p className="text-xs font-caption text-ink-muted-48">
+                    <p className="text-xs font-caption text-ink-muted-48 truncate">
                       {student.email}
                     </p>
                   </div>
                 </div>
+<<<<<<< HEAD
                 <div className="flex flex-wrap justify-end gap-1.5">
+=======
+                <div className="flex flex-wrap justify-start sm:justify-end gap-1.5 shrink-0">
+>>>>>>> 64fcbf8 (feat: giới hạn giáo viên chỉ thấy/thao tác lớp mình phụ trách)
                   {statusButtons.map(
                     ({ status, label, icon, classes: btnClasses }) => (
                       <button

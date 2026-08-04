@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { AttendanceStatus } from "@prisma/client";
+import { teacherClassIds } from "@/lib/teacher-classes";
 import { revalidatePath } from "next/cache";
 
 interface MarkAttendanceInput {
@@ -24,6 +25,17 @@ export async function markAttendance(input: MarkAttendanceInput) {
     const { role } = session;
     if (role !== "TEACHER" && role !== "ADMIN") {
       return { success: false, error: "Bạn không có quyền hạn thực hiện điểm danh." };
+    }
+
+    // 2b. TEACHER: chỉ điểm danh học sinh thuộc lớp mình phụ trách
+    if (role === "TEACHER") {
+      const ownedClassIds = await teacherClassIds(session.userId);
+      const student = await db.studentProfile.findFirst({
+        where: { id: input.studentId, classes: { some: { id: { in: ownedClassIds } } } },
+      });
+      if (!student) {
+        return { success: false, error: "Bạn không được điểm danh học sinh lớp không phụ trách." };
+      }
     }
 
     // 3. Database upsert operation via Prisma Client

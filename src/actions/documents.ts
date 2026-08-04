@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { teacherClassIds, teacherOwnsClass } from "@/lib/teacher-classes";
 import { v2 as cloudinary } from "cloudinary";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { R2, BUCKET } from "@/lib/r2";
@@ -28,6 +29,24 @@ export interface DocumentInput {
 
 export async function getDocuments(onlyPublished = false) {
   try {
+    const session = await getSession();
+    // TEACHER: chỉ thấy documents mình tạo HOẶC thuộc lớp mình phụ trách
+    if (session?.role === "TEACHER") {
+      const teacherProfile = await db.teacherProfile.findUnique({ where: { userId: session.userId } });
+      const owned = teacherProfile ? await teacherClassIds(session.userId) : [];
+      const docs = await db.document.findMany({
+        where: {
+          ...(onlyPublished ? { published: true } : {}),
+          OR: [
+            ...(teacherProfile ? [{ createdById: teacherProfile.id }] : []),
+            ...(owned.length > 0 ? [{ classVisibility: { some: { classId: { in: owned } } } }] : []),
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      return { success: true, data: docs };
+    }
+
     const docs = await db.document.findMany({
       where: onlyPublished ? { published: true } : undefined,
       orderBy: { createdAt: "desc" },
@@ -46,6 +65,21 @@ export async function createDocument(input: DocumentInput) {
       return { success: false, error: "Không có quyền thực hiện hành động này." };
     }
 
+    // TEACHER: chỉ gán tài liệu cho lớp mình phụ trách
+    let createdById: string | null = null;
+    if (session.role === "TEACHER") {
+      const teacherProfile = await db.teacherProfile.findUnique({ where: { userId: session.userId } });
+      if (!teacherProfile) return { success: false, error: "Không tìm thấy hồ sơ giảng viên." };
+      createdById = teacherProfile.id;
+      if (input.classIds?.length) {
+        const owned = await teacherClassIds(session.userId);
+        const invalid = input.classIds.filter((cid) => !owned.includes(cid));
+        if (invalid.length > 0) {
+          return { success: false, error: "Bạn không được gán tài liệu cho lớp không phụ trách." };
+        }
+      }
+    }
+
     const doc = await db.document.create({
       data: {
         title: input.title.trim(),
@@ -56,6 +90,7 @@ export async function createDocument(input: DocumentInput) {
         fileSize: input.fileSize || null,
         category: input.category.trim() || "Chung",
         published: input.published ?? false,
+        createdById,
         classVisibility: input.classIds?.length
           ? { create: input.classIds.map((cid) => ({ classId: cid })) }
           : undefined,
@@ -78,6 +113,23 @@ export async function updateDocument(id: string, input: Partial<DocumentInput>) 
     const session = await getSession();
     if (!session || (session.role !== "ADMIN" && session.role !== "TEACHER")) {
       return { success: false, error: "Không có quyền thực hiện hành động này." };
+    }
+
+    // TEACHER: chỉ sửa document mình tạo, và chỉ gán lớp mình phụ trách
+    if (session.role === "TEACHER") {
+      const teacherProfile = await db.teacherProfile.findUnique({ where: { userId: session.userId } });
+      const existing = await db.document.findUnique({ where: { id } });
+      if (!existing) return { success: false, error: "Tài liệu không tồn tại." };
+      if (!teacherProfile || existing.createdById !== teacherProfile.id) {
+        return { success: false, error: "Bạn không có quyền sửa tài liệu này." };
+      }
+      if (input.classIds?.length) {
+        const owned = await teacherClassIds(session.userId);
+        const invalid = input.classIds.filter((cid) => !owned.includes(cid));
+        if (invalid.length > 0) {
+          return { success: false, error: "Bạn không được gán tài liệu cho lớp không phụ trách." };
+        }
+      }
     }
 
     const doc = await db.document.update({
@@ -118,6 +170,16 @@ export async function toggleDocumentPublish(id: string, published: boolean) {
       return { success: false, error: "Không có quyền thực hiện hành động này." };
     }
 
+    // TEACHER: chỉ publish document mình tạo
+    if (session.role === "TEACHER") {
+      const teacherProfile = await db.teacherProfile.findUnique({ where: { userId: session.userId } });
+      const existing = await db.document.findUnique({ where: { id } });
+      if (!existing) return { success: false, error: "Tài liệu không tồn tại." };
+      if (!teacherProfile || existing.createdById !== teacherProfile.id) {
+        return { success: false, error: "Bạn không có quyền thay đổi tài liệu này." };
+      }
+    }
+
     const doc = await db.document.update({
       where: { id },
       data: { published },
@@ -143,6 +205,14 @@ export async function deleteDocument(id: string) {
     const existing = await db.document.findUnique({ where: { id } });
     if (!existing) {
       return { success: false, error: "Tài liệu không tồn tại." };
+    }
+
+    // TEACHER: chỉ xóa document mình tạo
+    if (session.role === "TEACHER") {
+      const teacherProfile = await db.teacherProfile.findUnique({ where: { userId: session.userId } });
+      if (!teacherProfile || existing.createdById !== teacherProfile.id) {
+        return { success: false, error: "Bạn không có quyền xóa tài liệu này." };
+      }
     }
 
     // If it's a Cloudinary link, try to extract public_id and delete the file

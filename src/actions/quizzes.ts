@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { teacherClassIds } from "@/lib/teacher-classes";
 
 interface SubmitQuizInput {
   quizId: string;
@@ -212,6 +213,7 @@ export async function createQuiz(input: CreateQuizInput) {
     if (session.role === "TEACHER") {
       const teacher = await db.teacherProfile.findUnique({
         where: { userId: session.userId },
+        include: { subjects: true },
       });
       if (!teacher) {
         return { success: false, error: "Hồ sơ giảng viên của bạn không tồn tại." };
@@ -223,6 +225,25 @@ export async function createQuiz(input: CreateQuizInput) {
 
     if (!title || isNaN(duration) || isNaN(passingScore) || !subjectId || questions.length === 0) {
       return { success: false, error: "Vui lòng nhập đầy đủ thông tin đề thi và ít nhất 1 câu hỏi." };
+    }
+
+    // TEACHER: chỉ tạo đề cho môn mình được gán + lớp mình phụ trách
+    if (session.role === "TEACHER") {
+      const teacher = await db.teacherProfile.findUnique({
+        where: { userId: session.userId },
+        include: { subjects: true },
+      });
+      if (teacher) {
+        if (!teacher.subjects.some((s) => s.id === subjectId)) {
+          return { success: false, error: "Bạn không được tạo đề kiểm tra cho môn học không phụ trách." };
+        }
+        if (classId) {
+          const owned = await teacherClassIds(session.userId);
+          if (!owned.includes(classId)) {
+            return { success: false, error: "Bạn không được tạo đề kiểm tra cho lớp không phụ trách." };
+          }
+        }
+      }
     }
 
     // AFTER_ALL_SUBMITTED chỉ hợp lệ cho đề private CÓ gắn lớp; ngược lại ép về IMMEDIATELY
@@ -283,6 +304,16 @@ export async function deleteQuiz(quizId: string) {
       return { success: false, error: "Chỉ quản trị viên hoặc giảng viên mới được xoá đề kiểm tra." };
     }
 
+    // TEACHER: chỉ xóa quiz mình tạo
+    if (session.role === "TEACHER") {
+      const teacher = await db.teacherProfile.findUnique({ where: { userId: session.userId } });
+      const quiz = await db.quiz.findUnique({ where: { id: quizId } });
+      if (!quiz) return { success: false, error: "Đề kiểm tra không tồn tại." };
+      if (!teacher || quiz.teacherId !== teacher.id) {
+        return { success: false, error: "Bạn không có quyền xoá đề kiểm tra này." };
+      }
+    }
+
     await db.quiz.delete({
       where: { id: quizId },
     });
@@ -310,6 +341,28 @@ export async function updateQuiz(input: UpdateQuizInput) {
     }
 
     const { id, title, description, duration, passingScore, deadline, subjectId, classId, isPublic, answerVisibility, questions } = input;
+
+    // TEACHER: chỉ sửa quiz mình tạo + subject/class ownership
+    if (session.role === "TEACHER") {
+      const teacher = await db.teacherProfile.findUnique({
+        where: { userId: session.userId },
+        include: { subjects: true },
+      });
+      const existingQuiz = await db.quiz.findUnique({ where: { id } });
+      if (!existingQuiz) return { success: false, error: "Đề kiểm tra không tồn tại." };
+      if (!teacher || existingQuiz.teacherId !== teacher.id) {
+        return { success: false, error: "Bạn không có quyền sửa đề kiểm tra này." };
+      }
+      if (!teacher.subjects.some((s) => s.id === subjectId)) {
+        return { success: false, error: "Bạn không được tạo đề kiểm tra cho môn học không phụ trách." };
+      }
+      if (classId) {
+        const owned = await teacherClassIds(session.userId);
+        if (!owned.includes(classId)) {
+          return { success: false, error: "Bạn không được gán đề kiểm tra cho lớp không phụ trách." };
+        }
+      }
+    }
 
     // AFTER_ALL_SUBMITTED chỉ hợp lệ cho đề private CÓ gắn lớp
     const finalVisibility =
@@ -371,6 +424,16 @@ export async function getQuizSubmissions(quizId: string) {
     const session = await getSession();
     if (!session || (session.role !== "TEACHER" && session.role !== "ADMIN")) {
       return { success: false, error: "Bạn không có quyền xem kết quả bài kiểm tra này." };
+    }
+
+    // TEACHER: chỉ xem submissions của quiz mình tạo
+    if (session.role === "TEACHER") {
+      const teacher = await db.teacherProfile.findUnique({ where: { userId: session.userId } });
+      const quiz = await db.quiz.findUnique({ where: { id: quizId } });
+      if (!quiz) return { success: false, error: "Đề kiểm tra không tồn tại." };
+      if (!teacher || quiz.teacherId !== teacher.id) {
+        return { success: false, error: "Bạn không có quyền xem kết quả đề kiểm tra này." };
+      }
     }
 
     const submissions = await db.quizSubmission.findMany({

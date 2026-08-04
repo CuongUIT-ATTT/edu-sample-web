@@ -83,6 +83,7 @@ model TeacherProfile {
   scheduleSeries ScheduleSeries[] // Schedules (series) they teach
   grades    Grade[] // Grades they recorded
   quizzes   Quiz[]
+  createdDocuments Document[] // Tài liệu GV tạo
 }
 
 model StudentProfile {
@@ -397,6 +398,10 @@ model Document {
   published   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  // Người tạo document (TeacherProfile.id). Admin = null. Dùng để giới hạn GV chỉ sửa/xóa doc của mình.
+  createdById String?
+  createdBy   TeacherProfile? @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   classVisibility DocumentClassVisibility[]
 }
