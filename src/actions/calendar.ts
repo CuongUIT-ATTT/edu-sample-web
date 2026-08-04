@@ -343,6 +343,8 @@ export interface ScheduleEventDisplay {
     scheduleId: string; // = seriesId (chuỗi lịch)
     instanceDate: string; // YYYY-MM-DD của buổi cụ thể
     seriesEndDate: string | null; // YYYY-MM-DD hoặc null (vô hạn)
+    classId: string;
+    subjectId: string;
     className: string;
     subjectName: string;
     teacherName: string;
@@ -427,6 +429,8 @@ export async function getSchedulesForCalendar(
           scheduleId: s.id, // seriesId
           instanceDate: dateStr,
           seriesEndDate: s.endDate ? dateToUtcStr(s.endDate) : null,
+          classId: inst.classId,
+          subjectId: inst.subjectId,
           className: s.class.name,
           subjectName: s.subject.name,
           teacherName: s.teacher.user.name,
