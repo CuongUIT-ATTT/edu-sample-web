@@ -265,4 +265,42 @@ describe("expandSeriesToInstances — reschedule (dời ngày buổi)", () => {
     expect(dates).not.toContain("2026-09-01");
     expect(dates).not.toContain("2026-08-11"); // buổi gốc vẫn bị skip dù dời ngoài window
   });
+
+  it("exception ORPHAN (originalDate không khớp dayOfWeek series) → KHÔNG mọc buổi dời tại ngày không hợp lệ", () => {
+    // series dayOfWeek=2 (Thứ 3). Exception có originalDate Chủ nhật (không phải buổi của series)
+    // có rescheduledDate là Thứ 4 (08/12) — không phải buổi series. Nếu exception hợp lệ, sẽ sinh
+    // buổi dời thừa tại 08/12. Orphan phải bị bỏ qua → 08/12 không xuất hiện.
+    const exceptions: ExceptionLike[] = [
+      {
+        originalDate: utc("2026-08-09"), // Chủ nhật — không khớp dayOfWeek=2 (orphan)
+        status: "MODIFIED",
+        rescheduledDate: utc("2026-08-12"), // Thứ 4 — không phải buổi series
+      },
+    ];
+    const instances = expandSeriesToInstances(series, exceptions, utc("2026-08-01"), utc("2026-08-31"));
+    const dates = instances.map((i) => dateToUtcStr(i.instanceDate));
+    // 08/12 không có buổi dời thừa (orphan bị bỏ qua)
+    expect(dates).not.toContain("2026-08-12");
+    // Các buổi Thứ 3 khác vẫn hiện bình thường
+    expect(dates).toContain("2026-08-04");
+    expect(dates).toContain("2026-08-11");
+    expect(dates).toContain("2026-08-18");
+  });
+
+  it("exception HỢP LỆ (originalDate khớp dayOfWeek) → vẫn sinh buổi dời đúng", () => {
+    const exceptions: ExceptionLike[] = [
+      {
+        originalDate: utc("2026-08-11"), // Thứ 3 — khớp dayOfWeek=2
+        status: "MODIFIED",
+        rescheduledDate: utc("2026-08-14"), // Thứ 6
+      },
+    ];
+    const instances = expandSeriesToInstances(series, exceptions, utc("2026-08-01"), utc("2026-08-31"));
+    const dates = instances.map((i) => dateToUtcStr(i.instanceDate));
+    expect(dates).not.toContain("2026-08-11"); // buổi gốc biến mất
+    expect(dates).toContain("2026-08-14"); // buổi dời xuất hiện
+    // Buổi dời phải mang originalDate (ngày gốc) để sửa lại đúng exception sau này
+    const moved = instances.find((i) => dateToUtcStr(i.instanceDate) === "2026-08-14");
+    expect(moved?.originalDate ? dateToUtcStr(moved.originalDate) : null).toBe("2026-08-11");
+  });
 });

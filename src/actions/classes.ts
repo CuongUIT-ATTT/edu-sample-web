@@ -3,12 +3,18 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { teacherOwnsClass } from "@/lib/teacher-classes";
 
 export async function updateClass(classId: string, formData: FormData) {
   try {
     const session = await getSession();
     if (!session || (session.role !== "ADMIN" && session.role !== "TEACHER")) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
+    }
+
+    // TEACHER: chỉ sửa lớp mình phụ trách
+    if (session.role === "TEACHER" && !(await teacherOwnsClass(session.userId, classId))) {
+      return { success: false, error: "Bạn không được chỉnh sửa lớp không phụ trách." };
     }
 
     const name = formData.get("name") as string;
@@ -58,6 +64,11 @@ export async function deleteClass(classId: string) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
     }
 
+    // TEACHER: chỉ xóa lớp mình phụ trách
+    if (session.role === "TEACHER" && !(await teacherOwnsClass(session.userId, classId))) {
+      return { success: false, error: "Bạn không được xoá lớp không phụ trách." };
+    }
+
     await db.class.delete({
       where: { id: classId },
     });
@@ -76,6 +87,11 @@ export async function removeStudentFromClass(classId: string, studentId: string)
     const session = await getSession();
     if (!session || (session.role !== "ADMIN" && session.role !== "TEACHER")) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
+    }
+
+    // TEACHER: chỉ thao tác lớp mình phụ trách
+    if (session.role === "TEACHER" && !(await teacherOwnsClass(session.userId, classId))) {
+      return { success: false, error: "Bạn không được thao tác trên lớp không phụ trách." };
     }
 
     await db.class.update({
@@ -101,6 +117,11 @@ export async function addStudentToClass(classId: string, studentId: string | str
     const session = await getSession();
     if (!session || (session.role !== "ADMIN" && session.role !== "TEACHER")) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
+    }
+
+    // TEACHER: chỉ thao tác lớp mình phụ trách
+    if (session.role === "TEACHER" && !(await teacherOwnsClass(session.userId, classId))) {
+      return { success: false, error: "Bạn không được thao tác trên lớp không phụ trách." };
     }
 
     const studentIds = Array.isArray(studentId) ? studentId : [studentId];

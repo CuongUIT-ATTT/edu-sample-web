@@ -48,7 +48,7 @@ const DAYS_NAME: Record<number, string> = {
   7: "Chủ Nhật",
 };
 
-// Label buổi học: hiển thị ngày thật (s.date); legacy không date → "Hàng tuần"
+// Label buổi học ngắn gọn (tránh cắt trên mobile): "12/08 • Toán (07:00-09:00)"
 function scheduleLabel(s: AdminSchedule): string {
   const dateLabel = s.date
     ? new Date(s.date).toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })
@@ -384,10 +384,10 @@ export default function AttendanceAdminClient({
               return (
                 <div
                   key={student.id}
-                  className="flex items-center justify-between px-6 py-4 hover:bg-surface-pearl transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-6 py-4 hover:bg-surface-pearl transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xs font-caption text-ink-muted-48 w-6">
+                    <span className="text-xs font-caption text-ink-muted-48 w-6 shrink-0">
                       {index + 1}
                     </span>
                     <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
@@ -397,20 +397,20 @@ export default function AttendanceAdminClient({
                       <p className="text-sm font-body-strong text-ink truncate">
                         {student.user.name}
                       </p>
-                      <p className="text-xs font-caption text-ink-muted-48">
+                      <p className="text-xs font-caption text-ink-muted-48 truncate">
                         {saved
                           ? `Đã lưu: ${STATUS_BUTTONS.find((b) => b.status === saved.status)?.label ?? saved.status}`
                           : "Chưa điểm danh"}
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2 flex-wrap justify-end">
+                  <div className="flex flex-wrap justify-start sm:justify-end gap-1.5 shrink-0">
                     {STATUS_BUTTONS.map(
                       ({ status, label, icon, classes: btnClasses }) => (
                         <button
                           key={status}
                           onClick={() => setStatus(student.id, status)}
-                          className={`flex items-center gap-1 px-3 py-1.5 rounded-pill border text-xs font-caption-strong transition-all ${btnClasses} ${attendance[student.id] === status ? "ring-2 ring-offset-1 ring-current scale-105 shadow-sm" : "opacity-60"}`}
+                          className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-pill border text-[11px] sm:text-xs font-caption-strong transition-all ${btnClasses} ${attendance[student.id] === status ? "ring-2 ring-offset-1 ring-current scale-105 shadow-sm" : "opacity-60"}`}
                         >
                           {icon} {label}
                         </button>

@@ -412,4 +412,33 @@ describe("ScheduleSeries CRUD integration", () => {
     expect(upd.success).toBe(false);
     expect(upd.error).toContain("đã có buổi học trong chuỗi");
   });
+
+  it("12. updateSchedule ONLY_THIS dời tới ngày QUÁ KHỨ → bị chặn (tránh buổi mất khỏi agenda)", async () => {
+    const res = await createSchedule({
+      classId: classId1, subjectId, teacherId: teacherTestId,
+      dayOfWeek: 2, startTime: "09:00", endTime: "10:30", room: "SERIES-M",
+      startDate: "2026-08-04",
+    });
+    expect(res.success).toBe(true);
+    const seriesId = (res as any).data.seriesId;
+
+    // Dời buổi sang ngày trong quá khứ (giả lập ngày hôm nay là 2026-08-05)
+    const upd = await updateSchedule({
+      seriesId, instanceDate: "2026-08-11",
+      classId: classId1, subjectId, teacherId: teacherTestId,
+      dayOfWeek: 2, startTime: "09:00", endTime: "10:30", room: "SERIES-M",
+      rescheduledDate: "2026-08-04", // Thứ 3 — trong quá khứ nếu hôm nay là 05/08
+      updateMode: "ONLY_THIS",
+    });
+    // Guard dùng normalizeDateUtc(new Date()) = hôm nay thật. Nếu hôm nay >= 05/08 thì 04/08 là quá khứ.
+    // Để test ổn định mọi ngày, ta check: nếu 04/08 < hôm nay thật → bị chặn.
+    const todayUtc = normalizeDateUtc(new Date());
+    if (new Date("2026-08-04T00:00:00.000Z") < todayUtc) {
+      expect(upd.success).toBe(false);
+      expect(upd.error).toContain("quá khứ");
+    } else {
+      // Nếu test chạy trước 04/08 (hiếm), dời này là tương lai → cho phép
+      expect(upd.success).toBe(true);
+    }
+  });
 });

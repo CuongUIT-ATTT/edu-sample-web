@@ -341,7 +341,8 @@ export interface ScheduleEventDisplay {
   }>;
   scheduleMeta?: {
     scheduleId: string; // = seriesId (chuỗi lịch)
-    instanceDate: string; // YYYY-MM-DD của buổi cụ thể
+    instanceDate: string; // YYYY-MM-DD của buổi cụ thể (ngày hiển thị)
+    originalDate: string | null; // YYYY-MM-DD ngày GỐC nếu buổi này đã được dời (else null)
     seriesEndDate: string | null; // YYYY-MM-DD hoặc null (vô hạn)
     classId: string;
     subjectId: string;
@@ -428,6 +429,7 @@ export async function getSchedulesForCalendar(
         scheduleMeta: {
           scheduleId: s.id, // seriesId
           instanceDate: dateStr,
+          originalDate: inst.originalDate ? dateToUtcStr(inst.originalDate) : null,
           seriesEndDate: s.endDate ? dateToUtcStr(s.endDate) : null,
           classId: inst.classId,
           subjectId: inst.subjectId,

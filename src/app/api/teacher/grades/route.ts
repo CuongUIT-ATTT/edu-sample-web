@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { teacherOwnsClass } from "@/lib/teacher-classes";
 
 export async function GET(request: Request) {
   try {
@@ -16,6 +17,11 @@ export async function GET(request: Request) {
 
     if (!classId || !subjectId || !type) {
       return NextResponse.json({ error: "Missing query parameters" }, { status: 400 });
+    }
+
+    // TEACHER: chỉ xem điểm lớp mình phụ trách
+    if (session.role === "TEACHER" && !(await teacherOwnsClass(session.userId, classId))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Fetch existing grades for students in this class, for this subject and type

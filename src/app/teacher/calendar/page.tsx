@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { teacherClassIds as getTeacherClassIds } from "@/lib/teacher-classes";
 import CalendarApp from "@/components/calendar/CalendarApp";
 
 export default async function TeacherCalendarPage() {
@@ -11,26 +12,20 @@ export default async function TeacherCalendarPage() {
     where: { userId: session.userId },
   });
 
-  // Giáo viên chỉ đăng ký lịch cho lớp mình phụ trách: chủ nhiệm HOẶC có dạy
-  const teacherClassIds = teacherProfile
-    ? (
-        await db.class.findMany({
-          where: {
-            OR: [
-              { formTeacherId: teacherProfile.id },
-              { schedules: { some: { teacherId: teacherProfile.id } } },
-            ],
-          },
-          select: { id: true },
-        })
-      ).map((c) => c.id)
-    : [];
+  // Giáo viên chỉ đăng ký lịch cho lớp mình phụ trách: chủ nhiệm HOẶC có dạy (scheduleSeries)
+  const teacherClassIds = teacherProfile ? await getTeacherClassIds(session.userId) : [];
 
   const [classes, subjects, rooms] = await Promise.all([
     teacherClassIds.length > 0
       ? db.class.findMany({ where: { id: { in: teacherClassIds } }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
-    db.subject.findMany({ orderBy: { name: "asc" } }),
+    // GV chỉ thấy môn mình được gán dạy (TeacherProfile.subjects), không thấy môn lớp khác
+    teacherProfile
+      ? db.subject.findMany({
+          where: { teachers: { some: { id: teacherProfile.id } } },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
     db.room.findMany({ orderBy: { name: "asc" } }),
   ]);
 
