@@ -264,6 +264,7 @@ export default function CalendarApp({
     setEditScheduleData({
       seriesId: meta.scheduleId,
       instanceDate: meta.instanceDate,
+      originalDate: meta.originalDate ?? null,
       classId: foundClass?.id || "",
       subjectId: foundSubject?.id || "",
       teacherId: foundTeacher?.id || "",

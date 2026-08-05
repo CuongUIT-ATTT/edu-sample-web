@@ -299,5 +299,8 @@ describe("expandSeriesToInstances — reschedule (dời ngày buổi)", () => {
     const dates = instances.map((i) => dateToUtcStr(i.instanceDate));
     expect(dates).not.toContain("2026-08-11"); // buổi gốc biến mất
     expect(dates).toContain("2026-08-14"); // buổi dời xuất hiện
+    // Buổi dời phải mang originalDate (ngày gốc) để sửa lại đúng exception sau này
+    const moved = instances.find((i) => dateToUtcStr(i.instanceDate) === "2026-08-14");
+    expect(moved?.originalDate ? dateToUtcStr(moved.originalDate) : null).toBe("2026-08-11");
   });
 });

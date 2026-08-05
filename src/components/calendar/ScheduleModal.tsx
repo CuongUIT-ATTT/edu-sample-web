@@ -18,7 +18,9 @@ interface ScheduleModalProps {
   rooms: { id: string; name: string; capacity?: number | null }[];
   editSchedule?: {
     seriesId: string;
-    instanceDate: string; // YYYY-MM-DD của buổi đang sửa
+    instanceDate: string; // YYYY-MM-DD của buổi đang sửa (ngày hiển thị)
+    /** Ngày GỐC nếu buổi này đã được dời (dùng làm instanceDate khi update — upsert đúng exception). */
+    originalDate?: string | null;
     classId: string;
     subjectId: string;
     teacherId: string;
@@ -174,13 +176,23 @@ export default function ScheduleModal({
           ? null
           : endDate || undefined;
         // Chỉ sửa 1 buổi: dùng ô 'Ngày bắt đầu' (phía trên) làm ngày buổi học.
-        // Nếu đổi khác ngày hiện tại → dời buổi sang ngày đó; giữ nguyên nếu trùng.
+        // Nếu đổi khác ngày hiển thị → dời buổi sang ngày đó; giữ nguyên nếu trùng.
         const isOnlyThis = updateMode === "ONLY_THIS";
-        const rescheduleTarget =
-          isOnlyThis && startDate && startDate !== editSchedule.instanceDate ? startDate : null;
+        // instanceDate gửi server = ngày GỐC (nếu buổi này đã được dời) để upsert đúng exception.
+        const baseInstanceDate = editSchedule.originalDate ?? editSchedule.instanceDate;
+        let rescheduleTarget: string | null | undefined;
+        if (isOnlyThis) {
+          if (startDate && startDate !== editSchedule.instanceDate) {
+            rescheduleTarget = startDate; // user đổi ngày hiển thị → dời sang ngày mới
+          } else if (editSchedule.originalDate) {
+            rescheduleTarget = editSchedule.instanceDate; // buổi đã dời, giữ nguyên → giữ rescheduledDate hiện tại
+          } else {
+            rescheduleTarget = null; // buổi thường, giữ nguyên → không dời
+          }
+        }
         const result = await updateSchedule({
           seriesId: editSchedule.seriesId,
-          instanceDate: editSchedule.instanceDate,
+          instanceDate: baseInstanceDate,
           classId,
           subjectId,
           teacherId: isTeacher ? currentTeacherProfileId ?? "" : teacherId,

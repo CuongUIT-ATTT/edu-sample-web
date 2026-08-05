@@ -83,6 +83,9 @@ export interface ScheduleInstance {
   homeworkQuizId: string | null;
   /** true nếu instance này là exception MODIFIED (đã được override). */
   isModified: boolean;
+  /** Ngày GỐC (originalDate) của exception khi instance là buổi đã DỜI ngày.
+   *  Chỉ có ở buổi rescheduled — dùng để sửa lại exception đúng (instanceDate = ngày hiển thị). */
+  originalDate?: Date | null;
 }
 
 /** Kiểu tối thiểu mà expandSeriesToInstances cần từ row ScheduleSeries. */
@@ -221,6 +224,10 @@ export function expandSeriesToInstances(
     const newDate = normalizeDateUtc(exc.rescheduledDate);
     if (newDate < from || newDate > to) continue;
     pushInstance(newDate, exc, true); // thắng instance trùng ngày (nếu có) nhờ instancesByDate.set
+    // Gắn originalDate (ngày gốc) để khi sửa buổi đã dời, update đúng exception gốc.
+    const reschedDateStr = dateToUtcStr(newDate);
+    const reschedInstance = instancesByDate.get(reschedDateStr);
+    if (reschedInstance) reschedInstance.originalDate = normalizeDateUtc(exc.originalDate);
   }
 
   return Array.from(instancesByDate.values());
