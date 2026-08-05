@@ -459,6 +459,18 @@ export async function updateSchedule(input: UpdateScheduleInput) {
       const reschedChanged = "rescheduledDate" in input;
       const newReschedDate = reschedChanged && rescheduledDate ? toUtc(rescheduledDate) : null;
 
+      // Chặn dời buổi tới ngày trong QUÁ KHỨ — buổi sẽ nằm ngoài window agenda (mất khỏi lịch trình)
+      // và gây nhầm lẫn "sự kiện biến mất". Chỉ cho dời tới hôm nay hoặc tương lai.
+      if (newReschedDate) {
+        const todayUtc = normalizeDateUtc(new Date());
+        if (newReschedDate < todayUtc) {
+          return {
+            success: false,
+            error: "Không thể dời buổi học tới ngày trong quá khứ. Chỉ dời tới hôm nay hoặc ngày tương lai.",
+          };
+        }
+      }
+
       // Nếu DỜI ngày: kiểm tra (1) ngày mới trùng instance trong chuỗi, (2) conflict tại ngày mới.
       if (newReschedDate) {
         // (1) Ngày dời không được trùng 1 buổi còn tồn tại của chính chuỗi
