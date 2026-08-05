@@ -157,6 +157,12 @@ export default function ScheduleModal({
       return;
     }
 
+    // Guard: endDate (nếu có) không được trước startDate — tránh tạo chuỗi lỗi endDate < startDate
+    if (endDate && startDate && endDate < startDate) {
+      showToast("Ngày kết thúc không được trước ngày bắt đầu", "warning");
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (editSchedule) {

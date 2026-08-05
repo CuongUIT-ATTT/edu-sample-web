@@ -444,6 +444,11 @@ export async function updateSchedule(input: UpdateScheduleInput) {
     // endDate: undefined = KHÔNG đổi endDate series (giữ nguyên); null = vô hạn; string = set ngày mới.
     const endDateChanged = "endDate" in input;
     const newEndDate = endDateChanged ? (endDate ? toUtc(endDate) : null) : undefined;
+    // Guard: endDate mới không được trước startDate của chuỗi (đang sửa).
+    // Nếu không, expandSeriesToInstances sẽ không sinh buổi nào hoặc dữ liệu lỗi.
+    if (endDateChanged && newEndDate && targetSeries.startDate > newEndDate) {
+      return { success: false, error: "Ngày kết thúc không được trước ngày bắt đầu của lịch." };
+    }
 
     // ─── Mode ONLY_THIS: tạo/update exception MODIFIED ───
     if (updateMode === "ONLY_THIS") {
@@ -582,12 +587,6 @@ export async function updateSchedule(input: UpdateScheduleInput) {
         });
         if (conflict) throw conflict;
 
-        // 1. Cắt series cũ: endDate = ngày trước cutover
-        await tx.scheduleSeries.update({
-          where: { id: seriesId },
-          data: { endDate: addDaysUtc(cutoverDate, -1) },
-        });
-
         // 2. Tạo series mới từ cutover. endDate: nếu user không đổi → kế thừa endDate series cũ.
         const newSeriesEndDate = endDateChanged ? newEndDate : targetSeries.endDate;
         const newSeries = await tx.scheduleSeries.create({
@@ -608,6 +607,19 @@ export async function updateSchedule(input: UpdateScheduleInput) {
           where: { seriesId, instanceDate: { gte: cutoverDate } },
           data: { seriesId: newSeries.id },
         });
+
+        // 4. Cắt series cũ: endDate = ngày trước cutover.
+        //    Nếu cutoverDate trùng startDate → chuỗi cũ không còn buổi nào → xóa luôn
+        //    (phải xóa SAU khi di dời exception/submission để không cascade mất data).
+        const oldEndDate = addDaysUtc(cutoverDate, -1);
+        if (oldEndDate < targetSeries.startDate) {
+          await tx.scheduleSeries.delete({ where: { id: seriesId } });
+        } else {
+          await tx.scheduleSeries.update({
+            where: { id: seriesId },
+            data: { endDate: oldEndDate },
+          });
+        }
 
         return newSeries;
       });
@@ -750,16 +762,25 @@ export async function deleteSchedule(input: DeleteScheduleInput) {
         };
       }
 
-      // Cắt endDate = ngày trước targetDate; xóa exception >= targetDate
-      await db.$transaction([
-        db.scheduleSeries.update({
-          where: { id: seriesId },
-          data: { endDate: addDaysUtc(targetDate, -1) },
-        }),
-        db.scheduleException.deleteMany({
-          where: { seriesId, originalDate: { gte: targetDate } },
-        }),
-      ]);
+      // Cắt endDate = ngày trước targetDate; xóa exception >= targetDate.
+      // Nếu targetDate trùng startDate → chuỗi không còn buổi nào → xóa luôn
+      // (tránh để endDate < startDate gây data lỗi).
+      const newEnd = addDaysUtc(targetDate, -1);
+      await db.$transaction(
+        async (tx) => {
+          if (newEnd < targetSeries.startDate) {
+            await tx.scheduleSeries.delete({ where: { id: seriesId } });
+          } else {
+            await tx.scheduleSeries.update({
+              where: { id: seriesId },
+              data: { endDate: newEnd },
+            });
+            await tx.scheduleException.deleteMany({
+              where: { seriesId, originalDate: { gte: targetDate } },
+            });
+          }
+        }
+      );
     } else {
       // ONLY_THIS: tạo exception CANCELLED cho đúng ngày đó
       if (await hasSubmissions(seriesId, targetDate)) {
