@@ -134,9 +134,10 @@ export default function ScheduleModal({
   // Chỉ sửa 1 buổi: ngày có thể lệch dayOfWeek (buổi đã dời) → bỏ ràng buộc khớp thứ.
   const isEditingOnlyThis = !!editSchedule && updateMode === "ONLY_THIS";
 
-  // Check if selected date matches dayOfWeek (bỏ qua khi sửa 1 buổi — ngày là ngày thật của buổi)
+  // Check if selected date matches dayOfWeek (bỏ qua khi EDIT — ngày có thể lệch thứ:
+  // ONLY_THIS cho dời buổi sang ngày khác thứ; ALL_FUTURE/ALL block ngày nên không cần khớp).
   const dateMatchesDay = (() => {
-    if (isEditingOnlyThis) return true;
+    if (editSchedule) return true;
     if (!startDate) return true;
     const d = new Date(startDate);
     const dow = d.getDay() === 0 ? 7 : d.getDay();
@@ -307,20 +308,34 @@ export default function ScheduleModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-ink-muted-80 block mb-1">Thứ *</label>
-              <select value={dayOfWeek} onChange={(e) => handleDayOfWeekChange(Number(e.target.value))}
-                className="w-full text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500">
+              <select
+                value={dayOfWeek}
+                onChange={(e) => handleDayOfWeekChange(Number(e.target.value))}
+                disabled={isEditingOnlyThis}
+                className="w-full text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 disabled:bg-surface-pearl disabled:text-ink-muted-48 disabled:cursor-not-allowed">
                 {DAYS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
+              {isEditingOnlyThis && (
+                <p className="text-[10px] text-ink-muted-48 mt-1">Không đổi được thứ khi sửa 1 buổi.</p>
+              )}
             </div>
             <div>
               <label className="text-xs font-medium text-ink-muted-80 block mb-1">
                 {isEditingOnlyThis ? "Ngày của buổi học *" : "Ngày bắt đầu *"}
               </label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                className={`w-full text-sm border rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 ${!dateMatchesDay ? "border-red-400 bg-red-50" : "border-hairline"}`} />
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                disabled={!!editSchedule && !isEditingOnlyThis}
+                className={`w-full text-sm border rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 disabled:bg-surface-pearl disabled:text-ink-muted-48 disabled:cursor-not-allowed ${!dateMatchesDay ? "border-red-400 bg-red-50" : "border-hairline"}`} />
               {isEditingOnlyThis ? (
                 <p className="text-[10px] text-ink-muted-48 mt-1">
                   Đổi ngày để dời buổi học này sang ngày khác.
+                </p>
+              ) : editSchedule ? (
+                <p className="text-[10px] text-ink-muted-48 mt-1">
+                  Ngày bắt đầu của chuỗi. Không đổi được khi sửa chuỗi.
                 </p>
               ) : (
                 !dateMatchesDay && (
