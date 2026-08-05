@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import CalendarHeader from "./CalendarHeader";
-import CalendarSidebar from "./CalendarSidebar";
 import DayView from "./DayView";
 import WeekView from "./WeekView";
 import MonthView from "./MonthView";
@@ -85,7 +84,6 @@ export default function CalendarApp({
   const [sessionDetailOpen, setSessionDetailOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<CalendarEvent | null>(null);
   const [editScheduleData, setEditScheduleData] = useState<Record<string, unknown> | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   // refreshKey: đổi giá trị → trigger load lại events (sau create/update/delete/drag). Cơ chế re-fetch duy nhất.
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -295,22 +293,8 @@ export default function CalendarApp({
 
   return (
     <div className="flex h-full relative">
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/30 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
-
-      {/* Sidebar */}
-      <div className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:static inset-y-0 left-0 z-50 transition-transform`}>
-        <CalendarSidebar
-          selectedDate={currentDate}
-          onDateSelect={(d) => { setCurrentDate(d); setCurrentView("day"); setSidebarOpen(false); }}
-        />
-      </div>
-
       <div className="flex-1 flex flex-col min-w-0">
         <CalendarHeader
-          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           currentView={currentView}
           currentDate={currentDate}
           onViewChange={setCurrentView}
