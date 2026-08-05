@@ -207,6 +207,17 @@ export function expandSeriesToInstances(
   // Sinh các buổi đã được dời ngày (rescheduled) — 1 buổi đặc biệt tại rescheduledDate, không lặp tuần.
   for (const exc of exceptions) {
     if (exc.status !== "MODIFIED" || !exc.rescheduledDate) continue;
+
+    // CHỈ sinh buổi dời nếu originalDate là 1 buổi HỢP LỆ của series (khớp dayOfWeek, trong [startDate, endDate]).
+    // Exception orphan (originalDate không phải buổi của series — do series đổi dayOfWeek / data cũ) sẽ bị bỏ qua,
+    // tránh "mọc" buổi thừa tại rescheduledDate làm ngày cũ vẫn hiện cùng ngày mới.
+    const origDate = normalizeDateUtc(exc.originalDate);
+    const origIsValidOccurrence =
+      jsDayToDow(origDate.getUTCDay()) === series.dayOfWeek &&
+      origDate >= seriesStart &&
+      (!seriesEnd || origDate <= seriesEnd);
+    if (!origIsValidOccurrence) continue;
+
     const newDate = normalizeDateUtc(exc.rescheduledDate);
     if (newDate < from || newDate > to) continue;
     pushInstance(newDate, exc, true); // thắng instance trùng ngày (nếu có) nhờ instancesByDate.set
