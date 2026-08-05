@@ -80,7 +80,6 @@ export default function ScheduleModal({
   const [endDate, setEndDate] = useState("");
   const [updateMode, setUpdateMode] = useState<"ONLY_THIS" | "ALL_FUTURE" | "ALL">("ALL_FUTURE");
   const [endDateUnlimited, setEndDateUnlimited] = useState(false);
-  const [rescheduledDate, setRescheduledDate] = useState("");
   const [ignoreWarning, setIgnoreWarning] = useState(false);
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -100,7 +99,6 @@ export default function ScheduleModal({
       setEndDate(editSchedule.endDate || "");
       setEndDateUnlimited(!editSchedule.endDate);
       setUpdateMode(editSchedule.recurrence === "WEEKLY" ? "ALL_FUTURE" : "ALL");
-      setRescheduledDate("");
     } else if (isOpen && !editSchedule) {
       // Reset form for new schedule
       setClassId("");
@@ -115,7 +113,6 @@ export default function ScheduleModal({
       setEndDate("");
       setUpdateMode("ALL_FUTURE");
       setEndDateUnlimited(false);
-      setRescheduledDate("");
       setIgnoreWarning(false);
       setWarningMsg(null);
     }
@@ -127,14 +124,19 @@ export default function ScheduleModal({
 
   const isTeacher = role === "TEACHER";
 
-  // Auto-adjust startDate when dayOfWeek changes to match the nearest future date
+  // Auto-adjust startDate when dayOfWeek changes to match the nearest future date.
+  // Khi EDIT (chỉ sửa 1 buổi), giữ nguyên startDate — nó chính là ngày buổi đang sửa.
   const handleDayOfWeekChange = (newDow: number) => {
     setDayOfWeek(newDow);
-    setStartDate(computeNearestDate(newDow));
+    if (!editSchedule) setStartDate(computeNearestDate(newDow));
   };
 
-  // Check if selected date matches dayOfWeek
+  // Chỉ sửa 1 buổi: ngày có thể lệch dayOfWeek (buổi đã dời) → bỏ ràng buộc khớp thứ.
+  const isEditingOnlyThis = !!editSchedule && updateMode === "ONLY_THIS";
+
+  // Check if selected date matches dayOfWeek (bỏ qua khi sửa 1 buổi — ngày là ngày thật của buổi)
   const dateMatchesDay = (() => {
+    if (isEditingOnlyThis) return true;
     if (!startDate) return true;
     const d = new Date(startDate);
     const dow = d.getDay() === 0 ? 7 : d.getDay();
@@ -170,6 +172,11 @@ export default function ScheduleModal({
         const resolvedEndDate = endDateUnlimited
           ? null
           : endDate || undefined;
+        // Chỉ sửa 1 buổi: dùng ô 'Ngày bắt đầu' (phía trên) làm ngày buổi học.
+        // Nếu đổi khác ngày hiện tại → dời buổi sang ngày đó; giữ nguyên nếu trùng.
+        const isOnlyThis = updateMode === "ONLY_THIS";
+        const rescheduleTarget =
+          isOnlyThis && startDate && startDate !== editSchedule.instanceDate ? startDate : null;
         const result = await updateSchedule({
           seriesId: editSchedule.seriesId,
           instanceDate: editSchedule.instanceDate,
@@ -181,7 +188,7 @@ export default function ScheduleModal({
           endTime,
           room: selectedRoom,
           endDate: resolvedEndDate,
-          rescheduledDate: updateMode === "ONLY_THIS" ? rescheduledDate || null : undefined,
+          rescheduledDate: isOnlyThis ? rescheduleTarget : undefined,
           updateMode,
           ignoreWarning,
         });
@@ -306,11 +313,19 @@ export default function ScheduleModal({
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-ink-muted-80 block mb-1">Ngày bắt đầu *</label>
+              <label className="text-xs font-medium text-ink-muted-80 block mb-1">
+                {isEditingOnlyThis ? "Ngày của buổi học *" : "Ngày bắt đầu *"}
+              </label>
               <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
                 className={`w-full text-sm border rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 ${!dateMatchesDay ? "border-red-400 bg-red-50" : "border-hairline"}`} />
-              {!dateMatchesDay && (
-                <p className="text-[10px] text-red-500 mt-1">Ngày không khớp với thứ đã chọn</p>
+              {isEditingOnlyThis ? (
+                <p className="text-[10px] text-ink-muted-48 mt-1">
+                  Đổi ngày để dời buổi học này sang ngày khác.
+                </p>
+              ) : (
+                !dateMatchesDay && (
+                  <p className="text-[10px] text-red-500 mt-1">Ngày không khớp với thứ đã chọn</p>
+                )
               )}
             </div>
           </div>
@@ -395,20 +410,9 @@ export default function ScheduleModal({
               </div>
 
               {updateMode === "ONLY_THIS" && (
-                <div>
-                  <label className="text-xs font-medium text-ink-muted-80 block mb-1">
-                    Dời buổi này tới ngày <span className="text-ink-muted-48">(để trống nếu giữ nguyên)</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={rescheduledDate}
-                    onChange={(e) => setRescheduledDate(e.target.value)}
-                    className="w-full text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500"
-                  />
-                  <p className="text-[10px] text-ink-muted-48 mt-1">
-                    Buổi hiện tại ({editSchedule.instanceDate}) sẽ được chuyển sang ngày mới. Không cho dời nếu ngày mới trùng buổi khác trong chuỗi.
-                  </p>
-                </div>
+                <p className="text-[11px] text-ink-muted-48">
+                  Đổi ngày ở ô "Ngày của buổi học" phía trên để dời buổi này sang ngày khác. Không cho dời nếu ngày mới trùng buổi khác trong chuỗi.
+                </p>
               )}
 
               {(updateMode === "ALL_FUTURE" || updateMode === "ALL") && (

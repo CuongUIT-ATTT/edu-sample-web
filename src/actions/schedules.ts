@@ -135,17 +135,20 @@ interface LoadedSeries {
   instances: ReturnType<typeof expandSeriesToInstances>;
 }
 
-/** Load series cùng dayOfWeek trong window (loại trừ 1 số seriesId), expand runtime. Dùng `tx` để chạy trong transaction. */
+/** Load series trong window (loại trừ 1 số seriesId), expand runtime. Dùng `tx` để chạy trong transaction.
+ *  `dayOfWeek` optional: bỏ qua → load MỌI series (dùng khi dời buổi sang ngày khác thứ, fromDate=toDate
+ *  nên expandSeriesToInstances chỉ sinh instance trùng đúng ngày cần check). */
 async function loadInstancesForConflictCheck(
   tx: any,
   opts: {
-    dayOfWeek: number;
+    dayOfWeek?: number;
     fromDate: Date;
     toDate: Date;
     excludeSeriesIds?: string[];
   }
 ): Promise<LoadedSeries[]> {
-  const where: any = { dayOfWeek: opts.dayOfWeek };
+  const where: any = {};
+  if (opts.dayOfWeek) where.dayOfWeek = opts.dayOfWeek;
   if (opts.excludeSeriesIds?.length) where.id = { notIn: opts.excludeSeriesIds };
 
   const series = await tx.scheduleSeries.findMany({
@@ -478,9 +481,9 @@ export async function updateSchedule(input: UpdateScheduleInput) {
           }
         }
 
-        // (2) Conflict tại ngày dời (phòng/GV/lớp) với buổi khác
+        // (2) Conflict tại ngày dời (phòng/GV/lớp) với buổi khác.
+        //     Bỏ dayOfWeek — ngày dời có thể khác thứ của chuỗi → load mọi series, chỉ sinh instance đúng ngày dời.
         const existingAtNew = await loadInstancesForConflictCheck(db, {
-          dayOfWeek,
           fromDate: newReschedDate,
           toDate: newReschedDate,
           excludeSeriesIds: [seriesId],
