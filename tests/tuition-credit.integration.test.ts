@@ -6,6 +6,7 @@ vi.unmock("@/lib/db");
 import { db } from "./helpers";
 import { getSession } from "@/lib/auth";
 import { recordPayment, calculateTuition, getFeeSettings } from "@/actions/tuition";
+import { jsDayToDow } from "@/lib/schedule-expand";
 
 const adminSession = { userId: "test-admin", email: "admin@test.local", role: "ADMIN" as const, name: "Test Admin" };
 vi.mocked(getSession).mockResolvedValue(adminSession);
@@ -20,7 +21,7 @@ async function cleanup() {
   if (classId) {
     await db.tuition.deleteMany({ where: { classId } });
     await db.studentCredit.deleteMany({ where: { classId } });
-    await db.schedule.deleteMany({ where: { classId } });
+    await db.scheduleSeries.deleteMany({ where: { classId } });
   }
   if (studentId) await db.studentProfile.deleteMany({ where: { id: studentId } }).catch(() => {});
   if (classId) await db.class.deleteMany({ where: { id: classId } }).catch(() => {});
@@ -41,10 +42,12 @@ describe("Tuition credit - recordPayment nộp dư", () => {
     classId = cls.id;
     await db.studentProfile.update({ where: { id: student.id }, data: { classes: { connect: { id: cls.id } } } });
 
-    // 3 schedule: tháng 6 (2 buổi), tháng 7 (1 buổi) — đều đã qua (hôm nay 01/08) nên không bị cap
-    await db.schedule.create({ data: { classId, subjectId, teacherId, dayOfWeek: 2, startTime: "07:30", endTime: "09:00", room: "TEST", date: new Date(2026, 5, 5, 7, 30) } });
-    await db.schedule.create({ data: { classId, subjectId, teacherId, dayOfWeek: 3, startTime: "07:30", endTime: "09:00", room: "TEST", date: new Date(2026, 5, 6, 7, 30) } });
-    await db.schedule.create({ data: { classId, subjectId, teacherId, dayOfWeek: 4, startTime: "07:30", endTime: "09:00", room: "TEST", date: new Date(2026, 6, 6, 7, 30) } });
+    // 3 series one-off: tháng 6 (2 buổi), tháng 7 (1 buổi) — đều đã qua (hôm nay 01/08) nên không bị cap
+    const utcDay = (m: number, d: number) => new Date(Date.UTC(2026, m - 1, d));
+    const oneOff = (d: Date) => ({ classId, subjectId, teacherId, dayOfWeek: jsDayToDow(d.getUTCDay()), startTime: "07:30", endTime: "09:00", room: "TEST", startDate: d, endDate: d });
+    await db.scheduleSeries.create({ data: oneOff(utcDay(6, 5)) });
+    await db.scheduleSeries.create({ data: oneOff(utcDay(6, 6)) });
+    await db.scheduleSeries.create({ data: oneOff(utcDay(7, 6)) });
     // Attendance tháng 6: 2 buổi đều điểm danh PRESENT → amount = 2 × 2 tiết × 18000 = 72000
     await db.attendance.create({ data: { studentId, date: new Date(2026, 5, 5, 7, 30), status: "PRESENT" } });
     await db.attendance.create({ data: { studentId, date: new Date(2026, 5, 6, 7, 30), status: "PRESENT" } });

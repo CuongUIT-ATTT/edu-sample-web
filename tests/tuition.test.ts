@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { db } from "./helpers";
+import { expandSeriesToInstances, dateToUtcStr, jsDayToDow, toLocalDateStr } from "@/lib/schedule-expand";
 
 async function sid(email: string) {
   const u = await db.user.findUnique({ where: { email }, include: { studentProfile: true } });
@@ -53,12 +54,17 @@ describe("Tuition - Có mặt/Vắng/Trễ tính tiền, Chưa điểm danh/Phé
     await db.studentProfile.update({ where: { id: student.id }, data: { classes: { connect: { id: cls.id } } } });
 
     const day = (d: number) => new Date(2026, 6, d, 7, 30, 0, 0);
-    const scheduleIds: string[] = [];
+    // Series one-off (startDate = endDate = UTC midnight; dayOfWeek khớp ngày) — giống prisma/seed.ts.
+    const utcDay = (d: number) => new Date(Date.UTC(2026, 6, d));
     for (const d of [10, 11, 12, 13, 14]) {
-      const s = await db.schedule.create({
-        data: { classId: cls.id, subjectId: subject.id, teacherId: teacher.id, dayOfWeek: (d % 7) || 7, startTime: "07:30", endTime: "09:00", room: "TEST", date: day(d) },
+      await db.scheduleSeries.create({
+        data: {
+          classId: cls.id, subjectId: subject.id, teacherId: teacher.id,
+          dayOfWeek: jsDayToDow(utcDay(d).getUTCDay()),
+          startTime: "07:30", endTime: "09:00", room: "TEST",
+          startDate: utcDay(d), endDate: utcDay(d),
+        },
       });
-      scheduleIds.push(s.id);
     }
 
     await db.attendance.create({ data: { studentId: student.id, date: day(10), status: "EXCUSED" } });
@@ -69,17 +75,17 @@ describe("Tuition - Có mặt/Vắng/Trễ tính tiền, Chưa điểm danh/Phé
     const startDate = new Date(2026, 6, 1);
     const endDate = new Date(2026, 6, 31, 23, 59, 59);
 
-    // Replicate logic từ calculateTuition (PRESENT/ABSENT/LATE tính, EXCUSED không)
-    const schedules = await db.schedule.findMany({ where: { classId: cls.id, date: { gte: startDate, lte: endDate } } });
+    // Replicate logic mới của calculateTuition (expand ScheduleSeries → instances; PRESENT/ABSENT/LATE tính, EXCUSED không)
+    const series = await db.scheduleSeries.findMany({ where: { classId: cls.id }, include: { exceptions: true } });
+    const instances = series.flatMap((s) => expandSeriesToInstances(s, s.exceptions, new Date(Date.UTC(2026, 6, 1)), new Date(Date.UTC(2026, 6, 31))));
     const schedulePeriods: Record<string, number> = {};
-    for (const s of schedules) {
-      if (s.date) {
-        const [sh, sm] = s.startTime.split(":").map(Number);
-        const [eh, em] = s.endTime.split(":").map(Number);
-        schedulePeriods[s.id] = Math.max(1, Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 45));
-      }
+    for (const inst of instances) {
+      const [sh, sm] = inst.startTime.split(":").map(Number);
+      const [eh, em] = inst.endTime.split(":").map(Number);
+      schedulePeriods[`${inst.seriesId}-${dateToUtcStr(inst.instanceDate)}`] = Math.max(1, Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 45));
     }
-    const firstSchedulePeriods = Object.values(schedulePeriods)[0] || 1;
+    const instanceByDate = new Map<string, (typeof instances)[number]>();
+    for (const inst of instances) instanceByDate.set(dateToUtcStr(inst.instanceDate), inst);
 
     const attendanceRecords = await db.attendance.findMany({
       where: { studentId: student.id, date: { gte: startDate, lte: endDate } },
@@ -87,24 +93,24 @@ describe("Tuition - Có mặt/Vắng/Trễ tính tiền, Chưa điểm danh/Phé
     const markedSchedules = new Set<string>();
     for (const att of attendanceRecords) {
       if (att.status !== "EXCUSED") {
-        const matching = schedules.find(
-          (s) => s.date && new Date(s.date).toISOString().split("T")[0] === att.date.toISOString().split("T")[0],
-        );
-        if (matching && !markedSchedules.has(matching.id)) markedSchedules.add(matching.id);
+        const inst = instanceByDate.get(toLocalDateStr(att.date));
+        if (inst) markedSchedules.add(`${inst.seriesId}-${dateToUtcStr(inst.instanceDate)}`);
       }
     }
-    const studentPeriods = markedSchedules.size * firstSchedulePeriods;
+    let studentPeriods = 0;
+    for (const key of markedSchedules) studentPeriods += schedulePeriods[key] ?? 1;
 
     // Cleanup
     await db.attendance.deleteMany({ where: { studentId: student.id } });
-    await db.schedule.deleteMany({ where: { id: { in: scheduleIds } } });
+    await db.scheduleSeries.deleteMany({ where: { classId: cls.id } });
     await db.studentProfile.delete({ where: { id: student.id } });
     await db.class.delete({ where: { id: cls.id } });
     await db.user.delete({ where: { id: user.id } });
 
-    // Kỳ vọng: 3 buổi (PRESENT/ABSENT/LATE) tính tiền; EXCUSED + chưa điểm danh không
+    // Kỳ vọng: 3 buổi (PRESENT/ABSENT/LATE) tính tiền; EXCUSED + chưa điểm danh không.
+    // Mỗi buổi 07:30-09:00 = 90 phút = 2 tiết.
     expect(markedSchedules.size).toBe(3);
-    expect(studentPeriods).toBe(3 * firstSchedulePeriods);
+    expect(studentPeriods).toBe(3 * 2);
   });
 
   it("hs001 có EXCUSED — chứng minh attendance đủ 4 trạng thái", async () => {

@@ -7,6 +7,7 @@ import { db } from "./helpers";
 import { pool as actionPool } from "@/lib/db"; // pg.Pool mà action dùng (qua adapter) — để đếm SQL round-trip
 import { getSession } from "@/lib/auth";
 import { calculateTuition, getFeeSettings, recordPayment } from "@/actions/tuition";
+import { expandSeriesToInstances, dateToUtcStr, jsDayToDow, toLocalDateStr } from "@/lib/schedule-expand";
 
 const adminSession = { userId: "test-admin", email: "admin@test.local", role: "ADMIN" as const, name: "Test Admin" };
 vi.mocked(getSession).mockResolvedValue(adminSession);
@@ -22,12 +23,22 @@ const poolQueryOrig = (actionPool as unknown as { query: (...a: unknown[]) => Pr
 
 const day = (m: number, d: number) => new Date(2026, m - 1, d, 7, 30, 0, 0);
 const day2025 = (m: number, d: number) => new Date(2025, m - 1, d, 7, 30, 0, 0);
+// UTC-midnight của ngày — dùng làm startDate/endDate cho series one-off (giống prisma/seed.ts).
+const utcDay = (m: number, d: number) => new Date(Date.UTC(2026, m - 1, d));
+const utcDay2025 = (m: number, d: number) => new Date(Date.UTC(2025, m - 1, d));
+// Series one-off: startDate = endDate = ngày; dayOfWeek khớp đúng ngày (expand chỉ sinh instance khi khớp dayOfWeek).
+const oneOff = (data: { classId: string; subjectId: string; teacherId: string; startTime: string; endTime: string; room?: string }, date: Date) => ({
+  ...data,
+  dayOfWeek: jsDayToDow(date.getUTCDay()),
+  startDate: date,
+  endDate: date,
+});
 
 async function clearClass(classId: string) {
   await db.attendance.deleteMany({ where: { student: { classes: { some: { id: classId } } } } });
   await db.tuition.deleteMany({ where: { classId } });
   await db.studentCredit.deleteMany({ where: { classId } });
-  await db.schedule.deleteMany({ where: { classId } });
+  await db.scheduleSeries.deleteMany({ where: { classId } });
   const cls = await db.class.findUnique({ where: { id: classId }, include: { students: true } });
   if (cls) {
     for (const s of cls.students) {
@@ -57,11 +68,11 @@ describe("Refactor parity — kết quả giống hệt trước refactor (cùng
       else studentId2 = s.id;
     }
     // Tháng 6: 2 buổi 07:30-09:00 (2 tiết); Tháng 7: 1 buổi 07:30-09:00 (2 tiết) — tất cả đã qua
-    await db.schedule.createMany({
+    await db.scheduleSeries.createMany({
       data: [
-        { classId, subjectId, teacherId, dayOfWeek: 2, startTime: "07:30", endTime: "09:00", room: "T", date: day(6, 5) },
-        { classId, subjectId, teacherId, dayOfWeek: 3, startTime: "07:30", endTime: "09:00", room: "T", date: day(6, 6) },
-        { classId, subjectId, teacherId, dayOfWeek: 4, startTime: "07:30", endTime: "09:00", room: "T", date: day(7, 6) },
+        oneOff({ classId, subjectId, teacherId, startTime: "07:30", endTime: "09:00", room: "T" }, utcDay(6, 5)),
+        oneOff({ classId, subjectId, teacherId, startTime: "07:30", endTime: "09:00", room: "T" }, utcDay(6, 6)),
+        oneOff({ classId, subjectId, teacherId, startTime: "07:30", endTime: "09:00", room: "T" }, utcDay(7, 6)),
       ],
     });
     await db.attendance.createMany({
@@ -129,10 +140,10 @@ describe("Fix C — buổi học có số tiết khác nhau trong cùng kỳ", (
     studentId = s.id;
 
     // Cùng tháng: buổi A 2 tiết (07:30-09:00), buổi B 3 tiết (07:30-10:00)
-    await db.schedule.createMany({
+    await db.scheduleSeries.createMany({
       data: [
-        { classId, subjectId, teacherId, dayOfWeek: 2, startTime: "07:30", endTime: "09:00", room: "T", date: day(6, 5) },
-        { classId, subjectId, teacherId, dayOfWeek: 3, startTime: "07:30", endTime: "10:00", room: "T", date: day(6, 6) },
+        oneOff({ classId, subjectId, teacherId, startTime: "07:30", endTime: "09:00", room: "T" }, utcDay(6, 5)),
+        oneOff({ classId, subjectId, teacherId, startTime: "07:30", endTime: "10:00", room: "T" }, utcDay(6, 6)),
       ],
     });
     await db.attendance.createMany({
@@ -177,10 +188,10 @@ describe("Credit + update có chọn lọc — nộp dư, credit tự trừ kỳ
     const s = await db.studentProfile.create({ data: { userId: u.id, classes: { connect: { id: classId } } } });
     studentId = s.id;
     // Tháng 6: 1 buổi 07:30-09:00 (2 tiết); Tháng 7: 1 buổi 07:30-09:00 (2 tiết) — đều đã qua
-    await db.schedule.createMany({
+    await db.scheduleSeries.createMany({
       data: [
-        { classId, subjectId, teacherId, dayOfWeek: 2, startTime: "07:30", endTime: "09:00", room: "T", date: day(6, 5) },
-        { classId, subjectId, teacherId, dayOfWeek: 3, startTime: "07:30", endTime: "09:00", room: "T", date: day(7, 6) },
+        oneOff({ classId, subjectId, teacherId, startTime: "07:30", endTime: "09:00", room: "T" }, utcDay(6, 5)),
+        oneOff({ classId, subjectId, teacherId, startTime: "07:30", endTime: "09:00", room: "T" }, utcDay(7, 6)),
       ],
     });
     await db.attendance.createMany({
@@ -280,14 +291,21 @@ describe("Query count — 30 HS × 12 tháng phải giảm mạnh (dưới ~10 q
     console.log(`[seed] connected students = ${studentIds.length}`);
 
     // 12 tháng năm 2025 (đều đã qua) — mỗi tháng 1 buổi 07:30-09:00 (2 tiết)
-    await db.schedule.createMany({
-      data: Array.from({ length: 12 }, (_, i) => ({
-        classId, subjectId, teacherId, dayOfWeek: (i % 6) + 1, startTime: "07:30", endTime: "09:00", room: "Q", date: day2025(i + 1, 5),
-      })),
+    await db.scheduleSeries.createMany({
+      data: Array.from({ length: 12 }, (_, i) =>
+        oneOff({ classId, subjectId, teacherId, startTime: "07:30", endTime: "09:00", room: "Q" }, utcDay2025(i + 1, 5))
+      ),
     });
-    const schedules = await db.schedule.findMany({ where: { classId }, select: { date: true } });
+    // Attendance theo local-midnight từ instance date (khớp cách markAttendance lưu).
+    const series = await db.scheduleSeries.findMany({ where: { classId }, include: { exceptions: true } });
+    const instances = series.flatMap((s) =>
+      expandSeriesToInstances(s, s.exceptions, new Date(Date.UTC(2025, 0, 1)), new Date(Date.UTC(2025, 11, 31)))
+    );
     const attendanceData = studentIds.flatMap((sid) =>
-      schedules.map((sc) => ({ studentId: sid, date: sc.date!, status: "PRESENT" as const })),
+      instances.map((inst) => {
+        const ds = dateToUtcStr(inst.instanceDate).split("-").map(Number);
+        return { studentId: sid, date: new Date(ds[0], ds[1] - 1, ds[2], 7, 30, 0, 0), status: "PRESENT" as const };
+      }),
     );
     await db.attendance.createMany({ data: attendanceData });
   });

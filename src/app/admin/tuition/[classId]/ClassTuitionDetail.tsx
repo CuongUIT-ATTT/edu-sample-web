@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DollarSign, X, Eye, Clock } from "lucide-react";
 import { showToast } from "@/components/Toast";
 import { recordPayment } from "@/actions/tuition";
+import { toLocalDateStr } from "@/lib/schedule-expand";
 
 interface TuitionItem {
   id: string;
@@ -57,10 +58,12 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
       const attendance = data?.records || [];
 
       const rows = schedules.map((s) => {
-        const dateStr = new Date(s.date).toISOString().split("T")[0];
-        const att = attendance.find((a: { date: string; status: string }) => new Date(a.date).toISOString().split("T")[0] === dateStr);
+        // s.date đã là "YYYY-MM-DD" (page.tsx dùng dateToUtcStr). Attendance a.date là ISO string
+        // (Prisma serialize UTC) nhưng được lưu local midnight → lấy ngày local bằng toLocalDateStr
+        // để khớp, KHÔNG dùng toISOString().split("T")[0] (lệch 1 ngày ở TZ +07).
+        const att = attendance.find((a: { date: string; status: string }) => toLocalDateStr(new Date(a.date)) === s.date);
         return {
-          date: dateStr,
+          date: s.date,
           start: s.startTime,
           end: s.endTime,
           room: s.room || "—",

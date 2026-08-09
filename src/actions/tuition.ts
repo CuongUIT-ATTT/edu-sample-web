@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { computePayment, applyCreditToPeriod } from "@/lib/tuition-utils";
 import { teacherOwnsClass } from "@/lib/teacher-classes";
+import { expandSeriesToInstances, normalizeDateUtc, dateToUtcStr, toLocalDateStr } from "@/lib/schedule-expand";
 
 export async function getFeeSettings() {
   let setting = await db.tuitionFeeSetting.findFirst({ orderBy: { updatedAt: "desc" } });
@@ -41,11 +42,18 @@ export async function calculateTuition(classId: string, fromMonth: number, toMon
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
   const activeIds = classData.students.map((s) => s.id);
-  const fromStart = new Date(year, fromMonth - 1, 1); // mốc bắt đầu cho toàn kỳ
+  const fromStart = new Date(year, fromMonth - 1, 1); // mốc bắt đầu cho toàn kỳ (ATTENDANCE window — local)
+  const expandFrom = new Date(Date.UTC(year, fromMonth - 1, 1)); // EXPAND SERIES window — UTC midnight (pattern admin tuition page)
 
   await db.$transaction(async (tx) => {
     // ── A. ĐỌC HÀNG LOẠT: 1 query cho cả kỳ, không query trong vòng lặp ──
-    const schedules = await tx.schedule.findMany({ where: { classId, date: { gte: fromStart, lte: today } } });
+    // Lịch mới: expand ScheduleSeries → instances trong [expandFrom, normalizeDateUtc(today)].
+    // KHÔNG dùng bảng Schedule cũ (không còn được tạo dữ liệu) — nó luôn rỗng → amount=0.
+    const seriesList = await tx.scheduleSeries.findMany({ where: { classId }, include: { exceptions: true } });
+    const instances = seriesList.flatMap((s) =>
+      expandSeriesToInstances(s, s.exceptions, expandFrom, normalizeDateUtc(today))
+    );
+    // Attendance window giữ LOCAL (fromStart/today) — attendance lưu local midnight.
     const attendanceRecords = await tx.attendance.findMany({
       where: { studentId: { in: activeIds }, date: { gte: fromStart, lte: today } },
     });
@@ -56,14 +64,15 @@ export async function calculateTuition(classId: string, fromMonth: number, toMon
     const creditMap = new Map<string, number>();
     for (const c of credits) creditMap.set(c.studentId, c.credit);
 
-    // Số tiết của TỪNG buổi học (theo schedule id) — dùng cho fix tính tiết theo từng buổi
+    // Số tiết của TỪNG buổi học — key tổng hợp `${seriesId}-${dateToUtcStr(instanceDate)}` (giống ClassTuitionDetail).
     const schedulePeriodsById = new Map<string, number>();
-    for (const s of schedules) {
-      if (s.date) {
-        const [sh, sm] = s.startTime.split(":").map(Number);
-        const [eh, em] = s.endTime.split(":").map(Number);
-        schedulePeriodsById.set(s.id, Math.max(1, Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 45)));
-      }
+    for (const inst of instances) {
+      const [sh, sm] = inst.startTime.split(":").map(Number);
+      const [eh, em] = inst.endTime.split(":").map(Number);
+      schedulePeriodsById.set(
+        `${inst.seriesId}-${dateToUtcStr(inst.instanceDate)}`,
+        Math.max(1, Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 45))
+      );
     }
 
     // Điểm danh gom theo học sinh → tra cứu O(1) khi xử lý từng học sinh
@@ -78,7 +87,6 @@ export async function calculateTuition(classId: string, fromMonth: number, toMon
     const existingByKey = new Map<string, (typeof tuitionRows)[number]>();
     for (const t of tuitionRows) existingByKey.set(`${t.studentId}:${t.month}`, t);
 
-    const isoDate = (d: Date) => d.toISOString().split("T")[0];
 
     interface TuitionWrite {
       where: { studentId_classId_month_year: { studentId: string; classId: string; month: number; year: number } };
@@ -106,13 +114,14 @@ export async function calculateTuition(classId: string, fromMonth: number, toMon
       const monthEnd = new Date(year, month, 0, 23, 59, 59);
       const endDate = monthEnd > today ? today : monthEnd;
 
-      // Lọc schedules trong cửa sổ tháng này — dữ liệu đã nạp sẵn, không query DB
-      const monthSchedules = schedules.filter((s) => s.date && s.date >= startDate && s.date <= endDate);
-      // Map ngày → schedule (giữ schedule đầu tiên, khớp với schedules.find() trước đây)
-      const scheduleByDate = new Map<string, (typeof monthSchedules)[number]>();
-      for (const s of monthSchedules) {
-        const d = isoDate(s.date!);
-        if (!scheduleByDate.has(d)) scheduleByDate.set(d, s);
+      // Lọc instances trong cửa sổ tháng này — so bằng date string "YYYY-MM-DD" (timezone-proof).
+      const monthPrefix = `${year}-${String(month).padStart(2, "0")}`;
+      const monthInstances = instances.filter((inst) => dateToUtcStr(inst.instanceDate).startsWith(monthPrefix));
+      // Map ngày → instance (giữ instance đầu tiên của ngày — expand đảm bảo 1 instance/ngày)
+      const instanceByDate = new Map<string, (typeof monthInstances)[number]>();
+      for (const inst of monthInstances) {
+        const d = dateToUtcStr(inst.instanceDate);
+        if (!instanceByDate.has(d)) instanceByDate.set(d, inst);
       }
 
       for (const student of classData.students) {
@@ -123,10 +132,10 @@ export async function calculateTuition(classId: string, fromMonth: number, toMon
         for (const att of atts) {
           if (att.status === "EXCUSED") continue;
           if (!(att.date >= startDate && att.date <= endDate)) continue;
-          const matchingSchedule = scheduleByDate.get(isoDate(att.date));
-          if (matchingSchedule && !markedSchedules.has(matchingSchedule.id)) {
-            markedSchedules.add(matchingSchedule.id);
-          }
+          // JOIN attendance → instance bằng LOCAL DATE (att.date là local midnight → toLocalDateStr).
+          // KHÔNG dùng toISOString()/normalizeDateUtc(att.date) — lệch 1 ngày ở TZ +07.
+          const inst = instanceByDate.get(toLocalDateStr(att.date));
+          if (inst) markedSchedules.add(`${inst.seriesId}-${dateToUtcStr(inst.instanceDate)}`);
         }
 
         // Fix C: tổng tiết = tổng số tiết của TỪNG buổi đã điểm danh
@@ -243,7 +252,7 @@ export async function recordPayment(tuitionId: string, amount: number, method: s
           id: tuition.classId,
           OR: [
             { formTeacherId: teacher.id },
-            { schedules: { some: { teacherId: teacher.id } } },
+            { scheduleSeries: { some: { teacherId: teacher.id } } },
           ],
         },
       });

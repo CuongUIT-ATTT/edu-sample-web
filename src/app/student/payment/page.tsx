@@ -30,22 +30,51 @@ export default async function StudentPaymentPage() {
   } | null = null;
 
   try {
+    // Chỉ lấy tuition CỦA học sinh đang đăng nhập — KHÔNG đi qua Class.tuitions
+    // (Class.tuitions = tuition của mọi học sinh trong lớp → lộ dữ liệu người khác).
     const studentProfile = await db.studentProfile.findUnique({
       where: { userId: session.userId },
-      include: {
-        classes: {
-          include: {
-            tuitions: {
-              include: { payments: true },
-              orderBy: [{ year: "desc" }, { month: "desc" }],
-            },
-          },
-        },
+      select: {
+        id: true,
+        classes: { select: { id: true, name: true } },
         credits: true,
       },
     });
     if (studentProfile) {
-      data = JSON.parse(JSON.stringify(studentProfile));
+      const tuitions = await db.tuition.findMany({
+        where: { studentId: studentProfile.id },
+        include: { payments: true },
+        orderBy: [{ year: "desc" }, { month: "desc" }],
+      });
+      // Gom tuition theo lớp — giữ các lớp đang theo học (kể cả chưa có tuition).
+      const tuitionByClass = new Map<string, (typeof tuitions)[number][]>();
+      for (const t of tuitions) {
+        const list = tuitionByClass.get(t.classId) ?? [];
+        list.push(t);
+        tuitionByClass.set(t.classId, list);
+      }
+      data = {
+        classes: studentProfile.classes.map((c) => ({
+          id: c.id,
+          name: c.name,
+          tuitions: (tuitionByClass.get(c.id) ?? []).map((t) => ({
+            id: t.id,
+            month: t.month,
+            year: t.year,
+            periods: t.periods,
+            amount: t.amount,
+            paid: t.paid,
+            status: t.status,
+            payments: t.payments.map((p) => ({
+              id: p.id,
+              method: p.method,
+              amount: p.amount,
+              paidAt: p.paidAt.toISOString(),
+            })),
+          })),
+        })),
+        credits: studentProfile.credits,
+      };
     }
   } catch (error) {
     console.error("Error fetching student payment data:", error);
