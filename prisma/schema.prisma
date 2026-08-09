@@ -104,6 +104,7 @@ model StudentProfile {
   tuitions            Tuition[]
   tuitionPayments     TuitionPayment[]
   credits             StudentCredit[]
+  paymentLinks        PaymentLink[]
 }
 
 model ParentProfile {
@@ -128,6 +129,7 @@ model Class {
   documentVisibility DocumentClassVisibility[]
   tuitions           Tuition[]
   credits            StudentCredit[]
+  paymentLinks       PaymentLink[]
 }
 
 model Subject {
@@ -523,27 +525,63 @@ model Tuition {
   status    String  @default("PENDING")
   note      String?
 
-  student   StudentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
-  payments  TuitionPayment[]
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  student      StudentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class        Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  payments     TuitionPayment[]
+  paymentLinks PaymentLink[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   @@unique([studentId, classId, month, year])
 }
 
 model TuitionPayment {
-  id         String   @id @default(uuid())
-  tuitionId  String
-  studentId  String
-  amount     Float
-  paidAt     DateTime
-  method     String   @default("CASH")
-  note       String?
-  recordedBy String
+  id             String   @id @default(uuid())
+  tuitionId      String
+  studentId      String
+  amount         Float
+  paidAt         DateTime
+  method         String   @default("CASH")   // "CASH" | "TRANSFER" | "PAYOS"
+  note           String?
+  recordedBy     String                       // userId of whoever recorded it
+  payosReference String?   @unique // reference giao dịch PayOS — chống webhook trùng lặp
 
   tuition Tuition        @relation(fields: [tuitionId], references: [id], onDelete: Cascade)
   student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+}
+
+// ─── PayOS / Thanh toán tự động (VietQR) ────────────────────────────
+
+enum PaymentLinkStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model PaymentLink {
+  id          String            @id @default(uuid())
+  orderCode   Int               @unique // mã đơn hàng gửi PayOS (int32, JSON.stringify-safe)
+  amount      Int               // số tiền VND phải thanh toán (số nguyên)
+  description String            // mô tả đơn hàng ≤ 25 ký tự, không dấu (ràng buộc PayOS)
+  status      PaymentLinkStatus @default(PENDING)
+  checkoutUrl String            // PayOS checkout URL
+  qrCode      String?           // PayOS QR code (tùy chọn hiển thị)
+
+  studentId String            // StudentProfile.id — giống Tuition
+  classId   String?           // Class.id — để webhook connect student vào class
+  tuitionId String?           // Tuition.id được thanh toán
+  month     Int               // phục vụ fallback tạo Tuition khi tuition bị xóa trước webhook
+  year      Int
+
+  student StudentProfile? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class?           @relation(fields: [classId], references: [id], onDelete: SetNull)
+  tuition Tuition?         @relation(fields: [tuitionId], references: [id], onDelete: SetNull)
+
+  paidAt    DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([studentId])
 }

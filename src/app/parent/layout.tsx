@@ -12,6 +12,7 @@ import {
   Settings,
   Users,
   Menu,
+  DollarSign,
 } from "lucide-react";
 
 export default function ParentDashboardLayout({
@@ -72,6 +73,14 @@ export default function ParentDashboardLayout({
             >
               <TrendingUp className="h-4 w-4 flex-shrink-0" />
               <span className="hidden md:inline">Báo cáo điểm thi thử</span>
+            </Link>
+            <Link
+              href="/parent/payment"
+              onClick={closeSidebar}
+              className="flex items-center justify-center md:justify-start gap-3 px-2 md:px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors apple-active-scale"
+            >
+              <DollarSign className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden md:inline">Học phí</span>
             </Link>
           </nav>
         </div>
@@ -142,6 +151,14 @@ export default function ParentDashboardLayout({
                 >
                   <TrendingUp className="h-4 w-4 flex-shrink-0" />
                   <span>Báo cáo điểm thi thử</span>
+                </Link>
+                <Link
+                  href="/parent/payment"
+                  onClick={closeSidebar}
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-sm text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption text-sm transition-colors"
+                >
+                  <DollarSign className="h-4 w-4 flex-shrink-0" />
+                  <span>Học phí</span>
                 </Link>
               </nav>
             </div>

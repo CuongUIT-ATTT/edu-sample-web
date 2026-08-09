@@ -67,6 +67,22 @@ export const mockDb = {
   class: {
     findUnique: vi.fn(),
   },
+  paymentLink: {
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    updateMany: vi.fn(),
+  },
+  tuition: {
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  tuitionPayment: {
+    create: vi.fn(),
+  },
+  studentCredit: {
+    upsert: vi.fn(),
+  },
   teacherProfile: {
     findFirst: vi.fn(),
   },
