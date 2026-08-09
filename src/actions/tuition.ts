@@ -230,6 +230,111 @@ export async function getAllClasses() {
   return db.class.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { students: true } } } });
 }
 
+/**
+ * Chi tiết học phí theo TỪNG BUỔI học của 1 học sinh trong 1 tháng.
+ * Dành cho STUDENT (xem học phí mình) và PARENT (xem học phí con mình) —
+ * có ownership check ở server, KHÔNG phơi dữ liệu cho học sinh khác.
+ * Không dùng /api/attendance (route đó chưa check quyền → lộ attendance người khác).
+ */
+export interface TuitionDetailRow {
+  date: string; // "YYYY-MM-DD" (UTC của instance)
+  startTime: string;
+  endTime: string;
+  room: string | null;
+  subjectName: string;
+  periods: number;
+  status: string; // PRESENT | ABSENT | LATE | EXCUSED | "N/A"
+}
+
+export async function getTuitionDetail(
+  studentId: string,
+  classId: string,
+  month: number,
+  year: number,
+): Promise<{ success: boolean; error?: string; rows?: TuitionDetailRow[]; totalPeriods?: number; amount?: number; feePerPeriod?: number }> {
+  const session = await getSession();
+  if (!session || (session.role !== "STUDENT" && session.role !== "PARENT")) {
+    return { success: false, error: "Không có quyền xem chi tiết học phí." };
+  }
+
+  try {
+    // Ownership: STUDENT → chỉ chính mình; PARENT → chỉ con của mình.
+    if (session.role === "STUDENT") {
+      const student = await db.studentProfile.findUnique({ where: { userId: session.userId } });
+      if (!student || student.id !== studentId) {
+        return { success: false, error: "Bạn không có quyền xem chi tiết học phí này." };
+      }
+    } else {
+      const parent = await db.parentProfile.findUnique({
+        where: { userId: session.userId },
+        include: { students: { select: { id: true } } },
+      });
+      if (!parent || !parent.students.some((s) => s.id === studentId)) {
+        return { success: false, error: "Bạn không có quyền xem chi tiết học phí này." };
+      }
+    }
+
+    // Expand ScheduleSeries → instances trong tháng (pattern admin tuition page).
+    const seriesList = await db.scheduleSeries.findMany({
+      where: { classId },
+      include: { subject: true, exceptions: true },
+    });
+    const fromUtc = new Date(Date.UTC(year, month - 1, 1));
+    const toUtc = new Date(Date.UTC(year, month, 0)); // ngày cuối tháng UTC midnight
+    const instances = seriesList.flatMap((s) =>
+      expandSeriesToInstances(s, s.exceptions, fromUtc, toUtc)
+    );
+    instances.sort((a, b) => a.instanceDate.getTime() - b.instanceDate.getTime());
+
+    // Subject name: instance.subjectId đã merge exception override (có thể khác series).
+    // Gom tập subjectId → 1 query map, tránh O(n²) lookup trong vòng lặp.
+    const subjectIds = new Set<string>();
+    for (const inst of instances) subjectIds.add(inst.subjectId);
+    const subjects = await db.subject.findMany({ where: { id: { in: [...subjectIds] } } });
+    const subjectNameById = new Map(subjects.map((s) => [s.id, s.name]));
+
+    // Attendance của học sinh trong tháng (local window — attendance lưu local midnight).
+    const fromLocal = new Date(year, month - 1, 1);
+    const toLocal = new Date(year, month, 0, 23, 59, 59);
+    const atts = await db.attendance.findMany({
+      where: { studentId, date: { gte: fromLocal, lte: toLocal } },
+    });
+    const statusByDate = new Map<string, string>();
+    for (const a of atts) statusByDate.set(toLocalDateStr(a.date), a.status);
+
+    const rows: TuitionDetailRow[] = instances.map((inst) => {
+      const [sh, sm] = inst.startTime.split(":").map(Number);
+      const [eh, em] = inst.endTime.split(":").map(Number);
+      const periods = Math.max(1, Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 45));
+      const dateStr = dateToUtcStr(inst.instanceDate);
+      return {
+        date: dateStr,
+        startTime: inst.startTime,
+        endTime: inst.endTime,
+        room: inst.room,
+        subjectName: subjectNameById.get(inst.subjectId) ?? "—",
+        periods,
+        status: statusByDate.get(dateStr) ?? "N/A",
+      };
+    });
+
+    // Tổng tiết = tổng tiết các buổi ĐÃ điểm danh (khác N/A) — khớp logic calculateTuition.
+    const totalPeriods = rows
+      .filter((r) => r.status !== "N/A" && r.status !== "EXCUSED")
+      .reduce((sum, r) => sum + r.periods, 0);
+    const tuition = await db.tuition.findFirst({
+      where: { studentId, classId, month, year },
+    });
+    const amount = tuition?.amount ?? 0;
+    const feePerPeriod = totalPeriods > 0 ? Math.round(amount / totalPeriods) : 0;
+
+    return { success: true, rows, totalPeriods, amount, feePerPeriod };
+  } catch (error) {
+    console.error("getTuitionDetail error:", error);
+    return { success: false, error: "Đã xảy ra lỗi hệ thống khi tải chi tiết học phí." };
+  }
+}
+
 export async function recordPayment(tuitionId: string, amount: number, method: string, note: string) {
   const session = await getSession();
   if (!session || (session.role !== "ADMIN" && session.role !== "TEACHER")) return { success: false, error: "Không có quyền" };

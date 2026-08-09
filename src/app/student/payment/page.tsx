@@ -28,6 +28,7 @@ export default async function StudentPaymentPage() {
     }[];
     credits: { classId: string; credit: number }[];
   } | null = null;
+  let studentProfileId: string | undefined;
 
   try {
     // Chỉ lấy tuition CỦA học sinh đang đăng nhập — KHÔNG đi qua Class.tuitions
@@ -41,6 +42,7 @@ export default async function StudentPaymentPage() {
       },
     });
     if (studentProfile) {
+      studentProfileId = studentProfile.id;
       const tuitions = await db.tuition.findMany({
         where: { studentId: studentProfile.id },
         include: { payments: true },
@@ -161,6 +163,7 @@ export default async function StudentPaymentPage() {
         classes={data.classes}
         credits={data.credits}
         studentName={session.name || "Học viên"}
+        studentId={studentProfileId}
       />
     </div>
   );

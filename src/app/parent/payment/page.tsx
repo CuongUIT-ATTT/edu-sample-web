@@ -165,6 +165,7 @@ export default async function ParentPaymentPage() {
               classes={child.classes}
               credits={child.credits}
               studentName={child.name}
+              studentId={child.studentId}
             />
           </div>
         ))
