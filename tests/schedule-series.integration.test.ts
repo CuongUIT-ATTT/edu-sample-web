@@ -360,4 +360,85 @@ describe("ScheduleSeries CRUD integration", () => {
     const series = await db.scheduleSeries.findUnique({ where: { id: seriesId } });
     expect(dateToUtcStr(series!.endDate!)).toBe("2026-08-18");
   });
+
+  it("10. updateSchedule ONLY_THIS dời ngày → buổi cũ biến mất, buổi mới ở ngày dời", async () => {
+    // Series Thứ 3 (dayOfWeek 2) từ 04/08 vô hạn
+    const res = await createSchedule({
+      classId: classId1, subjectId, teacherId: teacherTestId,
+      dayOfWeek: 2, startTime: "07:00", endTime: "08:30", room: "SERIES-K",
+      startDate: "2026-08-04",
+    });
+    expect(res.success).toBe(true);
+    const seriesId = (res as any).data.seriesId;
+
+    // Dời buổi 11/08 sang 14/08 (Thứ 6, ngoài lưới Thứ 3)
+    const upd = await updateSchedule({
+      seriesId, instanceDate: "2026-08-11",
+      classId: classId1, subjectId, teacherId: teacherTestId,
+      dayOfWeek: 2, startTime: "09:00", endTime: "10:30", room: "SERIES-K",
+      rescheduledDate: "2026-08-14",
+      updateMode: "ONLY_THIS",
+    });
+    expect(upd.success).toBe(true);
+
+    const full = await db.scheduleSeries.findUnique({ where: { id: seriesId }, include: { exceptions: true } });
+    const instances = expandSeriesToInstances(full!, full!.exceptions, normalizeDateUtc("2026-08-01"), normalizeDateUtc("2026-08-31"));
+    const dates = instances.map((i) => dateToUtcStr(i.instanceDate));
+    expect(dates).not.toContain("2026-08-11"); // buổi gốc biến mất
+    expect(dates).toContain("2026-08-14"); // buổi mới ở ngày dời
+    expect(dates).toContain("2026-08-04");
+    expect(dates).toContain("2026-08-18");
+    const moved = instances.find((i) => dateToUtcStr(i.instanceDate) === "2026-08-14")!;
+    expect(moved.startTime).toBe("09:00");
+  });
+
+  it("11. updateSchedule ONLY_THIS dời tới ngày đã có buổi trong chuỗi → bị chặn", async () => {
+    const res = await createSchedule({
+      classId: classId1, subjectId, teacherId: teacherTestId,
+      dayOfWeek: 2, startTime: "07:00", endTime: "08:30", room: "SERIES-L",
+      startDate: "2026-08-04",
+    });
+    expect(res.success).toBe(true);
+    const seriesId = (res as any).data.seriesId;
+
+    // Dời 11/08 sang 18/08 — 18/08 vốn đã có buổi trong chuỗi
+    const upd = await updateSchedule({
+      seriesId, instanceDate: "2026-08-11",
+      classId: classId1, subjectId, teacherId: teacherTestId,
+      dayOfWeek: 2, startTime: "07:00", endTime: "08:30", room: "SERIES-L",
+      rescheduledDate: "2026-08-18",
+      updateMode: "ONLY_THIS",
+    });
+    expect(upd.success).toBe(false);
+    expect(upd.error).toContain("đã có buổi học trong chuỗi");
+  });
+
+  it("12. updateSchedule ONLY_THIS dời tới ngày QUÁ KHỨ → bị chặn (tránh buổi mất khỏi agenda)", async () => {
+    const res = await createSchedule({
+      classId: classId1, subjectId, teacherId: teacherTestId,
+      dayOfWeek: 2, startTime: "09:00", endTime: "10:30", room: "SERIES-M",
+      startDate: "2026-08-04",
+    });
+    expect(res.success).toBe(true);
+    const seriesId = (res as any).data.seriesId;
+
+    // Dời buổi sang ngày trong quá khứ (giả lập ngày hôm nay là 2026-08-05)
+    const upd = await updateSchedule({
+      seriesId, instanceDate: "2026-08-11",
+      classId: classId1, subjectId, teacherId: teacherTestId,
+      dayOfWeek: 2, startTime: "09:00", endTime: "10:30", room: "SERIES-M",
+      rescheduledDate: "2026-08-04", // Thứ 3 — trong quá khứ nếu hôm nay là 05/08
+      updateMode: "ONLY_THIS",
+    });
+    // Guard dùng normalizeDateUtc(new Date()) = hôm nay thật. Nếu hôm nay >= 05/08 thì 04/08 là quá khứ.
+    // Để test ổn định mọi ngày, ta check: nếu 04/08 < hôm nay thật → bị chặn.
+    const todayUtc = normalizeDateUtc(new Date());
+    if (new Date("2026-08-04T00:00:00.000Z") < todayUtc) {
+      expect(upd.success).toBe(false);
+      expect(upd.error).toContain("quá khứ");
+    } else {
+      // Nếu test chạy trước 04/08 (hiếm), dời này là tương lai → cho phép
+      expect(upd.success).toBe(true);
+    }
+  });
 });

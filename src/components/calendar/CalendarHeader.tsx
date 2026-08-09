@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Menu } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
 import { addMonths, addWeeks, addDays, subMonths, subWeeks, subDays } from "date-fns";
 
 type ViewType = "day" | "week" | "month" | "agenda";
@@ -14,7 +14,6 @@ interface CalendarHeaderProps {
   onDateChange: (date: Date) => void;
   onToday: () => void;
   onCreateSchedule?: () => void;
-  onToggleSidebar?: () => void;
   role?: string;
 }
 
@@ -25,7 +24,6 @@ export default function CalendarHeader({
   onDateChange,
   onToday,
   onCreateSchedule,
-  onToggleSidebar,
   role,
 }: CalendarHeaderProps) {
   const handlePrev = () => {
@@ -65,13 +63,6 @@ export default function CalendarHeader({
   return (
     <div className="flex items-center justify-between px-2 md:px-4 py-1.5 md:py-2 border-b border-hairline bg-white gap-1.5">
       <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
-        {/* Mobile: hamburger */}
-        {onToggleSidebar && (
-          <button onClick={onToggleSidebar} className="md:hidden p-1.5 rounded-lg hover:bg-surface-pearl">
-            <Menu className="w-5 h-5 text-ink-muted-48" />
-          </button>
-        )}
-
         {onCreateSchedule && role !== "STUDENT" && (
           <button
             onClick={onCreateSchedule}

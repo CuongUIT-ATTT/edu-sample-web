@@ -18,7 +18,9 @@ interface ScheduleModalProps {
   rooms: { id: string; name: string; capacity?: number | null }[];
   editSchedule?: {
     seriesId: string;
-    instanceDate: string; // YYYY-MM-DD của buổi đang sửa
+    instanceDate: string; // YYYY-MM-DD của buổi đang sửa (ngày hiển thị)
+    /** Ngày GỐC nếu buổi này đã được dời (dùng làm instanceDate khi update — upsert đúng exception). */
+    originalDate?: string | null;
     classId: string;
     subjectId: string;
     teacherId: string;
@@ -124,14 +126,20 @@ export default function ScheduleModal({
 
   const isTeacher = role === "TEACHER";
 
-  // Auto-adjust startDate when dayOfWeek changes to match the nearest future date
+  // Auto-adjust startDate when dayOfWeek changes to match the nearest future date.
+  // Khi EDIT (chỉ sửa 1 buổi), giữ nguyên startDate — nó chính là ngày buổi đang sửa.
   const handleDayOfWeekChange = (newDow: number) => {
     setDayOfWeek(newDow);
-    setStartDate(computeNearestDate(newDow));
+    if (!editSchedule) setStartDate(computeNearestDate(newDow));
   };
 
-  // Check if selected date matches dayOfWeek
+  // Chỉ sửa 1 buổi: ngày có thể lệch dayOfWeek (buổi đã dời) → bỏ ràng buộc khớp thứ.
+  const isEditingOnlyThis = !!editSchedule && updateMode === "ONLY_THIS";
+
+  // Check if selected date matches dayOfWeek (bỏ qua khi EDIT — ngày có thể lệch thứ:
+  // ONLY_THIS cho dời buổi sang ngày khác thứ; ALL_FUTURE/ALL block ngày nên không cần khớp).
   const dateMatchesDay = (() => {
+    if (editSchedule) return true;
     if (!startDate) return true;
     const d = new Date(startDate);
     const dow = d.getDay() === 0 ? 7 : d.getDay();
@@ -154,6 +162,12 @@ export default function ScheduleModal({
       return;
     }
 
+    // Guard: endDate (nếu có) không được trước startDate — tránh tạo chuỗi lỗi endDate < startDate
+    if (endDate && startDate && endDate < startDate) {
+      showToast("Ngày kết thúc không được trước ngày bắt đầu", "warning");
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (editSchedule) {
@@ -161,9 +175,24 @@ export default function ScheduleModal({
         const resolvedEndDate = endDateUnlimited
           ? null
           : endDate || undefined;
+        // Chỉ sửa 1 buổi: dùng ô 'Ngày bắt đầu' (phía trên) làm ngày buổi học.
+        // Nếu đổi khác ngày hiển thị → dời buổi sang ngày đó; giữ nguyên nếu trùng.
+        const isOnlyThis = updateMode === "ONLY_THIS";
+        // instanceDate gửi server = ngày GỐC (nếu buổi này đã được dời) để upsert đúng exception.
+        const baseInstanceDate = editSchedule.originalDate ?? editSchedule.instanceDate;
+        let rescheduleTarget: string | null | undefined;
+        if (isOnlyThis) {
+          if (startDate && startDate !== editSchedule.instanceDate) {
+            rescheduleTarget = startDate; // user đổi ngày hiển thị → dời sang ngày mới
+          } else if (editSchedule.originalDate) {
+            rescheduleTarget = editSchedule.instanceDate; // buổi đã dời, giữ nguyên → giữ rescheduledDate hiện tại
+          } else {
+            rescheduleTarget = null; // buổi thường, giữ nguyên → không dời
+          }
+        }
         const result = await updateSchedule({
           seriesId: editSchedule.seriesId,
-          instanceDate: editSchedule.instanceDate,
+          instanceDate: baseInstanceDate,
           classId,
           subjectId,
           teacherId: isTeacher ? currentTeacherProfileId ?? "" : teacherId,
@@ -172,6 +201,7 @@ export default function ScheduleModal({
           endTime,
           room: selectedRoom,
           endDate: resolvedEndDate,
+          rescheduledDate: isOnlyThis ? rescheduleTarget : undefined,
           updateMode,
           ignoreWarning,
         });
@@ -290,17 +320,39 @@ export default function ScheduleModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-ink-muted-80 block mb-1">Thứ *</label>
-              <select value={dayOfWeek} onChange={(e) => handleDayOfWeekChange(Number(e.target.value))}
-                className="w-full text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500">
+              <select
+                value={dayOfWeek}
+                onChange={(e) => handleDayOfWeekChange(Number(e.target.value))}
+                disabled={isEditingOnlyThis}
+                className="w-full text-sm border border-hairline rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 disabled:bg-surface-pearl disabled:text-ink-muted-48 disabled:cursor-not-allowed">
                 {DAYS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
+              {isEditingOnlyThis && (
+                <p className="text-[10px] text-ink-muted-48 mt-1">Không đổi được thứ khi sửa 1 buổi.</p>
+              )}
             </div>
             <div>
-              <label className="text-xs font-medium text-ink-muted-80 block mb-1">Ngày bắt đầu *</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                className={`w-full text-sm border rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 ${!dateMatchesDay ? "border-red-400 bg-red-50" : "border-hairline"}`} />
-              {!dateMatchesDay && (
-                <p className="text-[10px] text-red-500 mt-1">Ngày không khớp với thứ đã chọn</p>
+              <label className="text-xs font-medium text-ink-muted-80 block mb-1">
+                {isEditingOnlyThis ? "Ngày của buổi học *" : "Ngày bắt đầu *"}
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                disabled={!!editSchedule && !isEditingOnlyThis}
+                className={`w-full text-sm border rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 disabled:bg-surface-pearl disabled:text-ink-muted-48 disabled:cursor-not-allowed ${!dateMatchesDay ? "border-red-400 bg-red-50" : "border-hairline"}`} />
+              {isEditingOnlyThis ? (
+                <p className="text-[10px] text-ink-muted-48 mt-1">
+                  Đổi ngày để dời buổi học này sang ngày khác.
+                </p>
+              ) : editSchedule ? (
+                <p className="text-[10px] text-ink-muted-48 mt-1">
+                  Ngày bắt đầu của chuỗi. Không đổi được khi sửa chuỗi.
+                </p>
+              ) : (
+                !dateMatchesDay && (
+                  <p className="text-[10px] text-red-500 mt-1">Ngày không khớp với thứ đã chọn</p>
+                )
               )}
             </div>
           </div>
@@ -383,6 +435,12 @@ export default function ScheduleModal({
                   </button>
                 </div>
               </div>
+
+              {updateMode === "ONLY_THIS" && (
+                <p className="text-[11px] text-ink-muted-48">
+                  Đổi ngày ở ô "Ngày của buổi học" phía trên để dời buổi này sang ngày khác. Không cho dời nếu ngày mới trùng buổi khác trong chuỗi.
+                </p>
+              )}
 
               {(updateMode === "ALL_FUTURE" || updateMode === "ALL") && (
                 <div>

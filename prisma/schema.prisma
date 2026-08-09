@@ -224,6 +224,10 @@ model ScheduleException {
   homeworkDueDate DateTime?
   homeworkQuizId  String?
 
+  // Dời ngày: buổi gốc tại originalDate chuyển sang rescheduledDate (1 buổi đặc biệt ngoài lưới dayOfWeek).
+  // null = giữ nguyên ngày.
+  rescheduledDate DateTime?
+
   @@unique([seriesId, originalDate])
   @@index([seriesId])
   @@index([originalDate])

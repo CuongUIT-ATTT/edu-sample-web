@@ -42,6 +42,8 @@ export interface UpdateScheduleInput {
   endTime: string;
   room?: string;
   endDate?: string | null; // null = vô hạn (mode ALL / ALL_FUTURE)
+  /** Dời buổi ONLY_THIS tới ngày khác (YYYY-MM-DD). null/absent = giữ nguyên ngày. */
+  rescheduledDate?: string | null;
   updateMode: UpdateMode;
   ignoreWarning?: boolean;
 }
@@ -133,17 +135,20 @@ interface LoadedSeries {
   instances: ReturnType<typeof expandSeriesToInstances>;
 }
 
-/** Load series cùng dayOfWeek trong window (loại trừ 1 số seriesId), expand runtime. Dùng `tx` để chạy trong transaction. */
+/** Load series trong window (loại trừ 1 số seriesId), expand runtime. Dùng `tx` để chạy trong transaction.
+ *  `dayOfWeek` optional: bỏ qua → load MỌI series (dùng khi dời buổi sang ngày khác thứ, fromDate=toDate
+ *  nên expandSeriesToInstances chỉ sinh instance trùng đúng ngày cần check). */
 async function loadInstancesForConflictCheck(
   tx: any,
   opts: {
-    dayOfWeek: number;
+    dayOfWeek?: number;
     fromDate: Date;
     toDate: Date;
     excludeSeriesIds?: string[];
   }
 ): Promise<LoadedSeries[]> {
-  const where: any = { dayOfWeek: opts.dayOfWeek };
+  const where: any = {};
+  if (opts.dayOfWeek) where.dayOfWeek = opts.dayOfWeek;
   if (opts.excludeSeriesIds?.length) where.id = { notIn: opts.excludeSeriesIds };
 
   const series = await tx.scheduleSeries.findMany({
@@ -389,7 +394,7 @@ export async function updateSchedule(input: UpdateScheduleInput) {
       return { success: false, error: "Bạn không có quyền thực hiện thao tác này." };
     }
 
-    const { seriesId, instanceDate, classId, subjectId, teacherId, dayOfWeek, startTime, endTime, room, endDate, updateMode, ignoreWarning } = input;
+    const { seriesId, instanceDate, classId, subjectId, teacherId, dayOfWeek, startTime, endTime, room, endDate, rescheduledDate, updateMode, ignoreWarning } = input;
 
     if (!seriesId || !classId || !subjectId || !teacherId || isNaN(dayOfWeek) || !startTime || !endTime || !room || !instanceDate) {
       return { success: false, error: "Vui lòng nhập đầy đủ thông tin lịch học." };
@@ -442,46 +447,113 @@ export async function updateSchedule(input: UpdateScheduleInput) {
     // endDate: undefined = KHÔNG đổi endDate series (giữ nguyên); null = vô hạn; string = set ngày mới.
     const endDateChanged = "endDate" in input;
     const newEndDate = endDateChanged ? (endDate ? toUtc(endDate) : null) : undefined;
+    // Guard: endDate mới không được trước startDate của chuỗi (đang sửa).
+    // Nếu không, expandSeriesToInstances sẽ không sinh buổi nào hoặc dữ liệu lỗi.
+    if (endDateChanged && newEndDate && targetSeries.startDate > newEndDate) {
+      return { success: false, error: "Ngày kết thúc không được trước ngày bắt đầu của lịch." };
+    }
 
     // ─── Mode ONLY_THIS: tạo/update exception MODIFIED ───
     if (updateMode === "ONLY_THIS") {
       // ONLY_THIS chỉ tạo 1 exception (không cắt/ghi series). Conflict check chạy trên db trực tiếp.
-      const existing = await loadInstancesForConflictCheck(db, {
-        dayOfWeek,
-        fromDate: targetDate,
-        toDate: targetDate,
-        excludeSeriesIds: [seriesId],
-      });
+      const reschedChanged = "rescheduledDate" in input;
+      const newReschedDate = reschedChanged && rescheduledDate ? toUtc(rescheduledDate) : null;
 
-      const candidate = {
-        seriesId,
-        instanceDate: targetDate,
-        classId, subjectId, teacherId, dayOfWeek, startTime, endTime,
-        room: room.trim(),
-      };
-      const candidateClass = await db.class.findUnique({
-        where: { id: classId },
-        include: { students: { include: { user: true } } },
-      });
-      const candidateStudents = (candidateClass?.students as any[]) ?? [];
-      const conflict = findConflicts(candidate, existing, isTeacher, currentTeacherProfileId, ignoreWarning ?? false, "cập nhật", candidateStudents);
-      if (conflict) return conflict;
+      // Chặn dời buổi tới ngày trong QUÁ KHỨ — buổi sẽ nằm ngoài window agenda (mất khỏi lịch trình)
+      // và gây nhầm lẫn "sự kiện biến mất". Chỉ cho dời tới hôm nay hoặc tương lai.
+      if (newReschedDate) {
+        const todayUtc = normalizeDateUtc(new Date());
+        if (newReschedDate < todayUtc) {
+          return {
+            success: false,
+            error: "Không thể dời buổi học tới ngày trong quá khứ. Chỉ dời tới hôm nay hoặc ngày tương lai.",
+          };
+        }
+      }
+
+      // Nếu DỜI ngày: kiểm tra (1) ngày mới trùng instance trong chuỗi, (2) conflict tại ngày mới.
+      if (newReschedDate) {
+        // (1) Ngày dời không được trùng 1 buổi còn tồn tại của chính chuỗi
+        const seriesFull = await db.scheduleSeries.findUnique({
+          where: { id: seriesId },
+          include: { exceptions: true },
+        });
+        if (seriesFull) {
+          const existingInstances = expandSeriesToInstances(
+            seriesFull as any,
+            seriesFull.exceptions,
+            newReschedDate,
+            newReschedDate
+          );
+          if (existingInstances.length > 0) {
+            return {
+              success: false,
+              error: "Ngày này đã có buổi học trong chuỗi. Không thể dời buổi tới ngày trùng.",
+            };
+          }
+        }
+
+        // (2) Conflict tại ngày dời (phòng/GV/lớp) với buổi khác.
+        //     Bỏ dayOfWeek — ngày dời có thể khác thứ của chuỗi → load mọi series, chỉ sinh instance đúng ngày dời.
+        const existingAtNew = await loadInstancesForConflictCheck(db, {
+          fromDate: newReschedDate,
+          toDate: newReschedDate,
+          excludeSeriesIds: [seriesId],
+        });
+        const candidateAtNew = {
+          seriesId,
+          instanceDate: newReschedDate,
+          classId, subjectId, teacherId, dayOfWeek, startTime, endTime,
+          room: room.trim(),
+        };
+        const candidateClass2 = await db.class.findUnique({
+          where: { id: classId },
+          include: { students: { include: { user: true } } },
+        });
+        const candidateStudents2 = (candidateClass2?.students as any[]) ?? [];
+        const conflictAtNew = findConflicts(candidateAtNew, existingAtNew, isTeacher, currentTeacherProfileId, ignoreWarning ?? false, "cập nhật", candidateStudents2);
+        if (conflictAtNew) return conflictAtNew;
+      } else {
+        // Không dời ngày → conflict check tại ngày gốc như cũ
+        const existing = await loadInstancesForConflictCheck(db, {
+          dayOfWeek,
+          fromDate: targetDate,
+          toDate: targetDate,
+          excludeSeriesIds: [seriesId],
+        });
+
+        const candidate = {
+          seriesId,
+          instanceDate: targetDate,
+          classId, subjectId, teacherId, dayOfWeek, startTime, endTime,
+          room: room.trim(),
+        };
+        const candidateClass = await db.class.findUnique({
+          where: { id: classId },
+          include: { students: { include: { user: true } } },
+        });
+        const candidateStudents = (candidateClass?.students as any[]) ?? [];
+        const conflict = findConflicts(candidate, existing, isTeacher, currentTeacherProfileId, ignoreWarning ?? false, "cập nhật", candidateStudents);
+        if (conflict) return conflict;
+      }
 
       await db.scheduleException.upsert({
         where: { seriesId_originalDate: { seriesId, originalDate: targetDate } },
         create: {
           seriesId, originalDate: targetDate, status: "MODIFIED",
           classId, subjectId, teacherId, room: room.trim(), startTime, endTime,
+          rescheduledDate: newReschedDate,
         },
         update: {
           status: "MODIFIED",
           classId, subjectId, teacherId, room: room.trim(), startTime, endTime,
+          rescheduledDate: newReschedDate,
         },
       });
 
       revalidatePath("/admin/calendar");
       revalidatePath("/teacher/calendar");
-      return { success: true, message: "Cập nhật buổi học thành công." };
+      return { success: true, message: newReschedDate ? "Đã dời buổi học tới ngày mới." : "Cập nhật buổi học thành công." };
     }
 
     // ─── Mode ALL_FUTURE: cắt series cũ + tạo series mới ───
@@ -530,12 +602,6 @@ export async function updateSchedule(input: UpdateScheduleInput) {
         });
         if (conflict) throw conflict;
 
-        // 1. Cắt series cũ: endDate = ngày trước cutover
-        await tx.scheduleSeries.update({
-          where: { id: seriesId },
-          data: { endDate: addDaysUtc(cutoverDate, -1) },
-        });
-
         // 2. Tạo series mới từ cutover. endDate: nếu user không đổi → kế thừa endDate series cũ.
         const newSeriesEndDate = endDateChanged ? newEndDate : targetSeries.endDate;
         const newSeries = await tx.scheduleSeries.create({
@@ -556,6 +622,19 @@ export async function updateSchedule(input: UpdateScheduleInput) {
           where: { seriesId, instanceDate: { gte: cutoverDate } },
           data: { seriesId: newSeries.id },
         });
+
+        // 4. Cắt series cũ: endDate = ngày trước cutover.
+        //    Nếu cutoverDate trùng startDate → chuỗi cũ không còn buổi nào → xóa luôn
+        //    (phải xóa SAU khi di dời exception/submission để không cascade mất data).
+        const oldEndDate = addDaysUtc(cutoverDate, -1);
+        if (oldEndDate < targetSeries.startDate) {
+          await tx.scheduleSeries.delete({ where: { id: seriesId } });
+        } else {
+          await tx.scheduleSeries.update({
+            where: { id: seriesId },
+            data: { endDate: oldEndDate },
+          });
+        }
 
         return newSeries;
       });
@@ -698,16 +777,25 @@ export async function deleteSchedule(input: DeleteScheduleInput) {
         };
       }
 
-      // Cắt endDate = ngày trước targetDate; xóa exception >= targetDate
-      await db.$transaction([
-        db.scheduleSeries.update({
-          where: { id: seriesId },
-          data: { endDate: addDaysUtc(targetDate, -1) },
-        }),
-        db.scheduleException.deleteMany({
-          where: { seriesId, originalDate: { gte: targetDate } },
-        }),
-      ]);
+      // Cắt endDate = ngày trước targetDate; xóa exception >= targetDate.
+      // Nếu targetDate trùng startDate → chuỗi không còn buổi nào → xóa luôn
+      // (tránh để endDate < startDate gây data lỗi).
+      const newEnd = addDaysUtc(targetDate, -1);
+      await db.$transaction(
+        async (tx) => {
+          if (newEnd < targetSeries.startDate) {
+            await tx.scheduleSeries.delete({ where: { id: seriesId } });
+          } else {
+            await tx.scheduleSeries.update({
+              where: { id: seriesId },
+              data: { endDate: newEnd },
+            });
+            await tx.scheduleException.deleteMany({
+              where: { seriesId, originalDate: { gte: targetDate } },
+            });
+          }
+        }
+      );
     } else {
       // ONLY_THIS: tạo exception CANCELLED cho đúng ngày đó
       if (await hasSubmissions(seriesId, targetDate)) {

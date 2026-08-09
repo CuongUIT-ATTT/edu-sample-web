@@ -699,32 +699,31 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
           <Trash2 className="h-4 w-4" />
         </button>
 
-        {/* Question text & type */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex flex-col gap-1.5 md:col-span-2 pr-8">
-            <label className="text-xs font-semibold text-ink">Câu hỏi {displayIdx}</label>
-            <input
-              type="text"
-              value={q.questionText}
-              onChange={(e) => handleQuestionTextChange(qIdx, e.target.value)}
-              placeholder="Nội dung câu hỏi..."
-              className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full"
-              required
-            />
-          </div>
+        {/* Question text (full width, không bị dropdown đè) */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-ink">Câu hỏi {displayIdx}</label>
+          <input
+            type="text"
+            value={q.questionText}
+            onChange={(e) => handleQuestionTextChange(qIdx, e.target.value)}
+            placeholder="Nội dung câu hỏi..."
+            className="bg-canvas border border-hairline rounded-pill px-4 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full"
+            required
+          />
+        </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-ink">Dạng thức đề THPT 2026</label>
-            <select
-              value={q.type}
-              onChange={(e) => handleTypeChange(qIdx, e.target.value as any)}
-              className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-xs outline-none w-full"
-            >
-              <option value="MULTIPLE_CHOICE">Dạng thức I (4 lựa chọn)</option>
-              <option value="TRUE_FALSE">Dạng thức II (Đúng/Sai)</option>
-              <option value="SHORT_ANSWER">Dạng thức III (Trả lời ngắn/Điền số)</option>
-            </select>
-          </div>
+        {/* Dạng thức — tách riêng hàng dưới, không che nội dung câu hỏi */}
+        <div className="flex flex-col gap-1.5 max-w-xs">
+          <label className="text-xs font-semibold text-ink">Dạng thức đề THPT 2026</label>
+          <select
+            value={q.type}
+            onChange={(e) => handleTypeChange(qIdx, e.target.value as any)}
+            className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-xs outline-none w-full"
+          >
+            <option value="MULTIPLE_CHOICE">Dạng thức I (4 lựa chọn)</option>
+            <option value="TRUE_FALSE">Dạng thức II (Đúng/Sai)</option>
+            <option value="SHORT_ANSWER">Dạng thức III (Trả lời ngắn/Điền số)</option>
+          </select>
         </div>
 
         {/* Conditional options rendering depending on type */}

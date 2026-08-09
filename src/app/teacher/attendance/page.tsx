@@ -54,7 +54,8 @@ function toLocalDateString(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-// Label option ngắn gọn (tránh bị cắt/viết tắt trên mobile): "12/08 • Toán (07:00-09:00)"
+// Label option ngắn gọn (tránh bị cắt/viết tắt trên mobile):
+// "12/08 • Toán (07:00-09:00)" — chi tiết đầy đủ hiển thị ở block "Ca học điểm danh" bên dưới.
 function formatScheduleLabel(s: ScheduleItem): string {
   const dateLabel = s.date
     ? new Date(s.date).toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })
@@ -435,7 +436,7 @@ export default function TeacherAttendancePage() {
                         onClick={() => setStatus(student.id, status)}
                         className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-pill border text-[11px] sm:text-xs font-caption-strong transition-all ${btnClasses} ${attendance[student.id] === status ? "ring-2 ring-offset-1 ring-current scale-105 shadow-sm" : "opacity-60"}`}
                       >
-                        {icon} {label}
+                        {icon} <span>{label}</span>
                       </button>
                     ),
                   )}

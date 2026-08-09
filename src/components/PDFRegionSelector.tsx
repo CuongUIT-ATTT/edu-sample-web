@@ -68,6 +68,9 @@ export default function PDFRegionSelector({
   const [pageLoading, setPageLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [canvasSize, setCanvasSize] = useState<{ w: number; h: number } | null>(null);
+  // Zoom hiển thị PDF (100% = kích thước cơ sở). Region dùng % nên vẫn chính xác khi zoom.
+  const [zoomScale, setZoomScale] = useState(1);
+  const [fitToScreen, setFitToScreen] = useState(true);
 
   const pagesRef = useRef<Map<number, HTMLCanvasElement>>(new Map());
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -343,33 +346,67 @@ export default function PDFRegionSelector({
         </div>
       ) : (
         <>
-          {/* Pagination */}
+          {/* Pagination + Zoom */}
           {numPages > 0 && (
-            <div className="flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                disabled={currentPage === 0}
-                className="p-1 rounded border border-hairline bg-canvas hover:bg-surface disabled:opacity-40"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="text-xs font-semibold text-ink-muted-80">
-                Trang {currentPage + 1} / {numPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => setCurrentPage((p) => Math.min(numPages - 1, p + 1))}
-                disabled={currentPage === numPages - 1}
-                className="p-1 rounded border border-hairline bg-canvas hover:bg-surface disabled:opacity-40"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-center gap-2 sm:gap-3">
+              {/* Page nav */}
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="p-1 rounded border border-hairline bg-canvas hover:bg-surface disabled:opacity-40"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-xs font-semibold text-ink-muted-80">
+                  Trang {currentPage + 1} / {numPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(numPages - 1, p + 1))}
+                  disabled={currentPage === numPages - 1}
+                  className="p-1 rounded border border-hairline bg-canvas hover:bg-surface disabled:opacity-40"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Zoom controls */}
+              <div className="flex items-center justify-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => { setZoomScale((z) => Math.max(0.25, +(z - 0.25).toFixed(2))); setFitToScreen(false); }}
+                  className="px-2 py-1 rounded border border-hairline bg-canvas hover:bg-surface text-xs font-bold text-ink-muted-80"
+                  title="Thu nhỏ"
+                >
+                  −
+                </button>
+                <span className="text-[11px] font-semibold text-ink-muted-80 w-14 text-center">
+                  {Math.round(zoomScale * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setZoomScale((z) => Math.min(4, +(z + 0.25).toFixed(2))); setFitToScreen(false); }}
+                  className="px-2 py-1 rounded border border-hairline bg-canvas hover:bg-surface text-xs font-bold text-ink-muted-80"
+                  title="Phóng to"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setFitToScreen(true); setZoomScale(1); }}
+                  className={`px-2 py-1 rounded border text-[11px] font-semibold ${fitToScreen ? "border-primary text-primary bg-primary-muted-12" : "border-hairline bg-canvas hover:bg-surface text-ink-muted-80"}`}
+                  title="Vừa màn hình"
+                >
+                  Vừa màn hình
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Canvas + regions */}
-          <div ref={containerRef} className="relative mx-auto w-fit max-w-full select-none" style={{ touchAction: "none" }}>
+          {/* Canvas + regions — overflow-x để scroll ngang khi phóng to */}
+          <div ref={containerRef} className="relative mx-auto w-fit max-w-full overflow-x-auto select-none" style={{ touchAction: "none" }}>
             {pageLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10">
                 <Loader2 className="h-6 w-6 text-primary animate-spin" />
@@ -378,7 +415,11 @@ export default function PDFRegionSelector({
             <canvas
               ref={canvasRef}
               className="block mx-auto border border-hairline shadow-sm rounded bg-white"
-              style={{ maxWidth: "100%", maxHeight: "70vh", width: "auto", height: "auto" }}
+              style={
+                fitToScreen
+                  ? { maxWidth: "100%", maxHeight: "70vh", width: "auto", height: "auto" }
+                  : { width: `${Math.round(zoomScale * 100)}%`, maxWidth: "100%", height: "auto" }
+              }
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
