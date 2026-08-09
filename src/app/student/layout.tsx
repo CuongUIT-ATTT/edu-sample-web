@@ -14,6 +14,7 @@ import {
   Menu,
   Trophy,
   FileText,
+  DollarSign,
 } from "lucide-react";
 
 export default function StudentDashboardLayout({
@@ -143,6 +144,14 @@ export default function StudentDashboardLayout({
             >
               <FileText className="h-4 w-4 flex-shrink-0" />
               <span>Kho tài liệu</span>
+            </Link>
+            <Link
+              href="/student/payment"
+              onClick={closeSidebar}
+              className={linkClass("/student/payment")}
+            >
+              <DollarSign className="h-4 w-4 flex-shrink-0" />
+              <span>Học phí</span>
             </Link>
           </nav>
         </div>

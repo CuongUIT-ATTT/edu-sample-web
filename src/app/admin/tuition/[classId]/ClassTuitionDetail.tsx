@@ -410,7 +410,7 @@ export default function ClassTuitionDetail({ initialTuition, fromMonth, toMonth,
                       <tr key={pmt.id} className="border-b border-divider-soft last:border-0">
                         <td className="py-2">{new Date(pmt.paidAt).toLocaleDateString("vi-VN")}</td>
                         <td className="py-2 text-right font-semibold text-green-700">{pmt.amount.toLocaleString()}đ</td>
-                        <td className="py-2 text-center">{pmt.method === "CASH" ? "Tiền mặt" : "CK"}</td>
+                        <td className="py-2 text-center">{pmt.method === "CASH" ? "Tiền mặt" : pmt.method === "PAYOS" ? "PayOS" : "CK"}</td>
                         <td className="py-2 text-ink-muted-48">{pmt.note || "—"}</td>
                       </tr>
                     ))}
