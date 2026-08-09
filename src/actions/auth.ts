@@ -54,7 +54,10 @@ export async function login(formData: FormData): Promise<LoginResponse> {
     cookieStore.set("session_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      // sameSite=lax: cho phép cookie đi theo redirect TOP-LEVEL từ domain khác (PayOS redirect về sau khi
+      // thanh toán). sameSite=strict chặn cross-site navigation → mất session → bị đá về /login.
+      // Lax vẫn chặn CSRF (cookie không gửi trên subrequest/fetch cross-site, chỉ top-level GET navigation).
+      sameSite: "lax",
       maxAge: 60 * 60 * 24, // 24 hours
       path: "/",
     });
