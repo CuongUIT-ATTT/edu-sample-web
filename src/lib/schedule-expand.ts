@@ -47,6 +47,17 @@ export function dateToUtcStr(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Đổi 1 Date về date string "YYYY-MM-DD" theo LOCAL TIME (ngược với dateToUtcStr).
+ *  CHỈ dùng cho attendance: attendance lưu LOCAL midnight (setHours(0,0,0,0) ở markAttendance),
+ *  nên phải lấy ngày theo local getters. normalizeDateUtc(att.date) sẽ lấy theo UTC → lệch 1 ngày
+ *  ở TZ +07 (local 2026-08-09T00:00+07 = 2026-08-08T17:00Z → getUTCDate() = 08). */
+export function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 /** dayOfWeek 1=Mon..7=Sun → JS getDay() 0=Sun..6=Sat. */
 export function dowToJsDay(dayOfWeek: number): number {
   return dayOfWeek === 7 ? 0 : dayOfWeek;

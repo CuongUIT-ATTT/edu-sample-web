@@ -22,20 +22,17 @@ export default async function ParentPaymentPage() {
   }[] = [];
 
   try {
+    // Chỉ lấy tuition CỦA TỪNG con — KHÔNG đi qua Class.tuitions
+    // (Class.tuitions = tuition của mọi học sinh trong lớp → lộ dữ liệu người khác).
     const parentProfile = await db.parentProfile.findUnique({
       where: { userId: session.userId },
-      include: {
+      select: {
+        id: true,
         students: {
-          include: {
+          select: {
+            id: true,
             user: { select: { name: true } },
-            classes: {
-              include: {
-                tuitions: {
-                  include: { payments: true },
-                  orderBy: [{ year: "desc" }, { month: "desc" }],
-                },
-              },
-            },
+            classes: { select: { id: true, name: true } },
             credits: true,
           },
         },
@@ -43,15 +40,45 @@ export default async function ParentPaymentPage() {
     });
 
     if (parentProfile) {
-      children = parentProfile.students.map((s) => ({
-        studentId: s.id,
-        name: s.user.name,
-        classes: JSON.parse(JSON.stringify(s.classes)) as SerializedClass[],
-        credits: JSON.parse(JSON.stringify(s.credits)) as {
-          classId: string;
-          credit: number;
-        }[],
-      }));
+      children = await Promise.all(
+        parentProfile.students.map(async (s) => {
+          const tuitions = await db.tuition.findMany({
+            where: { studentId: s.id },
+            include: { payments: true },
+            orderBy: [{ year: "desc" }, { month: "desc" }],
+          });
+          const tuitionByClass = new Map<string, (typeof tuitions)[number][]>();
+          for (const t of tuitions) {
+            const list = tuitionByClass.get(t.classId) ?? [];
+            list.push(t);
+            tuitionByClass.set(t.classId, list);
+          }
+          return {
+            studentId: s.id,
+            name: s.user.name,
+            classes: s.classes.map((c) => ({
+              id: c.id,
+              name: c.name,
+              tuitions: (tuitionByClass.get(c.id) ?? []).map((t) => ({
+                id: t.id,
+                month: t.month,
+                year: t.year,
+                periods: t.periods,
+                amount: t.amount,
+                paid: t.paid,
+                status: t.status,
+                payments: t.payments.map((p) => ({
+                  id: p.id,
+                  method: p.method,
+                  amount: p.amount,
+                  paidAt: p.paidAt.toISOString(),
+                })),
+              })),
+            })),
+            credits: s.credits,
+          };
+        })
+      );
     }
   } catch (error) {
     console.error("Error fetching parent payment data:", error);
