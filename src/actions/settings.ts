@@ -68,7 +68,9 @@ export async function updateProfileSettings(formData: FormData) {
     cookieStore.set("session_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      // sameSite=lax: đồng bộ với login — cho phép cookie theo redirect top-level (PayOS return về),
+      // vẫn chặn CSRF (không gửi cookie trên subrequest/fetch cross-site).
+      sameSite: "lax",
       maxAge: 60 * 60 * 24, // 24 hours
       path: "/",
     });
