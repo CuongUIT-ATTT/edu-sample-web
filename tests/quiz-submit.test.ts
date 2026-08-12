@@ -28,6 +28,7 @@ function makeQuiz(overrides: any = {}) {
     classId: null,
     deadline: null,
     isPublic: false,
+    shuffleQuestions: true,
     questions: [
       { id: "q1", text: "Cau 1", type: "MULTIPLE_CHOICE", options: ["A", "B"], correctAnswer: "0", score: 1, explanation: "Giai thich" },
     ],
@@ -112,5 +113,85 @@ describe("submitQuiz - answerVisibility", () => {
     mockDb.class.findUnique.mockResolvedValue(null);
     const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
     expect(res.data?.correctAnswers).toBeNull();
+  });
+});
+
+describe("submitQuiz - attemptId (mã đề xáo trộn)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getSession).mockResolvedValue({
+      userId: "student-1",
+      email: "hs@test.local",
+      role: "STUDENT" as const,
+      name: "Học sinh test",
+    });
+    mockDb.studentProfile.findUnique.mockResolvedValue({ id: "sp-1", userId: "student-1" });
+    mockDb.quizSubmission.create.mockImplementation(({ data }: any) => Promise.resolve({ id: "sub-1", ...data }));
+    mockDb.grade.create.mockResolvedValue({ id: "g-1" });
+    mockDb.teacherProfile.findFirst.mockResolvedValue({ id: "t-1" });
+    mockDb.quizAttempt.update.mockResolvedValue({ id: "attempt-1", status: "SUBMITTED" });
+  });
+
+  function makeAttempt(overrides: any = {}) {
+    return {
+      id: "attempt-1",
+      quizId: "quiz-1",
+      studentId: "sp-1",
+      guestName: null,
+      examCode: "ab12",
+      layout: {
+        questionOrder: { MULTIPLE_CHOICE: ["q1"] },
+        optionOrder: { q1: [0, 1] },
+      },
+      startsAt: new Date(),
+      endsAt: new Date(Date.now() + 3600000),
+      submittedAt: null,
+      status: "ACTIVE",
+      quiz: makeQuiz(),
+      ...overrides,
+    };
+  }
+
+  it("chấm theo attemptId (layout identity) → điểm đúng", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz());
+    mockDb.quizAttempt.findUnique.mockResolvedValue(makeAttempt());
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
+    expect(res.success).toBe(true);
+    expect(res.data?.score).toBe(1);
+    expect(res.data?.correctAnswers?.[0].correctAnswer).toBe("0");
+    expect(mockDb.quizAttempt.update).toHaveBeenCalled();
+  });
+
+  it("chấm theo attemptId (layout hoán vị) → map display→original đúng", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz());
+    mockDb.quizAttempt.findUnique.mockResolvedValue(makeAttempt({
+      layout: { questionOrder: { MULTIPLE_CHOICE: ["q1"] }, optionOrder: { q1: [1, 0] } },
+    }));
+    // correct = "0" (original). Hoán vị [1,0] → display đúng = 1
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "1" }, attemptId: "attempt-1" });
+    expect(res.data?.score).toBe(1);
+    expect(res.data?.correctAnswers?.[0].correctAnswer).toBe("1");
+  });
+
+  it("quá hạn endsAt → isLate=true + status TIMED_OUT", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz());
+    mockDb.quizAttempt.findUnique.mockResolvedValue(makeAttempt({ endsAt: new Date(Date.now() - 1000) }));
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
+    expect(res.data?.isLate).toBe(true);
+    expect(mockDb.quizAttempt.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "TIMED_OUT" }) }));
+  });
+
+  it("attemptId không tồn tại → error", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz());
+    mockDb.quizAttempt.findUnique.mockResolvedValue(null);
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-missing" });
+    expect(res.success).toBe(false);
+  });
+
+  it("attemptId thuộc người khác → error", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz());
+    mockDb.quizAttempt.findUnique.mockResolvedValue(makeAttempt({ studentId: "other-student" }));
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
+    expect(res.success).toBe(false);
   });
 });

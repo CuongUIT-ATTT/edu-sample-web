@@ -51,6 +51,13 @@ test.describe('Quiz anti-cheating and scoring tests', () => {
       await listCheckbox.uncheck()
     }
 
+    // Bỏ tick "Xáo trộn câu hỏi & đáp án" để giữ thứ tự cố định
+    // (test chấm Đúng/Sai theo hàng T,F,T,T — nếu xáo sẽ sai thứ tự)
+    const shuffleCheckbox = page.locator('#shuffleQuestions')
+    if (await shuffleCheckbox.isChecked()) {
+      await shuffleCheckbox.uncheck()
+    }
+
     // Select Answer visibility immediately
     await page.locator('select').nth(2).selectOption('IMMEDIATELY')
 

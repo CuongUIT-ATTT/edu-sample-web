@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Clock, RefreshCw, CheckCircle2, Play } from "lucide-react";
-import { submitQuiz } from "@/actions/quizzes";
+import { submitQuiz, startQuizAttempt } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
 import Link from "next/link";
 import { showToast } from "@/components/Toast";
@@ -11,8 +11,8 @@ interface Question {
   id: string;
   questionText: string;
   type: string;
-  options: string[];
-  correctAnswer: string;
+  options?: string[];
+  correctAnswer?: string;
   score: number;
   explanation?: string | null;
   imageUrl?: string | null;
@@ -84,6 +84,10 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
   const [submitting, setSubmitting] = useState(false);
   const [cheatWarnings, setCheatWarnings] = useState(0);
   const [isCheatedLocked, setIsCheatedLocked] = useState(false);
+  const [paper, setPaper] = useState<Question[] | null>(null);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [examCode, setExamCode] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const forceSubmitRef = useRef<(() => void) | null>(null);
 
   // Update forceSubmitRef with latest handleSubmit closure
@@ -158,6 +162,43 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
   const [showRules, setShowRules] = useState(false);
   const [agreed, setAgreed] = useState(false);
 
+  /** Gọi server tạo mã đề xáo trộn rồi mới vào làm bài. */
+  const beginQuiz = async () => {
+    if (starting) return;
+    setStarting(true);
+    try {
+      const res = await startQuizAttempt({
+        quizId: quiz.id,
+        guestName: sessionUser ? "" : guestName,
+      });
+      if (res.success && res.data) {
+        setPaper(res.data.questions.map((q) => ({
+          id: q.id,
+          questionText: q.text,
+          type: q.type,
+          options: q.options,
+          score: q.score,
+          imageUrl: q.imageUrl,
+        })));
+        setAttemptId(res.data.attemptId);
+        setExamCode(res.data.examCode);
+        setTimeLeft(quiz.duration * 60);
+        setAnswers({});
+        setQuizResult(null);
+        setShowReview(false);
+        setQuizStarted(true);
+        setShowRules(false);
+      } else {
+        showToast(res.error || "Không thể bắt đầu làm bài.", "error");
+      }
+    } catch (error) {
+      console.error("Error starting quiz:", error);
+      showToast("Lỗi hệ thống khi bắt đầu làm bài.", "error");
+    } finally {
+      setStarting(false);
+    }
+  };
+
   const handleStartQuizDirect = () => {
     if (!guestName.trim()) {
       showToast("Vui lòng nhập Họ tên để bắt đầu làm bài thi thử.", "warning");
@@ -166,12 +207,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
     if (quiz.deadline && Date.now() > new Date(quiz.deadline).getTime()) {
       showToast("Đề đã quá hạn — bài làm của bạn sẽ được đánh dấu Nộp muộn.", "warning");
     }
-    setTimeLeft(quiz.duration * 60);
-    setAnswers({});
-    setQuizResult(null);
-    setShowReview(false);
-    setQuizStarted(true);
-    setShowRules(false);
+    beginQuiz();
   };
 
   const handleStartQuiz = () => {
@@ -186,12 +222,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
     if (quiz.deadline && Date.now() > new Date(quiz.deadline).getTime()) {
       showToast("Đề đã quá hạn — bài làm của bạn sẽ được đánh dấu Nộp muộn.", "warning");
     }
-    setTimeLeft(quiz.duration * 60);
-    setAnswers({});
-    setQuizResult(null);
-    setShowReview(false);
-    setQuizStarted(true);
-    setShowRules(false);
+    beginQuiz();
   };
 
   const handleSelectOption = (questionId: string, optionIndex: number) => {
@@ -227,6 +258,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
         answers,
         guestName: sessionUser ? "" : guestName,
         timeExpired: timeLeft === 0,
+        attemptId: attemptId || undefined,
       });
 
       if (response.success && response.data) {
@@ -273,7 +305,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
               <div className="col-span-2 text-center">Đúng</div>
               <div className="col-span-2 text-center">Sai</div>
             </div>
-            {q.options.map((opt: string, optIndex: number) => {
+            {(q.options || []).map((opt: string, optIndex: number) => {
               const currentAnswers = (answers[q.id] || "-,-,-,-").split(",");
               const val = currentAnswers[optIndex] || "-";
               return (
@@ -321,7 +353,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {q.options.map((opt: string, optIndex: number) => {
+            {(q.options || []).map((opt: string, optIndex: number) => {
               const isSelected = answers[q.id] === optIndex.toString();
               return (
                 <button
@@ -375,7 +407,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
         {/* MCQ options review */}
         {q.type === "MULTIPLE_CHOICE" && (
           <div className="flex flex-col gap-2">
-            {q.options.map((opt: string, optIndex: number) => {
+            {(q.options || []).map((opt: string, optIndex: number) => {
               const isStudentSelect = answers[q.id] === optIndex.toString();
               const isCorrectAnswer = reviewInfo?.correctAnswer === optIndex.toString();
               let btnStyle = "bg-canvas border-divider-soft text-ink-muted-80";
@@ -409,7 +441,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
               <div className="col-span-3 text-center">Lựa chọn của bạn</div>
               <div className="col-span-3 text-center">Đáp án đúng</div>
             </div>
-            {q.options.map((opt: string, optIndex: number) => {
+            {(q.options || []).map((opt: string, optIndex: number) => {
               const studentParts = (answers[q.id] || "-,-,-,-").split(",");
               const correctParts = (reviewInfo.correctAnswer || "T,T,T,T").split(",");
               
@@ -643,7 +675,14 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
           <div className="border border-hairline rounded-md p-4 flex items-center justify-between bg-surface-pearl mb-4">
             <div className="flex flex-col gap-0.5">
               <h2 className="font-body-strong text-sm text-ink font-semibold">{quiz.title}</h2>
-              <span className="text-[10px] text-ink-muted-48">Thí sinh: {guestName}</span>
+              <span className="text-[10px] text-ink-muted-48">
+                Thí sinh: {guestName}
+                {examCode && (
+                  <span className="ml-2 px-2 py-0.5 rounded bg-blue-50 text-primary border border-blue-100 font-bold">
+                    Mã đề: {examCode.toUpperCase()}
+                  </span>
+                )}
+              </span>
             </div>
             <div className="flex items-center gap-2 text-red-600 font-mono font-bold text-sm bg-red-50 px-3 py-1 rounded-sm">
               <Clock className="h-4 w-4" />
@@ -664,7 +703,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
             )}
             {/* PHẦN I */}
             {((() => {
-              const part1Questions = (quiz.questions || []).filter(q => q.type === "MULTIPLE_CHOICE");
+              const part1Questions = (paper || []).filter(q => q.type === "MULTIPLE_CHOICE");
               return part1Questions.length > 0 && (
                 <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
                   <div className="border-b border-divider pb-2 mb-2 text-left">
@@ -678,7 +717,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
 
             {/* PHẦN II */}
             {((() => {
-              const part2Questions = (quiz.questions || []).filter(q => q.type === "TRUE_FALSE");
+              const part2Questions = (paper || []).filter(q => q.type === "TRUE_FALSE");
               return part2Questions.length > 0 && (
                 <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
                   <div className="border-b border-divider pb-2 mb-2 text-left">
@@ -692,7 +731,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
 
             {/* PHẦN III */}
             {((() => {
-              const part3Questions = (quiz.questions || []).filter(q => q.type === "SHORT_ANSWER");
+              const part3Questions = (paper || []).filter(q => q.type === "SHORT_ANSWER");
               return part3Questions.length > 0 && (
                 <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
                   <div className="border-b border-divider pb-2 mb-2 text-left">
@@ -797,7 +836,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
           <div className="flex flex-col gap-6 mt-4">
             {/* PHẦN I Review */}
             {((() => {
-              const part1Questions = (quiz.questions || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "MULTIPLE_CHOICE");
+              const part1Questions = (paper || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "MULTIPLE_CHOICE");
               return part1Questions.length > 0 && (
                 <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
                   <div className="border-b border-divider pb-2 mb-2 text-left">
@@ -818,7 +857,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
 
             {/* PHẦN II Review */}
             {((() => {
-              const part2Questions = (quiz.questions || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "TRUE_FALSE");
+              const part2Questions = (paper || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "TRUE_FALSE");
               return part2Questions.length > 0 && (
                 <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
                   <div className="border-b border-divider pb-2 mb-2 text-left">
@@ -857,7 +896,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
 
             {/* PHẦN III Review */}
             {((() => {
-              const part3Questions = (quiz.questions || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "SHORT_ANSWER");
+              const part3Questions = (paper || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "SHORT_ANSWER");
               return part3Questions.length > 0 && (
                 <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
                   <div className="border-b border-divider pb-2 mb-2 text-left">

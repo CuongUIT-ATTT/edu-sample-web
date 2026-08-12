@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Clock, CheckSquare, Award, ArrowLeft, RefreshCw, CheckCircle2, XCircle, Search, Trophy, BarChart3 } from "lucide-react";
-import { submitQuiz } from "@/actions/quizzes";
+import { submitQuiz, startQuizAttempt } from "@/actions/quizzes";
 import { showToast } from "@/components/Toast";
 import MathRenderer from "@/components/MathRenderer";
 
@@ -10,7 +10,7 @@ interface Question {
   id: string;
   text: string;
   type?: string;
-  options: string[];
+  options?: string[];
   score: number;
   explanation?: string | null;
   imageUrl?: string | null;
@@ -45,6 +45,10 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
   const [isCheatedLocked, setIsCheatedLocked] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [paper, setPaper] = useState<Question[] | null>(null);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [examCode, setExamCode] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const forceSubmitRef = useRef<(() => void) | null>(null);
 
   // Update forceSubmitRef with latest handleSubmit closure
@@ -122,7 +126,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     setAgreed(false);
   };
 
-  const confirmStartQuiz = () => {
+  const confirmStartQuiz = async () => {
     if (!selectedQuiz) return;
     if (!agreed) {
       showToast("Vui lòng đồng ý với Nội quy phòng thi để tiếp tục.", "warning");
@@ -131,12 +135,32 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     if (selectedQuiz.deadline && Date.now() > new Date(selectedQuiz.deadline).getTime()) {
       showToast("Đề đã quá hạn — bài làm của bạn sẽ được đánh dấu Nộp muộn.", "warning");
     }
-    setTimeLeft(selectedQuiz.duration * 60);
-    setAnswers({});
-    setQuizResult(null);
-    setShowReview(false);
-    setQuizStarted(true);
-    setShowRules(false);
+    if (starting) return;
+    setStarting(true);
+    try {
+      const res = await startQuizAttempt({
+        quizId: selectedQuiz.id,
+        guestName: "",
+      });
+      if (res.success && res.data) {
+        setPaper(res.data.questions);
+        setAttemptId(res.data.attemptId);
+        setExamCode(res.data.examCode);
+        setTimeLeft(selectedQuiz.duration * 60);
+        setAnswers({});
+        setQuizResult(null);
+        setShowReview(false);
+        setQuizStarted(true);
+        setShowRules(false);
+      } else {
+        showToast(res.error || "Không thể bắt đầu làm bài.", "error");
+      }
+    } catch (error) {
+      console.error("Error starting quiz:", error);
+      showToast("Lỗi hệ thống khi bắt đầu làm bài.", "error");
+    } finally {
+      setStarting(false);
+    }
   };
 
   const handleSelectOption = (questionId: string, optionIndex: number) => {
@@ -173,6 +197,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
         answers,
         guestName: "",
         timeExpired: timeLeft === 0,
+        attemptId: attemptId || undefined,
       });
 
       if (response.success && response.data) {
@@ -224,7 +249,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
               <div className="col-span-2 text-center">Đúng</div>
               <div className="col-span-2 text-center">Sai</div>
             </div>
-            {q.options.map((opt: string, optIndex: number) => {
+            {(q.options || []).map((opt: string, optIndex: number) => {
               const currentAnswers = (answers[q.id] || "-,-,-,-").split(",");
               const val = currentAnswers[optIndex] || "-";
               return (
@@ -272,7 +297,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {q.options.map((opt: string, optIndex: number) => {
+            {(q.options || []).map((opt: string, optIndex: number) => {
               const isSelected = answers[q.id] === optIndex.toString();
               return (
                 <button
@@ -326,7 +351,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
         {/* MCQ options review */}
         {q.type === "MULTIPLE_CHOICE" && (
           <div className="flex flex-col gap-2">
-            {q.options.map((opt: string, optIndex: number) => {
+            {(q.options || []).map((opt: string, optIndex: number) => {
               const isStudentSelect = answers[q.id] === optIndex.toString();
               const isCorrectAnswer = reviewInfo?.correctAnswer === optIndex.toString();
               let btnStyle = "bg-canvas border-divider-soft text-ink-muted-80";
@@ -360,7 +385,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
               <div className="col-span-3 text-center">Lựa chọn của bạn</div>
               <div className="col-span-3 text-center">Đáp án đúng</div>
             </div>
-            {q.options.map((opt: string, optIndex: number) => {
+            {(q.options || []).map((opt: string, optIndex: number) => {
               const studentParts = (answers[q.id] || "-,-,-,-").split(",");
               const correctParts = (reviewInfo.correctAnswer || "T,T,T,T").split(",");
               
@@ -605,7 +630,14 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
 
           {/* Static Timer Info */}
           <div className="border border-hairline rounded-md p-4 flex items-center justify-between bg-surface-pearl mb-4">
-            <h2 className="font-body-strong text-sm text-ink font-semibold">{selectedQuiz?.title}</h2>
+            <div className="flex flex-col gap-0.5">
+              <h2 className="font-body-strong text-sm text-ink font-semibold">{selectedQuiz?.title}</h2>
+              {examCode && (
+                <span className="text-[10px] px-2 py-0.5 rounded self-start bg-blue-50 text-primary border border-blue-100 font-bold">
+                  Mã đề: {examCode.toUpperCase()}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2 text-red-600 font-mono font-bold text-sm bg-red-50 px-3 py-1 rounded-sm">
               <Clock className="h-4 w-4" />
               <span>{formatTime(timeLeft)}</span>
@@ -625,7 +657,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
             )}
             {/* PHẦN I */}
             {((() => {
-              const part1Questions = (selectedQuiz?.questions || []).filter(q => q.type === "MULTIPLE_CHOICE");
+              const part1Questions = (paper || []).filter(q => q.type === "MULTIPLE_CHOICE");
               return part1Questions.length > 0 && (
                 <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
                   <div className="border-b border-divider pb-2 mb-2 text-left">
@@ -639,7 +671,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
 
             {/* PHẦN II */}
             {((() => {
-              const part2Questions = (selectedQuiz?.questions || []).filter(q => q.type === "TRUE_FALSE");
+              const part2Questions = (paper || []).filter(q => q.type === "TRUE_FALSE");
               return part2Questions.length > 0 && (
                 <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
                   <div className="border-b border-divider pb-2 mb-2 text-left">
@@ -653,7 +685,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
 
             {/* PHẦN III */}
             {((() => {
-              const part3Questions = (selectedQuiz?.questions || []).filter(q => q.type === "SHORT_ANSWER");
+              const part3Questions = (paper || []).filter(q => q.type === "SHORT_ANSWER");
               return part3Questions.length > 0 && (
                 <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
                   <div className="border-b border-divider pb-2 mb-2 text-left">
@@ -824,7 +856,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
           <div className="flex flex-col gap-6 mt-4">
             {/* PHẦN I Review */}
             {((() => {
-              const part1Questions = (selectedQuiz.questions || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "MULTIPLE_CHOICE");
+              const part1Questions = (paper || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "MULTIPLE_CHOICE");
               return part1Questions.length > 0 && (
                 <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
                   <div className="border-b border-divider pb-2 mb-2 text-left">
@@ -845,7 +877,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
 
             {/* PHẦN II Review */}
             {((() => {
-              const part2Questions = (selectedQuiz.questions || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "TRUE_FALSE");
+              const part2Questions = (paper || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "TRUE_FALSE");
               return part2Questions.length > 0 && (
                 <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
                   <div className="border-b border-divider pb-2 mb-2 text-left">
@@ -884,7 +916,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
 
             {/* PHẦN III Review */}
             {((() => {
-              const part3Questions = (selectedQuiz.questions || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "SHORT_ANSWER");
+              const part3Questions = (paper || []).map((q, idx) => ({ q, idx })).filter(item => item.q.type === "SHORT_ANSWER");
               return part3Questions.length > 0 && (
                 <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
                   <div className="border-b border-divider pb-2 mb-2 text-left">

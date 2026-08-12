@@ -16,6 +16,7 @@ interface QuizItem {
   passingScore: number;
   deadline?: string | null;
   isPublic?: boolean;
+  shuffleQuestions?: boolean;
   submissions?: { score: number }[];
   answerVisibility?: string;
   creatorName?: string;
@@ -94,6 +95,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [isPublic, setIsPublic] = useState(false);
   const [showOnList, setShowOnList] = useState(true);
   const [answerVisibility, setAnswerVisibility] = useState("IMMEDIATELY");
+  const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [deadline, setDeadline] = useState(""); // string cho <input type="datetime-local">
   const [modalMode, setModalMode] = useState<"CREATE" | "EDIT">("CREATE");
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
@@ -578,6 +580,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         classId: classId || undefined,
         isPublic,
         answerVisibility,
+        shuffleQuestions,
         questions,
       });
 
@@ -601,6 +604,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         classId: classId || undefined,
         isPublic,
         answerVisibility,
+        shuffleQuestions,
         questions,
       });
 
@@ -626,6 +630,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setIsPublic(false);
     setShowOnList(true);
     setAnswerVisibility("IMMEDIATELY");
+    setShuffleQuestions(true);
     setDeadline("");
     setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "", imageUrl: "" }]);
     setModalMode("CREATE");
@@ -654,6 +659,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setSubjectId(q.subject.id);
     setClassId(q.class?.id || "");
     setIsPublic(q.isPublic || false);
+    setShuffleQuestions(q.shuffleQuestions ?? true);
     setDeadline(q.deadline ? toLocalDateTimeInput(q.deadline) : "");
     setAnswerVisibility(
       q.answerVisibility === "AFTER_ALL_SUBMITTED" && q.class?.id
@@ -1177,6 +1183,22 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   {isPublic && (
                     <span className="text-[10px] text-ink-muted-48">Đề công khai không có tùy chọn "sau khi cả lớp nộp bài" (không có khái niệm lớp).</span>
                   )}
+                </div>
+
+                <div className="flex flex-col gap-1.5 md:col-span-2 bg-surface-pearl border border-divider-soft p-3 rounded-md">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="shuffleQuestions"
+                      checked={shuffleQuestions}
+                      onChange={(e) => setShuffleQuestions(e.target.checked)}
+                      className="h-4 w-4 rounded text-primary focus:ring-primary cursor-pointer"
+                    />
+                    <div className="flex flex-col">
+                      <label htmlFor="shuffleQuestions" className="text-xs font-bold text-ink cursor-pointer">🔀 Xáo trộn câu hỏi & đáp án (mỗi lượt làm bài khác nhau)</label>
+                      <span className="text-[10px] text-ink-muted-48">Mỗi lần thí sinh bắt đầu làm bài, thứ tự câu hỏi và các phương án sẽ được xáo trộn ngẫu nhiên. Đề vẫn dùng chung một link.</span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 md:col-span-2">

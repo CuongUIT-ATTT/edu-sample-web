@@ -100,6 +100,7 @@ model StudentProfile {
   grades              Grade[]
   enrollments         Enrollment[]
   quizSubmissions     QuizSubmission[]
+  quizAttempts        QuizAttempt[]
   homeworkSubmissions HomeworkSubmission[]
   tuitions            Tuition[]
   tuitionPayments     TuitionPayment[]
@@ -338,6 +339,7 @@ model Quiz {
   deadline         DateTime? // null = không đóng đề; sau deadline vẫn làm được nhưng đánh dấu nộp muộn
   isPublic         Boolean @default(false)
   answerVisibility String  @default("IMMEDIATELY") // IMMEDIATELY, WHEN_ENDED, NEVER, AFTER_ALL_SUBMITTED
+  shuffleQuestions Boolean @default(true) // Xáo trộn câu hỏi & đáp án mỗi lượt làm bài
 
   subjectId String
   subject   Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
@@ -349,6 +351,7 @@ model Quiz {
 
   questions   Question[]
   submissions QuizSubmission[]
+  attempts    QuizAttempt[]
   schedules   Schedule[]
   scheduleSeries ScheduleSeries[]
 }
@@ -379,6 +382,32 @@ model QuizSubmission {
   guestName   String?
   submittedAt DateTime @default(now())
   isLate      Boolean  @default(false)
+
+  attemptId String?  @unique
+  attempt   QuizAttempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+}
+
+// Mỗi lượt làm bài = 1 QuizAttempt (mã đề xáo trộn phía server).
+// Server là nguồn chân lý cho thứ tự (layout) và thời gian (endsAt) → tự thu bài khi hết giờ.
+model QuizAttempt {
+  id        String   @id @default(uuid())
+  quizId    String
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  studentId String?
+  student   StudentProfile? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guestName String?
+  examCode  String // mã đề ngắn, VD "ab12" — chống trao đổi đáp án theo "đề A/B"
+  layout    Json // { questionOrder: {TYPE: [qid...]}, optionOrder: {qid: [origIdx...]} }
+  startsAt  DateTime @default(now())
+  endsAt    DateTime // bắt buộc — tự thu bài khi hết giờ
+  submittedAt DateTime?
+  status    String   @default("ACTIVE") // ACTIVE | SUBMITTED | TIMED_OUT
+  submission QuizSubmission?
+
+  createdAt DateTime @default(now())
+
+  @@index([quizId])
+  @@index([examCode])
 }
 
 model Room {

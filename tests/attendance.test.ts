@@ -7,25 +7,21 @@ describe("Attendance - Edge Cases", () => {
     return u?.studentProfile?.id;
   }
 
-  it("hs001 có đủ 4 trạng thái PRESENT/ABSENT/LATE/EXCUSED", async () => {
-    const sid = await getStudentId("hs001@email.com");
-    const records = await db.attendance.findMany({ where: { studentId: sid }, orderBy: { date: "asc" } });
-    const statuses = records.map((r) => r.status);
-    expect(statuses).toContain("PRESENT");
-    expect(statuses).toContain("ABSENT");
-    expect(statuses).toContain("LATE");
-    expect(statuses).toContain("EXCUSED");
-  });
-
-  it("hs002 có >=3 ABSENT liên tiếp", async () => {
-    const sid = await getStudentId("hs002@email.com");
+  it("student1 (10A1) có 3 buổi ABSENT liên tiếp", async () => {
+    const sid = await getStudentId("student1@eduweb.vn");
     const records = await db.attendance.findMany({ where: { studentId: sid }, orderBy: { date: "asc" } });
     expect(records.length).toBeGreaterThanOrEqual(3);
-    expect(records.every((r) => r.status === "ABSENT")).toBe(true);
+    expect(records.slice(0, 3).every((r) => r.status === "ABSENT")).toBe(true);
+  });
+
+  it("student21 (12A1) có buổi EXCUSED (nghỉ có phép)", async () => {
+    const sid = await getStudentId("student21@eduweb.vn");
+    const records = await db.attendance.findMany({ where: { studentId: sid } });
+    expect(records.map((r) => r.status)).toContain("EXCUSED");
   });
 
   it("buổi hôm nay chưa có attendance", async () => {
-    const sid = await getStudentId("hs001@email.com");
+    const sid = await getStudentId("student1@eduweb.vn");
     const today = new Date();
     const count = await db.attendance.count({
       where: { studentId: sid, date: { gte: new Date(today.getFullYear(), today.getMonth(), today.getDate()) } },

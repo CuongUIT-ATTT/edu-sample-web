@@ -29,7 +29,7 @@ export default async function StudentQuizzesPage() {
     duration: number;
     passingScore: number;
     deadline: string | null;
-    questions: { id: string; text: string; type?: string; options: string[]; score: number; correctAnswer: string; imageUrl?: string | null }[];
+    questions: { id: string; text: string; type?: string; options?: string[]; score: number; imageUrl?: string | null }[];
   }[] = [];
 
   try {
@@ -58,9 +58,7 @@ export default async function StudentQuizzesPage() {
         id: q.id,
         text: q.text,
         type: q.type,
-        options: q.options as string[],
         score: q.score,
-        correctAnswer: q.correctAnswer,
         imageUrl: q.imageUrl ?? null,
       })),
     }));

@@ -4,12 +4,14 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { teacherClassIds } from "@/lib/teacher-classes";
+import { generateExamCode, generatePaper, gradeWithLayout, isOverdue } from "@/lib/quiz-shuffle";
 
 interface SubmitQuizInput {
   quizId: string;
   answers: Record<string, string>; // Map of question ID to answer index string
   guestName?: string;
   timeExpired?: boolean;
+  attemptId?: string; // mã đề (QuizAttempt) — chấm theo layout khi có
 }
 
 /**
@@ -85,39 +87,77 @@ export async function submitQuiz(input: SubmitQuizInput) {
       return { success: false, error: "Vui lòng nhập Họ tên để bắt đầu làm bài thi thử công khai." };
     }
 
+    // ── Chấm điểm ──────────────────────────────────────────────────────────
     let totalScore = 0;
     let maxScore = 0;
+    let correctAnswersData: { id: string; correctAnswer: string; explanation: string | null }[] | null = null;
+    let isTimedOut = false;
+    let attempt = null;
 
-    for (const question of quiz.questions) {
-      maxScore += question.score;
-      const studentAnswer = (input.answers[question.id] || "").trim().toUpperCase();
-      const correctAnswer = (question.correctAnswer || "").trim().toUpperCase();
+    if (input.attemptId) {
+      // Mã đề: chấm theo layout (display → original), không tin answers từ client
+      attempt = await db.quizAttempt.findUnique({
+        where: { id: input.attemptId },
+        include: { quiz: { include: { questions: true } } },
+      });
 
-      if (question.type === "TRUE_FALSE") {
-        const studentParts = studentAnswer.split(",");
-        const correctParts = correctAnswer.split(",");
-        let subCorrect = 0;
-        for (let i = 0; i < Math.min(studentParts.length, correctParts.length); i++) {
-          if (studentParts[i] && correctParts[i] && studentParts[i].trim() === correctParts[i].trim()) {
-            subCorrect++;
+      if (!attempt) {
+        return { success: false, error: "Mã đề làm bài không tồn tại. Vui lòng làm lại." };
+      }
+      if (attempt.studentId !== (studentProfile ? studentProfile.id : null)) {
+        return { success: false, error: "Mã đề này không thuộc về bạn." };
+      }
+
+      const layout = attempt.layout as { questionOrder: Record<string, string[]>; optionOrder: Record<string, number[]> };
+      const questionsById: Record<string, { id: string; type: string; correctAnswer: string; score: number; explanation: string | null }> = {};
+      for (const q of attempt.quiz.questions) {
+        questionsById[q.id] = { id: q.id, type: q.type, correctAnswer: q.correctAnswer, score: q.score, explanation: q.explanation };
+      }
+
+      const graded = gradeWithLayout(questionsById, layout, input.answers);
+      totalScore = graded.totalScore;
+      maxScore = graded.maxScore;
+      correctAnswersData = graded.correctAnswers;
+
+      isTimedOut = isOverdue(attempt.endsAt);
+      // Cập nhật attempt: SUBMITTED trong giờ, TIMED_OUT nếu quá giờ (tự thu bài)
+      await db.quizAttempt.update({
+        where: { id: attempt.id },
+        data: { status: isTimedOut ? "TIMED_OUT" : "SUBMITTED", submittedAt: new Date() },
+      });
+    } else {
+      // Legacy path (test / không mã đề): chấm trực tiếp như trước
+      for (const question of quiz.questions) {
+        maxScore += question.score;
+        const studentAnswer = (input.answers[question.id] || "").trim().toUpperCase();
+        const correctAnswer = (question.correctAnswer || "").trim().toUpperCase();
+
+        if (question.type === "TRUE_FALSE") {
+          const studentParts = studentAnswer.split(",");
+          const correctParts = correctAnswer.split(",");
+          let subCorrect = 0;
+          for (let i = 0; i < Math.min(studentParts.length, correctParts.length); i++) {
+            if (studentParts[i] && correctParts[i] && studentParts[i].trim() === correctParts[i].trim()) {
+              subCorrect++;
+            }
           }
-        }
-        let scoreRatio = 0;
-        if (subCorrect === 1) scoreRatio = 0.1;
-        else if (subCorrect === 2) scoreRatio = 0.25;
-        else if (subCorrect === 3) scoreRatio = 0.5;
-        else if (subCorrect === 4) scoreRatio = 1.0;
+          let scoreRatio = 0;
+          if (subCorrect === 1) scoreRatio = 0.1;
+          else if (subCorrect === 2) scoreRatio = 0.25;
+          else if (subCorrect === 3) scoreRatio = 0.5;
+          else if (subCorrect === 4) scoreRatio = 1.0;
 
-        totalScore += scoreRatio * question.score;
-      } else {
-        if (studentAnswer === correctAnswer) {
-          totalScore += question.score;
+          totalScore += scoreRatio * question.score;
+        } else {
+          if (studentAnswer === correctAnswer) {
+            totalScore += question.score;
+          }
         }
       }
     }
 
     // Check if submitted after deadline — flag as late, still accept (không chặn)
-    const isLate = quiz.deadline ? new Date() > new Date(quiz.deadline) : false;
+    const isLate = (quiz.deadline ? new Date() > new Date(quiz.deadline) : false) || isTimedOut;
 
     const submission = await db.quizSubmission.create({
       data: {
@@ -127,6 +167,7 @@ export async function submitQuiz(input: SubmitQuizInput) {
         answers: JSON.parse(JSON.stringify(input.answers)),
         guestName: studentProfile ? null : input.guestName?.trim(),
         isLate,
+        attemptId: attempt ? attempt.id : null,
       },
     });
 
@@ -160,6 +201,14 @@ export async function submitQuiz(input: SubmitQuizInput) {
 
     const showAnswers = await resolveAnswerVisibility(quiz, !!input.timeExpired);
 
+    const finalCorrectAnswers = showAnswers
+      ? (correctAnswersData ?? quiz.questions.map((q: { id: string; correctAnswer: string; explanation: string | null }) => ({
+          id: q.id,
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation
+        })))
+      : null;
+
     return {
       success: true,
       data: {
@@ -168,16 +217,107 @@ export async function submitQuiz(input: SubmitQuizInput) {
         passed,
         submissionId: submission.id,
         isLate,
-        correctAnswers: showAnswers ? quiz.questions.map((q: { id: string; correctAnswer: string; explanation: string | null }) => ({
-          id: q.id,
-          correctAnswer: q.correctAnswer,
-          explanation: q.explanation
-        })) : null
+        correctAnswers: finalCorrectAnswers
       }
     };
   } catch (error) {
     console.error("Error submitting quiz:", error);
     return { success: false, error: "Đã xảy ra lỗi hệ thống khi chấm bài thi trắc nghiệm." };
+  }
+}
+
+interface StartQuizAttemptInput {
+  quizId: string;
+  guestName?: string;
+}
+
+/**
+ * Bắt đầu làm bài: server tạo mã đề xáo trộn (QuizAttempt) và trả về paper
+ * (câu theo thứ tự hiển thị, KHÔNG kèm correctAnswer/explanation để không
+ * rò rỉ vào bundle). Thứ tự gốc & đáp án chỉ nằm trên server (layout).
+ */
+export async function startQuizAttempt(input: StartQuizAttemptInput) {
+  try {
+    const session = await getSession();
+
+    const quiz = await db.quiz.findUnique({
+      where: { id: input.quizId },
+      include: { questions: true },
+    });
+    if (!quiz) {
+      return { success: false, error: "Đề kiểm tra trắc nghiệm không tồn tại." };
+    }
+
+    let studentProfile = null;
+    if (session && session.role === "STUDENT") {
+      studentProfile = await db.studentProfile.findUnique({
+        where: { userId: session.userId },
+      });
+    }
+
+    // Access control (giống submitQuiz + shared page)
+    if (!studentProfile && !quiz.isPublic) {
+      return { success: false, error: "Đề thi này không công khai. Chỉ học sinh đã đăng nhập mới có quyền làm bài." };
+    }
+    if (!studentProfile && quiz.isPublic && !input.guestName?.trim()) {
+      return { success: false, error: "Vui lòng nhập Họ tên để bắt đầu làm bài thi thử công khai." };
+    }
+    // Đề private gắn lớp → học sinh phải thuộc lớp
+    if (studentProfile && quiz.classId) {
+      const enrolled = await db.studentProfile.findUnique({
+        where: { id: studentProfile.id },
+        include: { classes: { where: { id: quiz.classId } } },
+      });
+      const isEnrolled = (enrolled?.classes.length ?? 0) > 0;
+      if (!isEnrolled) {
+        return { success: false, error: "Bài thi này dành riêng cho một lớp học cụ thể mà bạn không tham gia." };
+      }
+    }
+
+    const questions: import("@/lib/quiz-shuffle").ShuffleQuestion[] = quiz.questions.map((q) => ({
+      id: q.id,
+      text: q.text,
+      type: q.type,
+      options: Array.isArray(q.options) ? (q.options as string[]) : [],
+      correctAnswer: q.correctAnswer,
+      score: q.score,
+      explanation: q.explanation,
+      imageUrl: q.imageUrl,
+    }));
+
+    const { layout, paperQuestions } = generatePaper(questions, quiz.shuffleQuestions);
+
+    // Sinh mã đề 4 ký tự duy nhất (thử tối đa vài lần, unique index bảo vệ)
+    let examCode = generateExamCode();
+    for (let i = 0; i < 5; i++) {
+      const clash = await db.quizAttempt.findFirst({ where: { examCode } });
+      if (!clash) break;
+      examCode = generateExamCode();
+    }
+
+    const attempt = await db.quizAttempt.create({
+      data: {
+        quizId: quiz.id,
+        studentId: studentProfile ? studentProfile.id : null,
+        guestName: studentProfile ? null : input.guestName?.trim(),
+        examCode,
+        layout: layout as object,
+        endsAt: new Date(Date.now() + quiz.duration * 60 * 1000),
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        attemptId: attempt.id,
+        examCode: attempt.examCode,
+        endsAt: attempt.endsAt.toISOString(),
+        questions: paperQuestions,
+      },
+    };
+  } catch (error) {
+    console.error("Error starting quiz attempt:", error);
+    return { success: false, error: "Đã xảy ra lỗi hệ thống khi bắt đầu làm bài." };
   }
 }
 
@@ -191,6 +331,7 @@ interface CreateQuizInput {
   classId?: string;
   isPublic?: boolean;
   answerVisibility?: string; // IMMEDIATELY, WHEN_ENDED, NEVER, AFTER_ALL_SUBMITTED
+  shuffleQuestions?: boolean; // Xáo trộn câu hỏi & đáp án mỗi lượt làm bài
   questions: {
     questionText: string;
     type?: string;
@@ -221,7 +362,7 @@ export async function createQuiz(input: CreateQuizInput) {
       teacherId = teacher.id;
     }
 
-    const { title, description, duration, passingScore, deadline, subjectId, classId, isPublic, answerVisibility, questions } = input;
+    const { title, description, duration, passingScore, deadline, subjectId, classId, isPublic, answerVisibility, shuffleQuestions, questions } = input;
 
     if (!title || isNaN(duration) || isNaN(passingScore) || !subjectId || questions.length === 0) {
       return { success: false, error: "Vui lòng nhập đầy đủ thông tin đề thi và ít nhất 1 câu hỏi." };
@@ -264,6 +405,7 @@ export async function createQuiz(input: CreateQuizInput) {
           classId: classId || null,
           isPublic: isPublic || false,
           answerVisibility: finalVisibility,
+          shuffleQuestions: shuffleQuestions ?? true,
           teacherId,
         },
       });
@@ -340,7 +482,7 @@ export async function updateQuiz(input: UpdateQuizInput) {
       return { success: false, error: "Chỉ quản trị viên hoặc giảng viên mới được sửa đề kiểm tra." };
     }
 
-    const { id, title, description, duration, passingScore, deadline, subjectId, classId, isPublic, answerVisibility, questions } = input;
+    const { id, title, description, duration, passingScore, deadline, subjectId, classId, isPublic, answerVisibility, shuffleQuestions, questions } = input;
 
     // TEACHER: chỉ sửa quiz mình tạo + subject/class ownership
     if (session.role === "TEACHER") {
@@ -384,6 +526,7 @@ export async function updateQuiz(input: UpdateQuizInput) {
           classId: classId || null,
           isPublic: isPublic || false,
           answerVisibility: finalVisibility,
+          shuffleQuestions: shuffleQuestions ?? true,
         },
       });
 
