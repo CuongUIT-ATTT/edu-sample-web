@@ -52,6 +52,12 @@ export const mockDb = {
   quiz: {
     findUnique: vi.fn(),
   },
+  quizAttempt: {
+    create: vi.fn(),
+    findUnique: vi.fn(),
+    update: vi.fn(),
+    findFirst: vi.fn(),
+  },
   quizSubmission: {
     create: vi.fn(),
     findMany: vi.fn(),

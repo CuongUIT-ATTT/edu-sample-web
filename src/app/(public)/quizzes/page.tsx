@@ -32,7 +32,6 @@ export default async function PublicQuizzesPage() {
       id: qn.id,
       text: qn.text,
       type: qn.type,
-      options: qn.options as string[],
       score: qn.score,
       imageUrl: qn.imageUrl ?? null,
     })),

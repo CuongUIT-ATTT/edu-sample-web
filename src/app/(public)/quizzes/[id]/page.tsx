@@ -61,14 +61,13 @@ export default async function SharedQuizPage({
     }
   }
 
-  // Format questions to match Client expectations
+  // Format questions to match Client expectations (không gửi options/correctAnswer
+  // vào payload ban đầu — client sẽ gọi startQuizAttempt để lấy đề xáo trộn)
   const formattedQuestions = quiz.questions.map((q) => ({
     id: q.id,
     questionText: q.text,
     type: q.type,
-    options: typeof q.options === "string" ? JSON.parse(q.options) : q.options,
     score: q.score,
-    correctAnswer: q.correctAnswer,
     imageUrl: q.imageUrl ?? null,
   }));
 

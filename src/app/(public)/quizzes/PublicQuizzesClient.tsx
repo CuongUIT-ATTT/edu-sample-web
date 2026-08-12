@@ -4,14 +4,14 @@ import React, { useState, useEffect, useRef } from "react";
 import { BookOpen, Clock, Award, CheckCircle2, AlertCircle, RefreshCw, Play, Lock, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import MathRenderer from "@/components/MathRenderer";
-import { submitQuiz } from "@/actions/quizzes";
+import { submitQuiz, startQuizAttempt } from "@/actions/quizzes";
 import { showToast } from "@/components/Toast";
 
 interface Question {
   id: string;
   text: string;
   type: string;
-  options: string[];
+  options?: string[];
   score: number;
   imageUrl?: string | null;
 }
@@ -51,6 +51,10 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
   const [searchTerm, setSearchTerm] = useState("");
   const [cheatWarnings, setCheatWarnings] = useState(0);
   const [isCheatedLocked, setIsCheatedLocked] = useState(false);
+  const [paper, setPaper] = useState<Question[] | null>(null);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [examCode, setExamCode] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const forceSubmitRef = useRef<(() => void) | null>(null);
 
   // Update forceSubmitRef with latest handleSubmit closure
@@ -128,7 +132,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
     setRulesAccepted(false);
   };
 
-  const handleStartQuiz = () => {
+  const handleStartQuiz = async () => {
     if (!guestName.trim()) {
       showToast("Vui lòng nhập Họ tên để bắt đầu làm bài thi thử.", "warning");
       return;
@@ -138,18 +142,38 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
       return;
     }
     if (!tempSelectedQuiz) return;
+    if (starting) return;
 
+    setStarting(true);
     setSelectedQuiz(tempSelectedQuiz);
     if (tempSelectedQuiz.deadline && Date.now() > new Date(tempSelectedQuiz.deadline).getTime()) {
       showToast("Đề đã quá hạn — bài làm của bạn sẽ được đánh dấu Nộp muộn.", "warning");
     }
-    setTimeLeft(tempSelectedQuiz.duration * 60);
-    setAnswers({});
-    setQuizResult(null);
-    setShowReview(false);
-    setQuizStarted(true);
-    setShowNameModal(false);
-    setShowRules(false);
+    try {
+      const res = await startQuizAttempt({
+        quizId: tempSelectedQuiz.id,
+        guestName,
+      });
+      if (res.success && res.data) {
+        setPaper(res.data.questions);
+        setAttemptId(res.data.attemptId);
+        setExamCode(res.data.examCode);
+        setTimeLeft(tempSelectedQuiz.duration * 60);
+        setAnswers({});
+        setQuizResult(null);
+        setShowReview(false);
+        setQuizStarted(true);
+        setShowNameModal(false);
+        setShowRules(false);
+      } else {
+        showToast(res.error || "Không thể bắt đầu làm bài.", "error");
+      }
+    } catch (error) {
+      console.error("Error starting quiz:", error);
+      showToast("Lỗi hệ thống khi bắt đầu làm bài.", "error");
+    } finally {
+      setStarting(false);
+    }
   };
 
   const handleSelectOption = (questionId: string, optionIndex: number) => {
@@ -186,6 +210,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
         answers,
         guestName,
         timeExpired: timeLeft === 0,
+        attemptId: attemptId || undefined,
       });
 
       if (response.success && response.data) {
@@ -338,7 +363,14 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
             <div className="border border-hairline rounded-md p-4 flex items-center justify-between bg-surface-pearl mb-4">
               <div className="flex flex-col gap-0.5">
                 <h2 className="font-body-strong text-sm text-ink font-semibold">{selectedQuiz.title}</h2>
-                <span className="text-[10px] text-ink-muted-48">Thí sinh tự do: {guestName}</span>
+                <span className="text-[10px] text-ink-muted-48">
+                  Thí sinh tự do: {guestName}
+                  {examCode && (
+                    <span className="ml-2 px-2 py-0.5 rounded bg-blue-50 text-primary border border-blue-100 font-bold">
+                      Mã đề: {examCode.toUpperCase()}
+                    </span>
+                  )}
+                </span>
               </div>
               <div className="flex items-center gap-2 text-red-600 font-mono font-bold text-sm bg-red-50 px-3 py-1 rounded-sm">
                 <Clock className="h-4 w-4" />
@@ -358,12 +390,12 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                 </div>
               )}
               {/* PHẦN I: Trắc nghiệm */}
-              {selectedQuiz.questions.some(q => q.type === "MULTIPLE_CHOICE") && (
+              {(paper || []).some(q => q.type === "MULTIPLE_CHOICE") && (
                 <div className="bg-canvas border border-hairline rounded-lg p-5 flex flex-col gap-4">
                   <h3 className="text-sm font-bold text-ink uppercase tracking-wide bg-primary/5 border border-primary/20 px-4 py-2 rounded-lg">
                     PHẦN I. Câu hỏi trắc nghiệm nhiều phương án lựa chọn
                   </h3>
-                  {selectedQuiz.questions.filter(q => q.type === "MULTIPLE_CHOICE").map((q, qIndex) => (
+                  {(paper || []).filter(q => q.type === "MULTIPLE_CHOICE").map((q, qIndex) => (
                     <div key={q.id} className="flex flex-col gap-3 border-b border-divider-soft pb-4 last:border-0 last:pb-0">
                       <h4 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
                         Câu {qIndex + 1}: <MathRenderer text={q.text} />
@@ -374,7 +406,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                         </div>
                       )}
                       <div className="flex flex-col gap-2">
-                        {q.options.map((opt, optIndex) => {
+                        {(q.options || []).map((opt, optIndex) => {
                           const isSelected = answers[q.id] === optIndex.toString();
                           return (
                             <button
@@ -402,12 +434,12 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
               )}
 
               {/* PHẦN II: Đúng/Sai */}
-              {selectedQuiz.questions.some(q => q.type === "TRUE_FALSE") && (
+              {(paper || []).some(q => q.type === "TRUE_FALSE") && (
                 <div className="bg-canvas border border-hairline rounded-lg p-5 flex flex-col gap-4">
                   <h3 className="text-sm font-bold text-ink uppercase tracking-wide bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-lg">
                     PHẦN II. Câu hỏi trắc nghiệm đúng/sai
                   </h3>
-                  {selectedQuiz.questions.filter(q => q.type === "TRUE_FALSE").map((q, qIndex) => (
+                  {(paper || []).filter(q => q.type === "TRUE_FALSE").map((q, qIndex) => (
                     <div key={q.id} className="flex flex-col gap-3 border-b border-divider-soft pb-4 last:border-0 last:pb-0">
                       <h4 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
                         Câu {qIndex + 1}: <MathRenderer text={q.text} />
@@ -423,7 +455,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                           <div className="col-span-2 text-center">Đúng</div>
                           <div className="col-span-2 text-center">Sai</div>
                         </div>
-                        {q.options.map((opt, optIndex) => {
+                        {(q.options || []).map((opt, optIndex) => {
                           const currentAnswers = (answers[q.id] || "-,-,-,-").split(",");
                           const val = currentAnswers[optIndex] || "-";
                           return (
@@ -464,12 +496,12 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
               )}
 
               {/* PHẦN III: Trả lời ngắn */}
-              {selectedQuiz.questions.some(q => q.type === "SHORT_ANSWER") && (
+              {(paper || []).some(q => q.type === "SHORT_ANSWER") && (
                 <div className="bg-canvas border border-hairline rounded-lg p-5 flex flex-col gap-4">
                   <h3 className="text-sm font-bold text-ink uppercase tracking-wide bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded-lg">
                     PHẦN III. Câu hỏi trả lời ngắn
                   </h3>
-                  {selectedQuiz.questions.filter(q => q.type === "SHORT_ANSWER").map((q, qIndex) => (
+                  {(paper || []).filter(q => q.type === "SHORT_ANSWER").map((q, qIndex) => (
                     <div key={q.id} className="flex flex-col gap-3 border-b border-divider-soft pb-4 last:border-0 last:pb-0">
                       <h4 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
                         Câu {qIndex + 1}: <MathRenderer text={q.text} />
@@ -644,7 +676,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
 
                       {q.type === "MULTIPLE_CHOICE" && (
                         <div className="flex flex-col gap-2">
-                          {q.options.map((opt, optIndex) => {
+                          {(q.options || []).map((opt, optIndex) => {
                             const isStudentSelect = answers[q.id] === optIndex.toString();
                             const isCorrectAnswer = reviewInfo?.correctAnswer === optIndex.toString();
                             let btnStyle = "bg-canvas border-divider-soft text-ink-muted-80";
@@ -674,7 +706,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                             <div className="col-span-3 text-center">Lựa chọn của bạn</div>
                             <div className="col-span-3 text-center">Đáp án đúng</div>
                           </div>
-                          {q.options.map((opt, optIndex) => {
+                          {(q.options || []).map((opt, optIndex) => {
                             const studentParts = (answers[q.id] || "-,-,-,-").split(",");
                             const correctParts = (reviewInfo.correctAnswer || "T,T,T,T").split(",");
                             const studVal = studentParts[optIndex] === "T" ? "Đúng" : studentParts[optIndex] === "F" ? "Sai" : "Chưa chọn";
@@ -713,30 +745,30 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
 
                 return (
                   <>
-                    {selectedQuiz.questions.some(q => q.type === "MULTIPLE_CHOICE") && (
+                    {(paper || []).some(q => q.type === "MULTIPLE_CHOICE") && (
                       <div className="bg-canvas border border-hairline rounded-lg p-5 flex flex-col gap-4">
                         <h3 className="text-sm font-bold text-ink uppercase tracking-wide bg-primary/5 border border-primary/20 px-4 py-2 rounded-lg">
                           PHẦN I Review. Câu hỏi trắc nghiệm nhiều phương án lựa chọn
                         </h3>
-                        {selectedQuiz.questions.filter(q => q.type === "MULTIPLE_CHOICE").map((q, i) => renderReviewQuestion(q, i))}
+                        {(paper || []).filter(q => q.type === "MULTIPLE_CHOICE").map((q, i) => renderReviewQuestion(q, i))}
                       </div>
                     )}
 
-                    {selectedQuiz.questions.some(q => q.type === "TRUE_FALSE") && (
+                    {(paper || []).some(q => q.type === "TRUE_FALSE") && (
                       <div className="bg-canvas border border-hairline rounded-lg p-5 flex flex-col gap-4">
                         <h3 className="text-sm font-bold text-ink uppercase tracking-wide bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-lg">
                           PHẦN II Review. Câu hỏi trắc nghiệm đúng/sai
                         </h3>
-                        {selectedQuiz.questions.filter(q => q.type === "TRUE_FALSE").map((q, i) => renderReviewQuestion(q, i))}
+                        {(paper || []).filter(q => q.type === "TRUE_FALSE").map((q, i) => renderReviewQuestion(q, i))}
                       </div>
                     )}
 
-                    {selectedQuiz.questions.some(q => q.type === "SHORT_ANSWER") && (
+                    {(paper || []).some(q => q.type === "SHORT_ANSWER") && (
                       <div className="bg-canvas border border-hairline rounded-lg p-5 flex flex-col gap-4">
                         <h3 className="text-sm font-bold text-ink uppercase tracking-wide bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded-lg">
                           PHẦN III Review. Câu hỏi trả lời ngắn
                         </h3>
-                        {selectedQuiz.questions.filter(q => q.type === "SHORT_ANSWER").map((q, i) => renderReviewQuestion(q, i))}
+                        {(paper || []).filter(q => q.type === "SHORT_ANSWER").map((q, i) => renderReviewQuestion(q, i))}
                       </div>
                     )}
                   </>

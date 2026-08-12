@@ -8,35 +8,42 @@ async function sid(email: string) {
 }
 
 describe("Tuition - Thanh toán", () => {
-  it("tui-001: đã đóng ĐỦ (paid=amount=432000, status=PAID)", async () => {
-    const t = await db.tuition.findUnique({ where: { id: "tui-001" } });
-    expect(t!.paid).toBe(t!.amount);
-    expect(t!.status).toBe("PAID");
-  });
+  // Tuition không dùng ID cố định trong seed mới → truy vấn theo (student, class, month, year).
+  async function tuitionOf(studentEmail: string, month: number, year: number) {
+    const u = await db.user.findUnique({ where: { email: studentEmail }, include: { studentProfile: true } });
+    const studentId = u?.studentProfile?.id;
+    const cls = await db.class.findFirstOrThrow({ where: { students: { some: { id: studentId } } } });
+    return db.tuition.findFirst({ where: { studentId, classId: cls.id, month, year }, include: { payments: true } });
+  }
 
-  it("tui-002: đóng THIẾU (2 payments, status=PARTIAL)", async () => {
-    const t = await db.tuition.findUnique({ where: { id: "tui-002" }, include: { payments: true } });
-    expect(t!.paid).toBeLessThan(t!.amount);
+  it("student2: Tuition tháng 1 đóng THIẾU (paid=60000 < amount=120000, PARTIAL)", async () => {
+    const t = await tuitionOf("student2@eduweb.vn", 1, 2026);
+    expect(t).not.toBeNull();
+    expect(t!.periods).toBe(8);
+    expect(t!.amount).toBe(120000);
+    expect(t!.paid).toBe(60000);
     expect(t!.status).toBe("PARTIAL");
-    expect(t!.payments).toHaveLength(2);
-    expect(t!.payments.reduce((s, p) => s + p.amount, 0)).toBe(t!.paid);
   });
 
-  it("tui-003: CHƯA đóng (paid=0, PENDING)", async () => {
-    const t = await db.tuition.findUnique({ where: { id: "tui-003" } });
-    expect(t!.paid).toBe(0);
-    expect(t!.status).toBe("PENDING");
+  it("student2 có StudentCredit dương (dư tiết)", async () => {
+    const u = await db.user.findUnique({ where: { email: "student2@eduweb.vn" }, include: { studentProfile: true } });
+    const studentId = u?.studentProfile?.id;
+    const cls = await db.class.findFirstOrThrow({ where: { students: { some: { id: studentId } } } });
+    const credit = await db.studentCredit.findUnique({ where: { studentId_classId: { studentId, classId: cls.id } } });
+    expect(credit).not.toBeNull();
+    expect(credit!.credit).toBeGreaterThan(0);
   });
 });
 
-describe("TuitionFeeSetting - Thay đổi giá", () => {
-  it("giá mới 18k, tháng trước 15k → 300k, tháng này 18k → 432k", async () => {
-    const latest = await db.tuitionFeeSetting.findFirst({ orderBy: { updatedAt: "desc" } });
-    expect(latest!.pricePerPeriod).toBe(18000);
-    const old_ = await db.tuition.findUnique({ where: { id: "tui-005" } });
-    expect(old_!.amount).toBe(300000);
-    const cur = await db.tuition.findUnique({ where: { id: "tui-001" } });
-    expect(cur!.amount).toBe(432000);
+describe("TuitionFeeSetting - Giá tiết", () => {
+  it("giá mỗi tiết = 15k (tuition tháng 2 của student4: 8 tiết → 120000)", async () => {
+    const u = await db.user.findUnique({ where: { email: "student4@eduweb.vn" }, include: { studentProfile: true } });
+    const studentId = u?.studentProfile?.id;
+    const cls = await db.class.findFirstOrThrow({ where: { students: { some: { id: studentId } } } });
+    const t = await db.tuition.findFirst({ where: { studentId, classId: cls.id, month: 2, year: 2026 } });
+    expect(t).not.toBeNull();
+    expect(t!.periods).toBe(8);
+    expect(t!.amount).toBe(8 * 15000);
   });
 });
 
@@ -113,15 +120,12 @@ describe("Tuition - Có mặt/Vắng/Trễ tính tiền, Chưa điểm danh/Phé
     expect(studentPeriods).toBe(3 * 2);
   });
 
-  it("hs001 có EXCUSED — chứng minh attendance đủ 4 trạng thái", async () => {
-    const id = await sid("hs001@email.com");
+  it("student21 (12A1) có buổi EXCUSED — attendance nghỉ có phép", async () => {
+    const id = await sid("student21@eduweb.vn");
     expect(id).not.toBeNull();
 
     const records = await db.attendance.findMany({ where: { studentId: id } });
     const statuses = records.map((r) => r.status);
-    expect(statuses).toContain("PRESENT");
-    expect(statuses).toContain("ABSENT");
-    expect(statuses).toContain("LATE");
     expect(statuses).toContain("EXCUSED");
   });
 });

@@ -7,9 +7,9 @@ async function sid(email: string) {
 }
 
 describe("Course - Modules/Lessons/Enrollment", () => {
-  it("course có 2 modules mỗi module 2 lessons đúng order", async () => {
+  it("course published có 2 modules, module 1 có 2 lessons đúng order", async () => {
     const c = await db.course.findFirst({
-      where: { title: { contains: "Luyện thi" } },
+      where: { title: { contains: "Nhập môn Đại số" } },
       include: { modules: { include: { lessons: { orderBy: { order: "asc" } } }, orderBy: { order: "asc" } } },
     });
     expect(c).not.toBeNull();
@@ -18,8 +18,8 @@ describe("Course - Modules/Lessons/Enrollment", () => {
     expect(c!.modules[0].lessons[0].order).toBe(1);
   });
 
-  it("hs001 và hs002 đều có enrollment", async () => {
-    const [id1, id2] = await Promise.all([sid("hs001@email.com"), sid("hs002@email.com")]);
+  it("student1 và student2 đều có enrollment", async () => {
+    const [id1, id2] = await Promise.all([sid("student1@eduweb.vn"), sid("student2@eduweb.vn")]);
     const [e1, e2] = await Promise.all([
       db.enrollment.findFirst({ where: { studentId: id1 } }),
       db.enrollment.findFirst({ where: { studentId: id2 } }),

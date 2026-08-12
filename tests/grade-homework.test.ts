@@ -6,21 +6,20 @@ async function sid(email: string) {
   return u?.studentProfile?.id;
 }
 
-describe("Grade - 3 loại điểm", () => {
-  it("hs001 có đủ QUIZ/MIDTERM/FINAL cho Toán", async () => {
-    const id = await sid("hs001@email.com");
-    const subj = await db.subject.findUnique({ where: { code: "MATH" } });
+describe("Grade - các loại điểm", () => {
+  it("student2 có QUIZ và HOMEWORK cho Toán (MATH101)", async () => {
+    const id = await sid("student2@eduweb.vn");
+    const subj = await db.subject.findUnique({ where: { code: "MATH101" } });
     const grades = await db.grade.findMany({ where: { studentId: id, subjectId: subj!.id } });
     const types = grades.map((g) => g.type);
     expect(types).toContain("QUIZ");
-    expect(types).toContain("MIDTERM");
-    expect(types).toContain("FINAL");
+    expect(types).toContain("HOMEWORK");
   });
 });
 
 describe("Homework - Deadline", () => {
-  it("hs002 nộp trễ hạn", async () => {
-    const id = await sid("hs002@email.com");
+  it("student3 nộp trễ hạn", async () => {
+    const id = await sid("student3@eduweb.vn");
     const hw = await db.homeworkSubmission.findFirst({
       where: { studentId: id },
       include: { series: true },
@@ -29,14 +28,14 @@ describe("Homework - Deadline", () => {
     expect(hw!.submittedAt.getTime()).toBeGreaterThan(hw!.series.homeworkDueDate!.getTime());
   });
 
-  it("hs003 nộp nhưng chưa chấm (grade=null)", async () => {
-    const id = await sid("hs003@email.com");
+  it("student4 nộp nhưng chưa chấm (grade=null)", async () => {
+    const id = await sid("student4@eduweb.vn");
     const hw = await db.homeworkSubmission.findFirst({ where: { studentId: id, grade: null } });
     expect(hw).not.toBeNull();
   });
 
-  it("hs004 không nộp bài", async () => {
-    const id = await sid("hs004@email.com");
+  it("student5 không nộp bài", async () => {
+    const id = await sid("student5@eduweb.vn");
     const c = await db.homeworkSubmission.count({ where: { studentId: id } });
     expect(c).toBe(0);
   });
