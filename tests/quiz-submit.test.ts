@@ -11,6 +11,7 @@ beforeEach(() => {
     email: "hs@test.local",
     role: "STUDENT" as const,
     name: "Học sinh test",
+    isRoot: false,
   });
   mockDb.studentProfile.findUnique.mockResolvedValue({ id: "sp-1", userId: "student-1" });
   mockDb.quizSubmission.create.mockImplementation(({ data }: any) => Promise.resolve({ id: "sub-1", ...data }));
@@ -124,6 +125,7 @@ describe("submitQuiz - attemptId (mã đề xáo trộn)", () => {
       email: "hs@test.local",
       role: "STUDENT" as const,
       name: "Học sinh test",
+      isRoot: false,
     });
     mockDb.studentProfile.findUnique.mockResolvedValue({ id: "sp-1", userId: "student-1" });
     mockDb.quizSubmission.create.mockImplementation(({ data }: any) => Promise.resolve({ id: "sub-1", ...data }));

@@ -198,6 +198,22 @@ async function main() {
     admins.push(user);
   }
 
+  // --- Root admin (bất khả xâm phạm) ---
+  // Không thể tự xoá, không thể bị admin thường xoá, là người duy nhất được
+  // xoá các tài khoản admin khác. Email/mật khẩu được chỉ định riêng.
+  const rootUser = await prisma.user.create({
+    data: {
+      email: "admin@eduweb.vn",
+      passwordHash: bcrypt.hashSync("hungcuong123", 10),
+      name: "Root Admin",
+      role: "ADMIN",
+      isRoot: true,
+      adminProfile: { create: {} },
+    },
+    include: { adminProfile: true },
+  });
+  admins.push(rootUser);
+
   // --- Teachers (6), mỗi người gắn với 1 môn "chính", 1 giáo viên dạy 2 môn ---
   const teacherData = [
     { name: "Nguyễn Văn An", email: "teacher.toan@eduweb.vn" },

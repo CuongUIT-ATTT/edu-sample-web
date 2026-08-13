@@ -16,7 +16,7 @@ import {
   dateToUtcStr,
 } from "@/lib/schedule-expand";
 
-const adminSession = { userId: "test-admin", email: "admin@test.local", role: "ADMIN" as const, name: "Test Admin" };
+const adminSession = { userId: "test-admin", email: "admin@test.local", role: "ADMIN" as const, name: "Test Admin", isRoot: false };
 vi.mocked(getSession).mockResolvedValue(adminSession);
 
 let classId1 = "";

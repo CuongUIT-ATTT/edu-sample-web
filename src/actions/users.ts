@@ -186,6 +186,25 @@ export async function deleteUser(userId: string) {
       return { success: false, error: "Chỉ Quản trị viên mới được xoá tài khoản." };
     }
 
+    // Chặn tự xoá chính mình
+    if (userId === session.userId) {
+      return { success: false, error: "Bạn không thể xoá chính tài khoản của mình." };
+    }
+
+    // Chặn xoá tài khoản root (bất khả xâm phạm)
+    const target = await db.user.findUnique({ where: { id: userId } });
+    if (!target) {
+      return { success: false, error: "Không tìm thấy người dùng." };
+    }
+    if (target.isRoot) {
+      return { success: false, error: "Không thể xoá tài khoản Root." };
+    }
+
+    // Chỉ root mới được xoá một tài khoản admin khác
+    if (target.role === "ADMIN" && !session.isRoot) {
+      return { success: false, error: "Chỉ tài khoản Root mới được xoá Quản trị viên khác." };
+    }
+
     await db.user.delete({
       where: { id: userId },
     });
@@ -205,12 +224,39 @@ export async function bulkDeleteUsers(userIds: string[]) {
       return { success: false, error: "Chỉ Quản trị viên mới thực hiện tác vụ này." };
     }
 
-    await db.user.deleteMany({
+    // Loại bỏ chính mình và mọi tài khoản root khỏi danh sách xoá
+    const targets = await db.user.findMany({
       where: { id: { in: userIds } },
+      select: { id: true, role: true, isRoot: true },
+    });
+
+    const deletable = targets.filter((u) => {
+      if (u.id === session.userId) return false; // không tự xoá
+      if (u.isRoot) return false; // không xoá root
+      if (u.role === "ADMIN" && !session.isRoot) return false; // chỉ root xoá được admin
+      return true;
+    });
+
+    const skipped = userIds.length - deletable.length;
+    if (deletable.length === 0) {
+      return {
+        success: false,
+        error: "Không có tài khoản nào được xoá (đã loại bỏ chính bạn, tài khoản Root và tài khoản admin thường).",
+      };
+    }
+
+    await db.$transaction(async (tx) => {
+      await tx.user.deleteMany({
+        where: { id: { in: deletable.map((u) => u.id) } },
+      });
     });
 
     revalidatePath("/admin/users");
-    return { success: true };
+    return {
+      success: true,
+      deletedCount: deletable.length,
+      skippedCount: skipped,
+    };
   } catch (error) {
     console.error("Error bulk deleting users:", error);
     return { success: false, error: "Đã xảy ra lỗi hệ thống khi xoá hàng loạt tài khoản." };
