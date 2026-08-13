@@ -9,6 +9,7 @@ export interface JWTPayload {
   email: string;
   role: Role;
   name: string;
+  isRoot: boolean;
   [key: string]: unknown;
 }
 

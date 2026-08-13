@@ -54,6 +54,7 @@ model User {
   passwordHash String
   name         String
   role         Role
+  isRoot       Boolean  @default(false) // Tài khoản gốc bất khả xâm phạm: không thể tự xoá, không thể bị admin thường xoá
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

@@ -8,7 +8,7 @@ import { getSession } from "@/lib/auth";
 import { recordPayment, calculateTuition, getFeeSettings } from "@/actions/tuition";
 import { jsDayToDow } from "@/lib/schedule-expand";
 
-const adminSession = { userId: "test-admin", email: "admin@test.local", role: "ADMIN" as const, name: "Test Admin" };
+const adminSession = { userId: "test-admin", email: "admin@test.local", role: "ADMIN" as const, name: "Test Admin", isRoot: false };
 vi.mocked(getSession).mockResolvedValue(adminSession);
 
 let userId = "";
@@ -126,6 +126,7 @@ describe("Tuition credit - recordPayment nộp dư", () => {
       email: tUser.email,
       role: "TEACHER" as const,
       name: tUser.name,
+      isRoot: false,
     });
 
     const res = await recordPayment(tuition7!.id, 50000, "CASH", "Test teacher");

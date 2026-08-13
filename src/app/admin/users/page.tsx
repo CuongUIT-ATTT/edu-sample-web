@@ -1,11 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import UserManagementTable from "@/components/UserManagementTable";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") {
+    redirect("/login");
+  }
+
   // Query all users
   const dbUsers = await db.user.findMany({
     orderBy: { createdAt: "desc" },
@@ -44,6 +51,8 @@ export default async function AdminUsersPage() {
         users={dbUsers as any}
         classes={classes}
         parents={parents as any}
+        currentUserId={session.userId}
+        currentUserIsRoot={session.isRoot}
       />
     </div>
   );

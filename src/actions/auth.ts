@@ -47,6 +47,7 @@ export async function login(formData: FormData): Promise<LoginResponse> {
       email: user.email,
       role: user.role,
       name: user.name,
+      isRoot: user.isRoot,
     });
 
     // 5. Store JWT in an httpOnly secure cookie

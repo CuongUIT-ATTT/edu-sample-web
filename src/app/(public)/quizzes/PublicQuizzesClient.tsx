@@ -5,6 +5,7 @@ import { BookOpen, Clock, Award, CheckCircle2, AlertCircle, RefreshCw, Play, Loc
 import Link from "next/link";
 import MathRenderer from "@/components/MathRenderer";
 import { submitQuiz, startQuizAttempt } from "@/actions/quizzes";
+import { cleanQuestionText } from "@/lib/quiz-shuffle";
 import { showToast } from "@/components/Toast";
 
 interface Question {
@@ -398,7 +399,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                   {(paper || []).filter(q => q.type === "MULTIPLE_CHOICE").map((q, qIndex) => (
                     <div key={q.id} className="flex flex-col gap-3 border-b border-divider-soft pb-4 last:border-0 last:pb-0">
                       <h4 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
-                        Câu {qIndex + 1}: <MathRenderer text={q.text} />
+                        Câu {qIndex + 1}: <MathRenderer text={cleanQuestionText(q.text)} />
                       </h4>
                       {q.imageUrl && q.imageUrl.trim() && (
                         <div className="my-2 border border-hairline rounded overflow-hidden max-w-full bg-canvas shadow-sm">
@@ -442,7 +443,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                   {(paper || []).filter(q => q.type === "TRUE_FALSE").map((q, qIndex) => (
                     <div key={q.id} className="flex flex-col gap-3 border-b border-divider-soft pb-4 last:border-0 last:pb-0">
                       <h4 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
-                        Câu {qIndex + 1}: <MathRenderer text={q.text} />
+                        Câu {qIndex + 1}: <MathRenderer text={cleanQuestionText(q.text)} />
                       </h4>
                       {q.imageUrl && q.imageUrl.trim() && (
                         <div className="my-2 border border-hairline rounded overflow-hidden max-w-full bg-canvas shadow-sm">
@@ -504,7 +505,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                   {(paper || []).filter(q => q.type === "SHORT_ANSWER").map((q, qIndex) => (
                     <div key={q.id} className="flex flex-col gap-3 border-b border-divider-soft pb-4 last:border-0 last:pb-0">
                       <h4 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
-                        Câu {qIndex + 1}: <MathRenderer text={q.text} />
+                        Câu {qIndex + 1}: <MathRenderer text={cleanQuestionText(q.text)} />
                       </h4>
                       {q.imageUrl && q.imageUrl.trim() && (
                         <div className="my-2 border border-hairline rounded overflow-hidden max-w-full bg-canvas shadow-sm">
@@ -655,7 +656,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                     <div key={q.id} className="flex flex-col gap-3 border-b border-divider-soft pb-4 last:border-0 last:pb-0">
                       <div className="flex justify-between items-start gap-2">
                         <h4 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
-                          Câu {qIndex + 1}: <MathRenderer text={q.text} />
+                          Câu {qIndex + 1}: <MathRenderer text={cleanQuestionText(q.text)} />
                         </h4>
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full flex-shrink-0 ${
                           isCorrect

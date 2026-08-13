@@ -9,7 +9,7 @@ import { getSession } from "@/lib/auth";
 import { calculateTuition, getFeeSettings, recordPayment } from "@/actions/tuition";
 import { expandSeriesToInstances, dateToUtcStr, jsDayToDow, toLocalDateStr } from "@/lib/schedule-expand";
 
-const adminSession = { userId: "test-admin", email: "admin@test.local", role: "ADMIN" as const, name: "Test Admin" };
+const adminSession = { userId: "test-admin", email: "admin@test.local", role: "ADMIN" as const, name: "Test Admin", isRoot: false };
 vi.mocked(getSession).mockResolvedValue(adminSession);
 
 // ── Đếm SQL round-trip thật: wrap pool.query của instance action dùng ──

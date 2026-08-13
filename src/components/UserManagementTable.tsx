@@ -15,6 +15,7 @@ interface DbUser {
   email: string;
   name: string;
   role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
+  isRoot?: boolean;
   studentProfile?: {
     classes?: { id: string; name: string }[] | null;
   } | null;
@@ -24,9 +25,17 @@ interface UserManagementTableProps {
   users: DbUser[];
   classes: { id: string; name: string }[];
   parents: { id: string; user: { name: string } }[];
+  currentUserId?: string;
+  currentUserIsRoot?: boolean;
 }
 
-export default function UserManagementTable({ users, classes, parents }: UserManagementTableProps) {
+export default function UserManagementTable({
+  users,
+  classes,
+  parents,
+  currentUserId,
+  currentUserIsRoot = false,
+}: UserManagementTableProps) {
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] = useState<string>("ALL");
@@ -99,6 +108,15 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
     return labels[role] || role;
   };
 
+  // Quy tắc xoá: không tự xoá, không xoá root, chỉ root mới xoá được admin.
+  const canDelete = (user: DbUser): boolean => {
+    if (!currentUserId) return false;
+    if (user.id === currentUserId) return false; // không tự xoá chính mình
+    if (user.isRoot) return false; // tài khoản root bất khả xâm phạm
+    if (user.role === "ADMIN" && !currentUserIsRoot) return false; // chỉ root xoá được admin
+    return true;
+  };
+
   // Filtered Users
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
@@ -143,7 +161,10 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
     const ids = Array.from(selectedIds);
     const res = await bulkDeleteUsers(ids);
     if (res.success) {
-      setSuccessMsg(`Đã xoá thành công ${ids.length} tài khoản.`);
+      const skipped = res.skippedCount && res.skippedCount > 0
+        ? ` (bỏ qua ${res.skippedCount} tài khoản: bản thân, Root, hoặc admin thường)`
+        : "";
+      setSuccessMsg(`Đã xoá thành công ${res.deletedCount ?? ids.length} tài khoản.${skipped}`);
       setSelectedIds(new Set());
     } else {
       setErrorMsg(res.error || "Có lỗi xảy ra khi xoá hàng loạt.");
@@ -526,14 +547,20 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
                 </td>
               </tr>
             ) : (
-              filteredUsers.map((user) => (
+              filteredUsers.map((user) => {
+                const deletable = canDelete(user);
+                return (
                 <tr key={user.id} className="hover:bg-surface-pearl transition-colors">
                   <td className="px-6 py-4">
-                    <button onClick={() => toggleSelect(user.id)}>
+                    <button
+                      onClick={() => toggleSelect(user.id)}
+                      disabled={!deletable}
+                      title={deletable ? undefined : "Tài khoản này không thể xoá"}
+                    >
                       {selectedIds.has(user.id) ? (
                         <CheckSquare className="h-4 w-4 text-primary" />
                       ) : (
-                        <Square className="h-4 w-4 text-ink-muted-48" />
+                        <Square className={`h-4 w-4 ${deletable ? "text-ink-muted-48" : "text-ink-muted-48/40"}`} />
                       )}
                     </button>
                   </td>
@@ -545,6 +572,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
                     <span className="inline-flex items-center gap-1.5 text-xs font-caption bg-surface-pearl border border-divider-soft text-ink-muted-80 px-2.5 py-1 rounded-full">
                       {getRoleIcon(user.role)}
                       {getRoleLabel(user.role)}
+                      {user.isRoot && <span className="text-red-600 font-semibold">· Root</span>}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm font-caption text-ink-muted-80">
@@ -575,15 +603,21 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
                       </button>
                       <button
                         onClick={() => handleDeleteIndividual(user.id, user.name)}
-                        className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
-                        title="Xoá tài khoản (D)"
+                        disabled={!deletable}
+                        className={`p-2 rounded-full transition-colors ${
+                          deletable
+                            ? "text-red-500 hover:bg-red-50"
+                            : "text-ink-muted-48/40 cursor-not-allowed"
+                        }`}
+                        title={deletable ? "Xoá tài khoản (D)" : "Không thể xoá tài khoản này"}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
                 </tr>
-              ))
+              );
+              })
             )}
           </tbody>
         </table>
@@ -597,15 +631,22 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
             <p className="text-sm text-ink-muted-80">Không tìm thấy tài khoản nào khớp với bộ lọc.</p>
           </div>
         ) : (
-          filteredUsers.map((user) => (
+          filteredUsers.map((user) => {
+            const deletable = canDelete(user);
+            return (
             <div key={user.id} className="border border-hairline rounded-lg p-4 bg-canvas shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-2">
-                  <button onClick={() => toggleSelect(user.id)} className="mt-0.5">
+                  <button
+                    onClick={() => toggleSelect(user.id)}
+                    disabled={!deletable}
+                    className="mt-0.5"
+                    title={deletable ? undefined : "Tài khoản này không thể xoá"}
+                  >
                     {selectedIds.has(user.id) ? (
                       <CheckSquare className="h-4 w-4 text-primary" />
                     ) : (
-                      <Square className="h-4 w-4 text-ink-muted-48" />
+                      <Square className={`h-4 w-4 ${deletable ? "text-ink-muted-48" : "text-ink-muted-48/40"}`} />
                     )}
                   </button>
                   <div>
@@ -616,6 +657,7 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
                 <span className="inline-flex items-center gap-1 text-xs font-caption bg-surface-pearl border border-divider-soft text-ink-muted-80 px-2.5 py-1 rounded-full shrink-0">
                   {getRoleIcon(user.role)}
                   {getRoleLabel(user.role)}
+                  {user.isRoot && <span className="text-red-600 font-semibold">· Root</span>}
                 </span>
               </div>
 
@@ -645,14 +687,20 @@ export default function UserManagementTable({ users, classes, parents }: UserMan
                 </button>
                 <button
                   onClick={() => handleDeleteIndividual(user.id, user.name)}
-                  className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
-                  title="Xoá"
+                  disabled={!deletable}
+                  className={`p-2 rounded-full transition-colors ${
+                    deletable
+                      ? "text-red-500 hover:bg-red-50"
+                      : "text-ink-muted-48/40 cursor-not-allowed"
+                  }`}
+                  title={deletable ? "Xoá" : "Không thể xoá tài khoản này"}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </div>
-          ))
+          );
+          })
         )}
       </div>
 

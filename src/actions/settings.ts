@@ -62,6 +62,7 @@ export async function updateProfileSettings(formData: FormData) {
       email: updatedUser.email,
       role: updatedUser.role,
       name: updatedUser.name,
+      isRoot: updatedUser.isRoot,
     });
 
     const cookieStore = await cookies();
