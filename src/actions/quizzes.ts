@@ -83,7 +83,9 @@ export async function submitQuiz(input: SubmitQuizInput) {
     }
 
     // Guest name validation for public quizzes
-    if (!studentProfile && quiz.isPublic && !input.guestName?.trim()) {
+    // Guest (chưa đăng nhập) bắt buộc nhập họ tên. User đã đăng nhập (kể cả
+    // không phải STUDENT) luôn có định danh session → không cần guestName.
+    if (!session && !studentProfile && quiz.isPublic && !input.guestName?.trim()) {
       return { success: false, error: "Vui lòng nhập Họ tên để bắt đầu làm bài thi thử công khai." };
     }
 
@@ -259,7 +261,9 @@ export async function startQuizAttempt(input: StartQuizAttemptInput) {
     if (!studentProfile && !quiz.isPublic) {
       return { success: false, error: "Đề thi này không công khai. Chỉ học sinh đã đăng nhập mới có quyền làm bài." };
     }
-    if (!studentProfile && quiz.isPublic && !input.guestName?.trim()) {
+    // Guest (chưa đăng nhập) bắt buộc nhập họ tên. User đã đăng nhập (kể cả
+    // không phải STUDENT) luôn có định danh session → không cần guestName.
+    if (!session && !studentProfile && quiz.isPublic && !input.guestName?.trim()) {
       return { success: false, error: "Vui lòng nhập Họ tên để bắt đầu làm bài thi thử công khai." };
     }
     // Đề private gắn lớp → học sinh phải thuộc lớp

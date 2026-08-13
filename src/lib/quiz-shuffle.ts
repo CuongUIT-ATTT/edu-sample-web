@@ -45,6 +45,18 @@ export interface GeneratedPaper {
 
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 
+/**
+ * Giao diện tự đánh số thứ tự câu hỏi (Câu N: ...). Nếu giáo viên nhập thủ công
+ * tiền tố "Câu N." / "Câu N:" đầu câu, ta bỏ nó đi để tránh hiển thị trùng lặp
+ * kiểu "Câu 1: Câu 2. ..." (lỗi này KHÔNG liên quan đến xáo đề).
+ *
+ * Regex dùng [Cc][AaÂâ][Uu] để match mọi biến thể phổ biến: "Câu", "câu", "CAU",
+ * "cau", "CÂU", "cÂu", "CâU"… mà không cần cờ /i (không hỗ trợ Unicode diacritics).
+ */
+export function cleanQuestionText(raw: string): string {
+  return raw.replace(/^[Cc][AaÂâ][Uu]\s*\d+\s*[\.\):\)]\s*/, "").trim();
+}
+
 /** Hoán vị ngẫu nhiên 0..n-1 (Fisher–Yates). */
 export function buildPermutation(n: number): number[] {
   const arr = Array.from({ length: n }, (_, i) => i);

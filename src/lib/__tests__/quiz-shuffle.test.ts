@@ -6,6 +6,7 @@ import {
   generateExamCode,
   gradeWithLayout,
   isOverdue,
+  cleanQuestionText,
   type ShuffleQuestion,
   type QuizLayout,
 } from "../quiz-shuffle";
@@ -170,5 +171,44 @@ describe("isOverdue", () => {
 
   it("endsAt trong tương lai → false", () => {
     expect(isOverdue(new Date(Date.now() + 100000))).toBe(false);
+  });
+});
+
+describe("cleanQuestionText", () => {
+  it("loại bỏ tiền tố 'Câu N.' đầu chuỗi", () => {
+    expect(cleanQuestionText("Câu 1. Nội dung câu hỏi")).toBe("Nội dung câu hỏi");
+    expect(cleanQuestionText("Câu 12. Nội dung")).toBe("Nội dung");
+    expect(cleanQuestionText("Câu 999. Nội dung")).toBe("Nội dung");
+  });
+
+  it("loại bỏ tiền tố 'Câu N:' (dấu hai chấm)", () => {
+    expect(cleanQuestionText("Câu 1: Nội dung câu hỏi")).toBe("Nội dung câu hỏi");
+    expect(cleanQuestionText("Câu 5: Nội dung")).toBe("Nội dung");
+  });
+
+  it("loại bỏ tiền tố 'Câu N)' (dấu ngoặc đóng)", () => {
+    expect(cleanQuestionText("Câu 1) Nội dung câu hỏi")).toBe("Nội dung câu hỏi");
+    expect(cleanQuestionText("Câu 7) Nội dung")).toBe("Nội dung");
+  });
+
+  it("không thay đổi chuỗi KHÔNG có tiền tố Câu N.", () => {
+    expect(cleanQuestionText("Đây là nội dung bình thường")).toBe("Đây là nội dung bình thường");
+    expect(cleanQuestionText("Câu hỏi không có số thứ tự")).toBe("Câu hỏi không có số thứ tự");
+    expect(cleanQuestionText("1. Câu hỏi có số nhưng không có từ 'Câu'")).toBe("1. Câu hỏi có số nhưng không có từ 'Câu'");
+  });
+
+  it("bỏ qua khoảng trắng dư thừa sau tiền tố", () => {
+    expect(cleanQuestionText("Câu 1.   Nội dung")).toBe("Nội dung");
+    expect(cleanQuestionText("Câu 2:  Nội dung")).toBe("Nội dung");
+  });
+
+  it("match các biến thể 'Câu'/'CAU'/'CÂU'", () => {
+    expect(cleanQuestionText("cÂu 1. nội dung")).toBe("nội dung");
+    expect(cleanQuestionText("CAU 2: nội dung")).toBe("nội dung");
+    expect(cleanQuestionText("CÂU 3) nội dung")).toBe("nội dung");
+  });
+
+  it("trim toàn bộ kết quả", () => {
+    expect(cleanQuestionText("Câu 1.  Nội dung  ")).toBe("Nội dung");
   });
 });

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Clock, RefreshCw, CheckCircle2, Play } from "lucide-react";
 import { submitQuiz, startQuizAttempt } from "@/actions/quizzes";
+import { cleanQuestionText } from "@/lib/quiz-shuffle";
 import MathRenderer from "@/components/MathRenderer";
 import Link from "next/link";
 import { showToast } from "@/components/Toast";
@@ -162,6 +163,10 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
   const [showRules, setShowRules] = useState(false);
   const [agreed, setAgreed] = useState(false);
 
+  /** Giao diện tự đánh số thứ tự câu hỏi (Câu N: ...). Nếu giáo viên nhập
+   *  thủ công tiền tố "Câu N." / "Câu N:" đầu câu, cleanQuestionText bỏ nó đi
+   *  để tránh hiển thị trùng lặp kiểu "Câu 1: Câu 2. ..." (lỗi này KHÔNG liên
+   *  quan đến xáo đề). */
   /** Gọi server tạo mã đề xáo trộn rồi mới vào làm bài. */
   const beginQuiz = async () => {
     if (starting) return;
@@ -169,12 +174,12 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
     try {
       const res = await startQuizAttempt({
         quizId: quiz.id,
-        guestName: sessionUser ? "" : guestName,
+        guestName: sessionUser ? sessionUser.name : guestName,
       });
       if (res.success && res.data) {
         setPaper(res.data.questions.map((q) => ({
           id: q.id,
-          questionText: q.text,
+          questionText: cleanQuestionText(q.text),
           type: q.type,
           options: q.options,
           score: q.score,
@@ -250,13 +255,17 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
   };
 
   async function handleSubmit() {
+    // Guard: chặn nộp bài trùng lặp (race giữa click thủ công + auto-submit khi
+    // hết giờ, hoặc React double-invoke) — nếu không, submitQuiz chạy 2 lần
+    // cùng attemptId gây Unique constraint violation và bài thi bị hỏng.
+    if (submitting || quizResult) return;
     setSubmitting(true);
 
     try {
       const response = await submitQuiz({
         quizId: quiz.id,
         answers,
-        guestName: sessionUser ? "" : guestName,
+        guestName: sessionUser ? sessionUser.name : guestName,
         timeExpired: timeLeft === 0,
         attemptId: attemptId || undefined,
       });
@@ -541,8 +550,8 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
               </div>
             </div>
 
-            {/* Name input for guests (when skipRules and no session) */}
-            {skipRules && !sessionUser && (
+            {/* Name input for guests (when skipRules and no session, or logged-in but name empty) */}
+            {skipRules && (!sessionUser || !sessionUser.name?.trim()) && (
               <div className="flex flex-col gap-1.5 border-t border-divider-soft pt-4">
                 <label className="text-xs font-semibold text-ink">Họ Tên Thí Sinh *</label>
                 <input
@@ -606,8 +615,8 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
               </div>
             </div>
 
-            {/* Name input for Guests */}
-            {!sessionUser && (
+            {/* Name input for Guests (or logged-in with empty name) */}
+            {!sessionUser || !sessionUser.name?.trim() ? (
               <div className="flex flex-col gap-1.5 border-t border-divider-soft pt-4">
                 <label className="text-xs font-semibold text-ink">Họ Tên Thí Sinh:</label>
                 <input
@@ -619,7 +628,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
                   required
                 />
               </div>
-            )}
+            ) : null}
 
             {/* Agreement Checkbox */}
             <label className="flex items-start gap-2.5 mt-2 cursor-pointer select-none">

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Clock, CheckSquare, Award, ArrowLeft, RefreshCw, CheckCircle2, XCircle, Search, Trophy, BarChart3 } from "lucide-react";
 import { submitQuiz, startQuizAttempt } from "@/actions/quizzes";
+import { cleanQuestionText } from "@/lib/quiz-shuffle";
 import { showToast } from "@/components/Toast";
 import MathRenderer from "@/components/MathRenderer";
 
@@ -233,7 +234,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     return (
       <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4 text-left">
         <h3 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
-          Câu {displayIdx}: <MathRenderer text={q.text} />
+          Câu {displayIdx}: <MathRenderer text={cleanQuestionText(q.text)} />
         </h3>
         
         {q.imageUrl && q.imageUrl.trim() && (
@@ -329,7 +330,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
       <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-4 text-left">
         <div className="flex justify-between items-start gap-2">
           <h3 className="font-body-strong text-sm text-ink font-semibold leading-relaxed">
-            Câu {displayIdx}: <MathRenderer text={q.text} />
+            Câu {displayIdx}: <MathRenderer text={cleanQuestionText(q.text)} />
           </h3>
           <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
             isCorrect 
