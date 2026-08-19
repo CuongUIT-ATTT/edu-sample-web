@@ -2,11 +2,13 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus, Image as ImageIcon, Scissors } from "lucide-react";
+import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus, Image as ImageIcon, Scissors, Sparkles } from "lucide-react";
 import { createQuiz, deleteQuiz, updateQuiz, getQuizSubmissions } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
 import { showToast } from "@/components/Toast";
 import PDFRegionSelector from "@/components/PDFRegionSelector";
+import { fileToImages } from "@/lib/pdf-to-images";
+import { normalizeQuestions } from "@/lib/quiz-import";
 
 interface QuizItem {
   id: string;
@@ -101,11 +103,20 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
   
   // Custom type toggle inside form
-  const [importMethod, setImportMethod] = useState<"JSON" | "PDF">("JSON");
+  const [importMethod, setImportMethod] = useState<"JSON" | "PDF" | "AI">("JSON");
   const [jsonText, setJsonText] = useState("");
   const [imageJsonText, setImageJsonText] = useState("");
   const [importingImages, setImportingImages] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+
+  // AI generate state
+  const [aiFile, setAiFile] = useState<File | null>(null);
+  const [aiImages, setAiImages] = useState<{ dataUrl: string; mime: string }[]>([]);
+  const [aiMaxPages, setAiMaxPages] = useState(5);
+  const [aiMaxQuestions, setAiMaxQuestions] = useState(20);
+  const [aiSubject, setAiSubject] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // Questions array state supporting Section I, II, III
   const [questions, setQuestions] = useState<{
@@ -414,6 +425,58 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     showToast(`Đã thêm ${count} câu trống. Bạn có thể chỉnh nội dung ở phần dưới.`, "info");
   };
 
+  // Chuyển file thành ảnh (PDF raster hóa hoặc ảnh trực tiếp) để gửi AI
+  const handleAiFileChange = async (file: File | undefined) => {
+    if (!file) return;
+    setAiError(null);
+    setAiFile(file);
+    setAiImages([]);
+    try {
+      const imgs = await fileToImages(file, aiMaxPages);
+      setAiImages(imgs);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Không thể đọc file.";
+      setAiError(msg);
+      showToast(msg, "error");
+    }
+  };
+
+  // Gửi ảnh lên API AI, prefill form câu hỏi để giáo viên review
+  const handleGenerateWithAI = async () => {
+    if (aiImages.length === 0) {
+      showToast("Vui lòng chọn file PDF hoặc ảnh trước.", "warning");
+      return;
+    }
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/ai/generate-quiz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          images: aiImages,
+          maxQuestions: aiMaxQuestions,
+          subject: aiSubject,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "AI không thể sinh đề thi.");
+      }
+      if (data.title) setTitle(data.title);
+      const normalized = Array.isArray(data.questions) ? normalizeQuestions(data.questions) : [];
+      setQuestions(normalized as never);
+      setImportMethod("JSON");
+      showToast(`Đã sinh ${data.questions.length} câu hỏi. Vui lòng kiểm tra trước khi lưu.`, "success");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Lỗi khi gọi AI.";
+      setAiError(msg);
+      showToast(msg, "error");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const handleImportJson = async () => {
     if (!jsonText.trim()) {
       showToast("Vui lòng dán văn bản JSON vào ô.", "warning");
@@ -482,37 +545,16 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         parsed = flatQuestions;
       }
 
-      const formattedQuestions = parsed.map((q: any) => {
-        const type = ["MULTIPLE_CHOICE", "TRUE_FALSE", "SHORT_ANSWER"].includes(q.type) ? q.type : "MULTIPLE_CHOICE";
-        let options = Array.isArray(q.options) ? [...q.options] : [];
-        let correctAnswer = (q.correctAnswer !== undefined ? q.correctAnswer : q.answer !== undefined ? q.answer : "").toString().trim();
-
-        if (type === "MULTIPLE_CHOICE") {
-          while (options.length < 4) options.push("");
-          options = options.slice(0, 4);
-          if (!correctAnswer || isNaN(Number(correctAnswer))) {
-            correctAnswer = "0";
-          }
-        } else if (type === "TRUE_FALSE") {
-          while (options.length < 4) options.push("");
-          options = options.slice(0, 4);
-          if (!correctAnswer || !correctAnswer.includes(",")) {
-            correctAnswer = "T,T,T,T";
-          }
-        } else if (type === "SHORT_ANSWER") {
-          options = [];
-        }
-
-        return {
-          questionText: q.questionText || q.text || "",
-          type,
-          options,
-          correctAnswer,
-          score: parseFloat(q.score) || 1.0,
-          explanation: q.explanation || q.explain || "",
-          imageUrl: q.imageUrl || q.image || ""
-        };
-      });
+      // Chuẩn hoá qua hàm dùng chung (AI + JSON import đều dùng chung 1 logic)
+      const formattedQuestions = normalizeQuestions(parsed).map((q) => ({
+        questionText: q.questionText,
+        type: q.type,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        score: q.score,
+        explanation: q.explanation || "",
+        imageUrl: q.imageUrl || "",
+      }));
 
       // Auto-upload images: collect all base64 data URLs or external URLs
       const needsUpload = formattedQuestions
@@ -1260,6 +1302,17 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 >
                   PDF → Chọn vùng ảnh
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setImportMethod("AI")}
+                  className={`px-4 py-1.5 rounded-pill text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+                    importMethod === "AI"
+                      ? "bg-emerald-600 border-emerald-600 text-white shadow-sm"
+                      : "bg-surface-pearl border-divider text-ink-muted-80 hover:bg-canvas"
+                  }`}
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Tạo bằng AI
+                </button>
               </div>
 
 
@@ -1385,6 +1438,105 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                       </button>
                     </>
                   )}
+                </div>
+              )}
+
+              {/* AI GENERATE PANEL */}
+              {importMethod === "AI" && (
+                <div className="flex flex-col gap-4 border border-emerald-300 rounded-lg p-4 bg-emerald-50/40">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-emerald-600" />
+                    <span className="text-xs font-bold text-ink">Tạo đề thi bằng AI (OpenRouter Vision)</span>
+                  </div>
+                  <p className="text-[10px] text-ink-muted-80">
+                    Tải lên file PDF hoặc ảnh đề thi. Hệ thống dùng AI (xoay vòng nhiều key & model) để trích xuất câu hỏi,
+                    sau đó điền sẵn vào form để bạn kiểm tra trước khi lưu.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <label className="flex flex-col gap-1 text-[11px] font-semibold text-ink">
+                      Số trang tối đa
+                      <input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={aiMaxPages}
+                        onChange={(e) => setAiMaxPages(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
+                        className="bg-canvas border border-hairline rounded-lg px-2 py-1.5 text-xs outline-none focus:border-emerald-500"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-[11px] font-semibold text-ink">
+                      Số câu hỏi tối đa
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={aiMaxQuestions}
+                        onChange={(e) => setAiMaxQuestions(Math.min(50, Math.max(1, Number(e.target.value) || 1)))}
+                        className="bg-canvas border border-hairline rounded-lg px-2 py-1.5 text-xs outline-none focus:border-emerald-500"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-[11px] font-semibold text-ink">
+                      Môn học (gợi ý)
+                      <input
+                        type="text"
+                        value={aiSubject}
+                        onChange={(e) => setAiSubject(e.target.value)}
+                        placeholder="Toán, Lý, Anh..."
+                        className="bg-canvas border border-hairline rounded-lg px-2 py-1.5 text-xs outline-none focus:border-emerald-500"
+                      />
+                    </label>
+                  </div>
+
+                  {!aiFile ? (
+                    <label className="flex items-center justify-center gap-2 border border-dashed border-emerald-400 rounded-lg p-6 bg-emerald-50/50 cursor-pointer hover:bg-emerald-100/50 transition-colors">
+                      <Upload className="h-4 w-4 text-emerald-600" />
+                      <span className="text-xs font-semibold text-emerald-700">Chọn file PDF / PNG / JPG</span>
+                      <input
+                        type="file"
+                        accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
+                        className="hidden"
+                        onChange={(e) => handleAiFileChange(e.target.files?.[0])}
+                      />
+                    </label>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold text-ink truncate max-w-[60%]">{aiFile.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => { setAiFile(null); setAiImages([]); }}
+                          className="text-ink-muted-80 hover:text-ink underline"
+                        >
+                          Chọn file khác
+                        </button>
+                      </div>
+                      <div className="text-[10px] text-ink-muted-80">
+                        {aiImages.length > 0
+                          ? `Đã sẵn sàng ${aiImages.length} ảnh để gửi AI.`
+                          : "Đang xử lý file..."}
+                      </div>
+                    </div>
+                  )}
+
+                  {aiError && (
+                    <div className="text-[11px] text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                      {aiError}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleGenerateWithAI}
+                    disabled={aiLoading || aiImages.length === 0}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2.5 rounded-pill shadow-sm self-end disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
+                  >
+                    {aiLoading ? (
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang sinh đề thi...</>
+                    ) : (
+                      <><Sparkles className="h-3.5 w-3.5" /> Tạo đề bằng AI</>
+                    )}
+                  </button>
                 </div>
               )}
 
