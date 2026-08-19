@@ -40,10 +40,10 @@ export default async function TeacherQuizzesPage() {
     orderBy: { id: "desc" },
   });
 
-  // GV chỉ thấy môn mình được gán dạy
-  const subjects = teacher.subjects.length > 0
-    ? await db.subject.findMany({ where: { id: { in: teacher.subjects.map((s) => s.id) } }, orderBy: { name: "asc" } })
-    : [];
+  // GV được chọn tất cả môn học trong hệ thống
+  const subjects = await db.subject.findMany({
+    orderBy: { name: "asc" },
+  });
 
   // Lớp GV phụ trách: chủ nhiệm HOẶC có dạy (scheduleSeries)
   const ownedClassIds = await teacherClassIds(session.userId);

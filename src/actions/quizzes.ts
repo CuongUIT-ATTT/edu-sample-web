@@ -372,21 +372,12 @@ export async function createQuiz(input: CreateQuizInput) {
       return { success: false, error: "Vui lòng nhập đầy đủ thông tin đề thi và ít nhất 1 câu hỏi." };
     }
 
-    // TEACHER: chỉ tạo đề cho môn mình được gán + lớp mình phụ trách
+    // TEACHER: chỉ tạo đề cho lớp mình phụ trách (môn học được chọn tự do)
     if (session.role === "TEACHER") {
-      const teacher = await db.teacherProfile.findUnique({
-        where: { userId: session.userId },
-        include: { subjects: true },
-      });
-      if (teacher) {
-        if (!teacher.subjects.some((s) => s.id === subjectId)) {
-          return { success: false, error: "Bạn không được tạo đề kiểm tra cho môn học không phụ trách." };
-        }
-        if (classId) {
-          const owned = await teacherClassIds(session.userId);
-          if (!owned.includes(classId)) {
-            return { success: false, error: "Bạn không được tạo đề kiểm tra cho lớp không phụ trách." };
-          }
+      if (classId) {
+        const owned = await teacherClassIds(session.userId);
+        if (!owned.includes(classId)) {
+          return { success: false, error: "Bạn không được tạo đề kiểm tra cho lớp không phụ trách." };
         }
       }
     }
