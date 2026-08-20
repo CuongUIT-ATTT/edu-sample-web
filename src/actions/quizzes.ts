@@ -490,9 +490,7 @@ export async function updateQuiz(input: UpdateQuizInput) {
       if (!teacher || existingQuiz.teacherId !== teacher.id) {
         return { success: false, error: "Bạn không có quyền sửa đề kiểm tra này." };
       }
-      if (!teacher.subjects.some((s) => s.id === subjectId)) {
-        return { success: false, error: "Bạn không được tạo đề kiểm tra cho môn học không phụ trách." };
-      }
+      // GV được chọn tự do môn học (chỉ giữ guard lớp)
       if (classId) {
         const owned = await teacherClassIds(session.userId);
         if (!owned.includes(classId)) {
