@@ -278,19 +278,22 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     document.body.removeChild(link);
   };
 
-  const downloadImageJsonTemplate = () => {
-    const imageTemplate = {
-      "question_1": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-      "question_5": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-    };
-
-    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(imageTemplate, null, 2))}`;
-    const link = document.createElement("a");
-    link.setAttribute("href", jsonString);
-    link.setAttribute("download", "mau_anh_de_thi.json");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadSkillFile = async () => {
+    try {
+      const response = await fetch("/docs/exam-to-quiz-json.md");
+      if (!response.ok) throw new Error("Không tải được file hướng dẫn");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "exam-to-quiz-json.md");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      showToast("Không thể tải file hướng dẫn. Vui lòng thử lại.", "error");
+    }
   };
 
   const handleMergeImages = async () => {
@@ -1270,10 +1273,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                       </button>
                       <button
                         type="button"
-                        onClick={downloadImageJsonTemplate}
+                        onClick={downloadSkillFile}
                         className="text-xs text-amber-600 hover:underline font-semibold"
                       >
-                        Tải JSON mẫu ảnh base64
+                        Tải hướng dẫn tạo đề bằng JSON
                       </button>
                     </div>
                   </div>
