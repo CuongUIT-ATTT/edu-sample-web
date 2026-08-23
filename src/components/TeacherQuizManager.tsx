@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useRef } from "react";
-import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus, Image as ImageIcon, Scissors, Sparkles } from "lucide-react";
+import React, { useState, useRef, useMemo } from "react";
+import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus, Image as ImageIcon, Scissors, Sparkles, Search } from "lucide-react";
 import { createQuiz, deleteQuiz, updateQuiz, getQuizSubmissions } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
 import { showToast } from "@/components/Toast";
@@ -58,6 +58,29 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const imageFileRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Search & filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState("");
+  const [visibilityFilter, setVisibilityFilter] = useState("");
+
+  const filteredQuizzes = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return quizzes.filter((quiz) => {
+      const matchesQuery =
+        !q ||
+        quiz.title.toLowerCase().includes(q) ||
+        (quiz.description ?? "").toLowerCase().includes(q) ||
+        (quiz.creatorName ?? "").toLowerCase().includes(q) ||
+        quiz.subject.name.toLowerCase().includes(q);
+      const matchesSubject = !subjectFilter || quiz.subject.id === subjectFilter;
+      const matchesVisibility =
+        !visibilityFilter ||
+        (visibilityFilter === "PUBLIC" && quiz.isPublic) ||
+        (visibilityFilter === "INTERNAL" && !quiz.isPublic);
+      return matchesQuery && matchesSubject && matchesVisibility;
+    });
+  }, [quizzes, searchQuery, subjectFilter, visibilityFilter]);
 
   // Submissions modal state
   const [isSubmissionsOpen, setIsSubmissionsOpen] = useState(false);
@@ -932,6 +955,51 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         </button>
       </div>
 
+      {/* Search & filter toolbar */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-canvas border border-hairline rounded-lg p-3 shadow-sm">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted-48 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm kiếm theo tên đề, môn học, người tạo..."
+            className="bg-canvas border border-hairline rounded-pill pl-9 pr-3 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full"
+          />
+        </div>
+        <select
+          value={subjectFilter}
+          onChange={(e) => setSubjectFilter(e.target.value)}
+          className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full sm:w-44"
+        >
+          <option value="">Tất cả môn học</option>
+          {subjects.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+        <select
+          value={visibilityFilter}
+          onChange={(e) => setVisibilityFilter(e.target.value)}
+          className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full sm:w-40"
+        >
+          <option value="">Tất cả đề thi</option>
+          <option value="PUBLIC">Công khai</option>
+          <option value="INTERNAL">Nội bộ</option>
+        </select>
+        {(searchQuery || subjectFilter || visibilityFilter) && (
+          <button
+            onClick={() => {
+              setSearchQuery("");
+              setSubjectFilter("");
+              setVisibilityFilter("");
+            }}
+            className="flex items-center justify-center gap-1 px-3 py-2 rounded-pill text-xs font-semibold border border-hairline text-ink-muted-80 hover:bg-surface transition-colors whitespace-nowrap"
+          >
+            <X className="h-3.5 w-3.5" /> Xoá lọc
+          </button>
+        )}
+      </div>
+
       {/* Quizzes List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {quizzes.length === 0 ? (
@@ -939,12 +1007,17 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
             <Award className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
             <p className="font-body text-ink-muted-80">Bạn chưa tạo bài test/đề thi nào.</p>
           </div>
+        ) : filteredQuizzes.length === 0 ? (
+          <div className="col-span-2 bg-canvas border border-hairline p-16 text-center rounded-lg">
+            <Search className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
+            <p className="font-body text-ink-muted-80">Không tìm thấy đề thi nào khớp với bộ lọc.</p>
+          </div>
         ) : (
-          quizzes.map((q) => (
-            <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm flex flex-col justify-between gap-4">
-              <div className="flex flex-col gap-3">
+          filteredQuizzes.map((q) => (
+            <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-5 shadow-sm flex flex-col justify-between gap-3">
+              <div className="flex flex-col gap-2.5">
                 <div className="flex flex-col gap-1.5">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-primary px-2.5 py-0.5 rounded-full">
                       {q.subject.name}
                     </span>
@@ -962,7 +1035,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                         Nội bộ
                       </span>
                     )}
-                    <span className="text-xs text-ink-muted-48 font-semibold">{q._count.questions} câu hỏi</span>
+                    <span className="text-xs text-ink-muted-48 font-semibold ml-auto">{q._count.questions} câu hỏi</span>
                   </div>
                   {isAdmin && q.creatorName && (
                     <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-100 self-start">
@@ -983,33 +1056,29 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     ? (q.submissions!.reduce((acc, s) => acc + s.score, 0) / subCount).toFixed(1)
                     : "N/A";
                   return (
-                    <>
-                      <div className="flex gap-4 items-center text-xs text-ink-muted-80 mt-2 font-body">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5" />
-                          {q.duration} phút
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Award className="h-3.5 w-3.5" />
-                          Đạt: {q.passingScore} điểm
-                        </span>
-                      </div>
-                      <div className="flex gap-4 items-center text-[10px] text-primary mt-1 font-body">
-                        <span className="flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                          <UserCheck className="h-3 w-3" />
-                          Lượt nộp: {subCount}
-                        </span>
-                        <span className="flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-100 font-semibold">
-                          <BarChart2 className="h-3 w-3" />
-                          Điểm TB: {avgScore}đ
-                        </span>
-                      </div>
-                    </>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-ink-muted-80 mt-1 font-body">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        {q.duration} phút
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Award className="h-3.5 w-3.5" />
+                        Đạt: {q.passingScore}
+                      </span>
+                      <span className="flex items-center gap-1 text-primary bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                        <UserCheck className="h-3 w-3" />
+                        {subCount}
+                      </span>
+                      <span className="flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 font-semibold">
+                        <BarChart2 className="h-3 w-3" />
+                        {avgScore}đ
+                      </span>
+                    </div>
                   );
                 })()}
               </div>
 
-              <div className="border-t border-divider-soft pt-4 flex justify-end gap-2 flex-wrap">
+              <div className="border-t border-divider-soft pt-3 flex justify-end gap-2 flex-wrap">
                 <button
                   onClick={() => handleViewSubmissions(q.id, q.title)}
                   className="bg-purple-50 text-purple-700 hover:bg-purple-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
