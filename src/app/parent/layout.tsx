@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import LogoutButton from "@/components/LogoutButton";
+import ThemeToggle from "@/components/ThemeToggle";
 import { EduWebLogo } from "@/components/ui/EduWebLogo";
 import {
   Calendar,
@@ -35,7 +36,7 @@ export default function ParentDashboardLayout({
             href="/parent"
             className="flex items-center gap-2"
           >
-            <EduWebLogo variant="full" size="sm" theme="light" showSubtitle={false} />
+            <EduWebLogo variant="full" size="sm" theme="auto" showSubtitle={false} />
             <span className="text-[8px] md:text-[10px] bg-purple-100 text-purple-700 px-1.5 md:px-2 py-0.5 rounded-full font-bold uppercase text-center ml-auto">
               PH
             </span>
@@ -115,7 +116,7 @@ export default function ParentDashboardLayout({
                 onClick={closeSidebar}
                 className="flex items-center gap-2"
               >
-                <EduWebLogo variant="full" size="sm" theme="light" showSubtitle={false} />
+                <EduWebLogo variant="full" size="sm" theme="auto" showSubtitle={false} />
                 <span className="text-[8px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-bold uppercase text-center ml-auto">
                   PH
                 </span>
@@ -195,7 +196,8 @@ export default function ParentDashboardLayout({
               Bảng Đồng Hành Cùng Học Viên
             </h2>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <ThemeToggle />
             <span className="text-xs text-ink-muted-48 hidden sm:inline">
               Phụ huynh: phuhuynh@eduweb.vn
             </span>

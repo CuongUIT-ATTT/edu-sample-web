@@ -31,7 +31,7 @@ export function StitchCard({
       variantClasses = "bg-canvas-parchment border border-hairline text-ink rounded-lg p-6";
       break;
     case "dark-tile":
-      variantClasses = "bg-surface-tile-1 text-white rounded-lg p-6 border border-surface-tile-2";
+      variantClasses = "bg-surface-tile-1 text-on-dark rounded-lg p-6 border border-surface-tile-2";
       break;
     case "pearl":
       variantClasses = "bg-surface-pearl border border-divider-soft text-ink rounded-lg p-6";

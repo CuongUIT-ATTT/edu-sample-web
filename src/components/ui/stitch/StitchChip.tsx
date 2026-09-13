@@ -20,7 +20,7 @@ export function StitchChip({
 
   const stateClasses = selected
     ? "bg-canvas border-2 border-primary-focus text-ink font-semibold shadow-xs"
-    : "bg-canvas border border-hairline text-ink-muted-80 hover:bg-canvas-parchment hover:text-ink font-normal";
+    : "bg-canvas border border-hairline text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-normal";
 
   return (
     <button

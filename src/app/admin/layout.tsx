@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LogoutButton from "@/components/LogoutButton";
+import ThemeToggle from "@/components/ThemeToggle";
 import { getCurrentUser } from "@/actions/session";
 import { EduWebLogo } from "@/components/ui/EduWebLogo";
 import {
@@ -86,7 +87,7 @@ export default function AdminDashboardLayout({
             onClick={closeSidebar}
             className="flex items-center gap-2"
           >
-            <EduWebLogo variant="full" size="sm" theme="light" showSubtitle={false} />
+            <EduWebLogo variant="full" size="sm" theme="auto" showSubtitle={false} />
             <span className="text-[8px] md:text-[10px] bg-red-100 text-red-700 px-1.5 md:px-2 py-0.5 rounded-full font-bold uppercase text-center ml-auto">
               ADMIN
             </span>
@@ -215,7 +216,8 @@ export default function AdminDashboardLayout({
               Quản Trị Luyện Thi
             </h2>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <ThemeToggle />
             <span className="text-xs text-ink-muted-48 hidden sm:inline">
               Quản trị viên: {userEmail ?? ""}
             </span>

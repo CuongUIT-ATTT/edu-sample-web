@@ -33,7 +33,7 @@ export function StitchButton({
       break;
     case "secondary-pill":
       variantClasses =
-        "bg-transparent border border-primary text-primary hover:bg-primary/5 rounded-pill px-5 py-2.5 text-sm font-normal";
+        "bg-transparent border border-primary text-primary hover:bg-primary/5 dark:hover:bg-primary/10 rounded-pill px-5 py-2.5 text-sm font-normal";
       break;
     case "dark-utility":
       variantClasses =

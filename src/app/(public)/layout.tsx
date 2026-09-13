@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import ThemeToggle from "@/components/ThemeToggle";
 import { EduWebLogo } from "@/components/ui/EduWebLogo";
 
 export default function PublicLayout({
@@ -8,9 +9,9 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col min-h-screen bg-canvas">
+    <div className="flex flex-col min-h-screen bg-canvas text-ink transition-colors">
       {/* Apple Global Nav Bar */}
-      <nav className="sticky top-0 z-50 h-12 bg-surface-black text-on-dark flex items-center justify-between px-6 font-nav-link border-b border-surface-black/20">
+      <nav className="sticky top-0 z-50 h-12 bg-surface-black text-on-dark flex items-center justify-between px-6 font-nav-link border-b border-white/10">
         <div className="max-w-[1440px] w-full mx-auto flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
             <EduWebLogo variant="full" size="sm" theme="dark" showSubtitle={false} />
@@ -21,7 +22,8 @@ export default function PublicLayout({
             <Link href="/documents" className="text-body-muted hover:text-white transition-colors">Kho tài liệu</Link>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <ThemeToggle className="h-8 w-8 border-white/10 bg-white/10 text-body-muted hover:bg-white/15 hover:text-white" />
             <Link
               href="/login"
               className="bg-primary hover:bg-primary-focus text-white text-[11px] px-4 py-1.5 rounded-pill apple-active-scale font-semibold transition-all shadow-xs"
@@ -36,7 +38,7 @@ export default function PublicLayout({
       <div className="sticky top-12 z-40 h-[52px] frosted-glass border-b border-hairline flex items-center px-4 sm:px-6">
         <div className="max-w-[1440px] w-full mx-auto flex items-center justify-between gap-4 min-w-0">
           <Link href="/" className="flex items-center gap-2">
-            <EduWebLogo variant="full" size="sm" theme="light" showSubtitle={true} />
+            <EduWebLogo variant="full" size="sm" theme="auto" showSubtitle={true} />
           </Link>
           <div className="hidden md:flex items-center gap-6 font-caption">
             <Link href="/admission" className="text-ink-muted-80 hover:text-primary transition-colors font-semibold">Đăng ký tư vấn lộ trình</Link>

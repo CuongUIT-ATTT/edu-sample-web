@@ -4,6 +4,7 @@ import React, { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { login, type LoginResponse } from "@/actions/auth";
+import ThemeToggle from "@/components/ThemeToggle";
 import { EduWebLogo } from "@/components/ui/EduWebLogo";
 
 /** Decode JWT payload từ cookie session_token để biết role */
@@ -42,17 +43,19 @@ export default function LoginPage() {
   }, []);
 
   return (
-    <div className="bg-canvas-parchment min-h-screen flex items-center justify-center px-6 py-12">
-      <div className="max-w-[420px] w-full bg-canvas border border-hairline rounded-lg p-8 shadow-product flex flex-col items-center">
+    <div className="relative bg-canvas-parchment min-h-screen flex items-center justify-center px-6 py-12 transition-colors">
+      <div className="pointer-events-none absolute inset-0 hidden bg-[radial-gradient(circle_at_top_left,rgba(41,151,255,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.12),transparent_36%)] dark:block" />
+      <ThemeToggle className="absolute right-5 top-5 z-10" />
+      <div className="relative max-w-[420px] w-full bg-canvas/95 border border-hairline rounded-lg p-8 shadow-product flex flex-col items-center backdrop-blur-xl">
         <Link href="/" className="mb-6 hover:opacity-90 transition-opacity">
-          <EduWebLogo variant="full" size="lg" theme="light" showSubtitle={true} />
+          <EduWebLogo variant="full" size="lg" theme="auto" showSubtitle={true} />
         </Link>
 
         <h1 className="font-tagline text-2xl font-semibold text-ink text-center mb-2 select-none">Đăng nhập cổng thông tin</h1>
         <p className="font-caption text-ink-muted-80 text-center mb-6 select-none">Vui lòng nhập tài khoản được cấp bởi quản trị viên trường.</p>
 
         {state.error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm text-xs flex items-start gap-2 w-full mb-6 animate-fade-in">
+          <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-400/30 text-red-700 dark:text-red-200 px-4 py-3 rounded-sm text-xs flex items-start gap-2 w-full mb-6 animate-fade-in">
             <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
             <span>{state.error}</span>
           </div>
@@ -65,7 +68,7 @@ export default function LoginPage() {
               type="email"
               name="email"
               placeholder="example@eduweb.vn"
-              className="bg-canvas border border-hairline rounded-pill px-5 py-2.5 h-11 text-ink text-sm outline-none focus:border-primary-focus transition-colors w-full"
+              className="bg-canvas border border-hairline rounded-pill px-5 py-2.5 h-11 text-ink text-sm outline-none focus:border-primary-focus focus:ring-2 focus:ring-primary-focus/30 transition-colors w-full placeholder:text-ink-muted-48"
               required
             />
           </div>
@@ -80,7 +83,7 @@ export default function LoginPage() {
                 type={showPassword ? "text" : "password"}
                 name="password"
                 placeholder="••••••••"
-                className="bg-canvas border border-hairline rounded-pill px-5 py-2.5 h-11 text-ink text-sm outline-none focus:border-primary-focus transition-colors w-full pr-11"
+                className="bg-canvas border border-hairline rounded-pill px-5 py-2.5 h-11 text-ink text-sm outline-none focus:border-primary-focus focus:ring-2 focus:ring-primary-focus/30 transition-colors w-full pr-11 placeholder:text-ink-muted-48"
                 required
               />
               <button
