@@ -26,6 +26,7 @@ interface Quiz {
   duration: number;
   passingScore: number;
   deadline?: string | null;
+  startsAt?: string | null;
   subjectName: string;
   isPublic: boolean | undefined;
   questions: Question[];
@@ -42,6 +43,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
   const [showNameModal, setShowNameModal] = useState(!sessionUser);
   // Luôn hiện màn giới thiệu + nội quy (giống trang public), kể cả khi đã đăng nhập
   const [quizStarted, setQuizStarted] = useState(false);
+  const [showRules, setShowRules] = useState(skipRules);
   const [timeLeft, setTimeLeft] = useState(quiz.duration * 60);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [quizResult, setQuizResult] = useState<{
@@ -160,21 +162,35 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
     }
   }, [timeLeft]);
 
-  const [showRules, setShowRules] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const guestNameInputRef = useRef<HTMLInputElement | null>(null);
+
+  const readGuestName = (): string => {
+    const refGuestName = guestNameInputRef.current?.value?.trim();
+    if (refGuestName) return refGuestName;
+    const domGuestName = document
+      .querySelectorAll<HTMLInputElement>('input[placeholder="Ví dụ: Nguyễn Văn A..."]')
+      .item(0)
+      ?.value?.trim();
+    if (domGuestName) return domGuestName;
+    const stateGuestName = guestName.trim();
+    if (stateGuestName) return stateGuestName;
+    return sessionUser?.name?.trim() || "";
+  };
 
   /** Giao diện tự đánh số thứ tự câu hỏi (Câu N: ...). Nếu giáo viên nhập
    *  thủ công tiền tố "Câu N." / "Câu N:" đầu câu, cleanQuestionText bỏ nó đi
    *  để tránh hiển thị trùng lặp kiểu "Câu 1: Câu 2. ..." (lỗi này KHÔNG liên
    *  quan đến xáo đề). */
   /** Gọi server tạo mã đề xáo trộn rồi mới vào làm bài. */
-  const beginQuiz = async () => {
+  const beginQuiz = async (overrideGuestName?: string) => {
+    const resolvedGuestName = overrideGuestName ?? (sessionUser ? sessionUser.name : readGuestName());
     if (starting) return;
     setStarting(true);
     try {
       const res = await startQuizAttempt({
         quizId: quiz.id,
-        guestName: sessionUser ? sessionUser.name : guestName,
+        guestName: resolvedGuestName,
       });
       if (res.success && res.data) {
         setPaper(res.data.questions.map((q) => ({
@@ -205,18 +221,25 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
   };
 
   const handleStartQuizDirect = () => {
-    if (!guestName.trim()) {
+    const currentGuestName = readGuestName();
+    if (!currentGuestName) {
       showToast("Vui lòng nhập Họ tên để bắt đầu làm bài thi thử.", "warning");
+      return;
+    }
+    setGuestName(currentGuestName);
+    if (quiz.startsAt && Date.now() < new Date(quiz.startsAt).getTime()) {
+      showToast("Đề thi chưa mở cho lớp của bạn.", "warning");
       return;
     }
     if (quiz.deadline && Date.now() > new Date(quiz.deadline).getTime()) {
       showToast("Đề đã quá hạn — bài làm của bạn sẽ được đánh dấu Nộp muộn.", "warning");
     }
-    beginQuiz();
+    beginQuiz(currentGuestName);
   };
 
   const handleStartQuiz = () => {
-    if (!guestName.trim()) {
+    const currentGuestName = readGuestName();
+    if (!currentGuestName) {
       showToast("Vui lòng nhập Họ tên để bắt đầu làm bài thi thử.", "warning");
       return;
     }
@@ -224,10 +247,15 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
       showToast("Vui lòng đồng ý với Nội quy phòng thi để tiếp tục.", "warning");
       return;
     }
+    setGuestName(currentGuestName);
+    if (quiz.startsAt && Date.now() < new Date(quiz.startsAt).getTime()) {
+      showToast("Đề thi chưa mở cho lớp của bạn.", "warning");
+      return;
+    }
     if (quiz.deadline && Date.now() > new Date(quiz.deadline).getTime()) {
       showToast("Đề đã quá hạn — bài làm của bạn sẽ được đánh dấu Nộp muộn.", "warning");
     }
-    beginQuiz();
+    beginQuiz(currentGuestName);
   };
 
   const handleSelectOption = (questionId: string, optionIndex: number) => {
@@ -555,6 +583,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
               <div className="flex flex-col gap-1.5 border-t border-divider-soft pt-4">
                 <label className="text-xs font-semibold text-ink">Họ Tên Thí Sinh *</label>
                 <input
+                  ref={guestNameInputRef}
                   type="text"
                   placeholder="Ví dụ: Nguyễn Văn A..."
                   value={guestName}
@@ -579,7 +608,13 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
       {!quizStarted && !quizResult && showRules && (
         <div className="w-full flex justify-center px-4">
           <div className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm max-w-xl w-full animate-fade-in flex flex-col gap-5">
-            <div className="flex flex-col gap-1 border-b border-divider-soft pb-3">
+            <div className="flex flex-col gap-2 border-b border-divider-soft pb-3">
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full self-start">
+                {quiz.subjectName}
+              </span>
+              <h1 className="font-tagline text-2xl font-bold text-ink leading-tight">
+                {quiz.title}
+              </h1>
               <h2 className="font-tagline text-lg font-bold text-ink flex items-center gap-2">
                 📝 Quy Chế Phòng Thi & Chống Gian Lận
               </h2>
@@ -620,6 +655,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
               <div className="flex flex-col gap-1.5 border-t border-divider-soft pt-4">
                 <label className="text-xs font-semibold text-ink">Họ Tên Thí Sinh:</label>
                 <input
+                  ref={guestNameInputRef}
                   type="text"
                   placeholder="Ví dụ: Nguyễn Văn A..."
                   value={guestName}

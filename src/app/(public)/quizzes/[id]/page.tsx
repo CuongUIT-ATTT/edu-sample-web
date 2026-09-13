@@ -20,12 +20,15 @@ export default async function SharedQuizPage({
     include: {
       subject: true,
       questions: true,
+      assignments: true,
     },
   });
 
   if (!quiz) {
     notFound();
   }
+
+  let effectiveAssignment: (typeof quiz.assignments)[number] | null = null;
 
   // Auth/Authorization check for private quizzes
   if (!quiz.isPublic) {
@@ -34,7 +37,6 @@ export default async function SharedQuizPage({
     }
 
     if (session.role === "STUDENT") {
-      // Check if student belongs to the class that is assigned to the quiz
       const studentProfile = await db.studentProfile.findUnique({
         where: { userId: session.userId },
         include: { classes: true },
@@ -48,7 +50,24 @@ export default async function SharedQuizPage({
         );
       }
 
-      if (quiz.classId) {
+      const studentClassIds = studentProfile.classes.map((c) => c.id);
+      const matchingAssignments = quiz.assignments.filter((assignment) => studentClassIds.includes(assignment.classId));
+      effectiveAssignment = [...matchingAssignments].sort((a, b) => {
+        const aDeadline = a.deadlineOverride?.getTime() ?? Number.POSITIVE_INFINITY;
+        const bDeadline = b.deadlineOverride?.getTime() ?? Number.POSITIVE_INFINITY;
+        if (aDeadline !== bDeadline) return aDeadline - bDeadline;
+        return a.classId.localeCompare(b.classId);
+      })[0] ?? null;
+
+      if (quiz.assignments.length > 0 && !effectiveAssignment) {
+        return (
+          <div className="bg-canvas border border-hairline rounded-lg p-16 text-center max-w-xl mx-auto shadow-sm mt-10">
+            <p className="font-body text-red-600 font-semibold">Bài thi này dành riêng cho một lớp học cụ thể mà bạn không tham gia.</p>
+          </div>
+        );
+      }
+
+      if (quiz.assignments.length === 0 && quiz.classId) {
         const isEnrolled = studentProfile.classes.some((c) => c.id === quiz.classId);
         if (!isEnrolled) {
           return (
@@ -77,7 +96,8 @@ export default async function SharedQuizPage({
     description: (quiz.description || "").replace("[UNLISTED]", "").trim(),
     duration: quiz.duration,
     passingScore: quiz.passingScore,
-    deadline: quiz.deadline?.toISOString() ?? null,
+    deadline: (effectiveAssignment?.deadlineOverride ?? quiz.deadline)?.toISOString() ?? null,
+    startsAt: effectiveAssignment?.startsAtOverride?.toISOString() ?? null,
     subjectName: quiz.subject.name,
     isPublic: quiz.isPublic,
     answerVisibility: quiz.answerVisibility,

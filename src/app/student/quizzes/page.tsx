@@ -29,6 +29,8 @@ export default async function StudentQuizzesPage() {
     duration: number;
     passingScore: number;
     deadline: string | null;
+    startsAt: string | null;
+    answerVisibility: string;
     questions: { id: string; text: string; type?: string; options?: string[]; score: number; imageUrl?: string | null }[];
   }[] = [];
 
@@ -37,31 +39,44 @@ export default async function StudentQuizzesPage() {
     const dbQuizzes = await db.quiz.findMany({
       where: {
         OR: [
-          { classId: null },
-          { classId: { in: classIds } }
-        ]
+          { assignments: { some: { classId: { in: classIds } } } },
+          { classId: { in: classIds }, assignments: { none: {} } },
+          { classId: null, assignments: { none: {} } },
+        ],
       },
       include: {
         questions: true,
+        assignments: true,
       },
     });
 
-    quizzes = dbQuizzes.map((quiz) => ({
-      id: quiz.id,
-      title: quiz.title,
-      description: quiz.description,
-      duration: quiz.duration,
-      passingScore: quiz.passingScore,
-      deadline: quiz.deadline?.toISOString() ?? null,
-      answerVisibility: quiz.answerVisibility,
-      questions: quiz.questions.map((q) => ({
-        id: q.id,
-        text: q.text,
-        type: q.type,
-        score: q.score,
-        imageUrl: q.imageUrl ?? null,
-      })),
-    }));
+    quizzes = dbQuizzes.map((quiz) => {
+      const matchingAssignments = quiz.assignments.filter((assignment) => classIds.includes(assignment.classId));
+      const effectiveAssignment = [...matchingAssignments].sort((a, b) => {
+        const aDeadline = a.deadlineOverride?.getTime() ?? Number.POSITIVE_INFINITY;
+        const bDeadline = b.deadlineOverride?.getTime() ?? Number.POSITIVE_INFINITY;
+        if (aDeadline !== bDeadline) return aDeadline - bDeadline;
+        return a.classId.localeCompare(b.classId);
+      })[0];
+
+      return {
+        id: quiz.id,
+        title: quiz.title,
+        description: quiz.description,
+        duration: quiz.duration,
+        passingScore: quiz.passingScore,
+        deadline: (effectiveAssignment?.deadlineOverride ?? quiz.deadline)?.toISOString() ?? null,
+        startsAt: effectiveAssignment?.startsAtOverride?.toISOString() ?? null,
+        answerVisibility: quiz.answerVisibility,
+        questions: quiz.questions.map((q) => ({
+          id: q.id,
+          text: q.text,
+          type: q.type,
+          score: q.score,
+          imageUrl: q.imageUrl ?? null,
+        })),
+      };
+    });
   } catch (error) {
     console.error("Error loading quizzes:", error);
   }

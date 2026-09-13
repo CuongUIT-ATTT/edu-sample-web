@@ -4,14 +4,15 @@ import { db } from "@/lib/db";
 import { signJWT } from "@/lib/auth";
 import bcryptjs from "bcryptjs";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
-interface LoginResponse {
+export interface LoginResponse {
   success: boolean;
   error?: string;
   role?: string;
 }
 
-export async function login(formData: FormData): Promise<LoginResponse> {
+export async function login(_: LoginResponse, formData: FormData): Promise<LoginResponse> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const requestedRole = formData.get("role") as string; // "admin" | "teacher" | "student" | "parent"
@@ -19,6 +20,8 @@ export async function login(formData: FormData): Promise<LoginResponse> {
   if (!email || !password || !requestedRole) {
     return { success: false, error: "Vui lòng nhập đầy đủ thông tin đăng nhập." };
   }
+
+  let redirectPath: string | null = null;
 
   try {
     // 1. Fetch user by email
@@ -63,11 +66,13 @@ export async function login(formData: FormData): Promise<LoginResponse> {
       path: "/",
     });
 
-    return { success: true, role: user.role.toLowerCase() };
+    redirectPath = `/${user.role.toLowerCase()}`;
   } catch (error) {
     console.error("Error logging in:", error);
     return { success: false, error: "Đã xảy ra lỗi hệ thống khi đăng nhập." };
   }
+
+  redirect(redirectPath);
 }
 
 export async function logout(): Promise<{ success: boolean }> {

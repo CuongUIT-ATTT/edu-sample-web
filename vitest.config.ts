@@ -6,7 +6,7 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     setupFiles: ['tests/setup.ts'],
-    exclude: ['node_modules', 'dist', '.idea', '.git', '.cache', 'e2e/**/*'],
+    exclude: ['node_modules', 'dist', '.idea', '.git', '.cache', '.claude/**', 'e2e/**/*'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

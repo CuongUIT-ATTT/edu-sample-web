@@ -1,14 +1,19 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const isCI = Boolean(process.env.CI)
+const baseURL = isCI
+  ? process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
+  : 'http://localhost:3000'
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 2 : undefined,
+  retries: isCI ? 2 : 0,
+  workers: isCI ? 2 : undefined,
   reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
 
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000',
+    baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -48,9 +53,9 @@ export default defineConfig({
     },
   ],
 
-  // Chỉ start dev server khi chạy local (không có PLAYWRIGHT_BASE_URL)
-  webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : {
-    command: 'npm run dev',
+  // Local luôn chạy trên dev server localhost với env test; CI tự build/start server riêng.
+  webServer: isCI ? undefined : {
+    command: `node -e "require('dotenv').config({ path: '.env.test' }); require('child_process').spawn('npm', ['run', 'dev'], { stdio: 'inherit', shell: true, env: process.env })"`,
     url: 'http://localhost:3000',
     reuseExistingServer: true,
     timeout: 120_000,

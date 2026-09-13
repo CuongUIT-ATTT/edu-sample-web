@@ -1,5 +1,5 @@
 import { test as base, Page } from '@playwright/test'
-import path from 'path'
+import { newAuthenticatedPage } from '../helpers/auth'
 
 type AuthFixtures = {
   adminPage: Page
@@ -10,32 +10,24 @@ type AuthFixtures = {
 
 export const test = base.extend<AuthFixtures>({
   adminPage: async ({ browser }, use) => {
-    const authPath = path.join('e2e', '.auth', 'admin.json')
-    const ctx = await browser.newContext({ storageState: authPath })
-    const page = await ctx.newPage()
+    const { context, page } = await newAuthenticatedPage(browser, 'admin')
     await use(page)
-    await ctx.close()
+    await context.close()
   },
   teacherPage: async ({ browser }, use) => {
-    const authPath = path.join('e2e', '.auth', 'teacher.json')
-    const ctx = await browser.newContext({ storageState: authPath })
-    const page = await ctx.newPage()
+    const { context, page } = await newAuthenticatedPage(browser, 'teacher')
     await use(page)
-    await ctx.close()
+    await context.close()
   },
   studentPage: async ({ browser }, use) => {
-    const authPath = path.join('e2e', '.auth', 'student.json')
-    const ctx = await browser.newContext({ storageState: authPath })
-    const page = await ctx.newPage()
+    const { context, page } = await newAuthenticatedPage(browser, 'student')
     await use(page)
-    await ctx.close()
+    await context.close()
   },
   parentPage: async ({ browser }, use) => {
-    const authPath = path.join('e2e', '.auth', 'parent.json')
-    const ctx = await browser.newContext({ storageState: authPath })
-    const page = await ctx.newPage()
+    const { context, page } = await newAuthenticatedPage(browser, 'parent')
     await use(page)
-    await ctx.close()
+    await context.close()
   },
 })
 

@@ -9,6 +9,16 @@ import { showToast } from "@/components/Toast";
 import PDFRegionSelector from "@/components/PDFRegionSelector";
 import { normalizeQuestions } from "@/lib/quiz-import";
 
+interface QuizAssignmentItem {
+  classId: string;
+  deadlineOverride?: string | null;
+  startsAtOverride?: string | null;
+  class?: {
+    id: string;
+    name: string;
+  } | null;
+}
+
 interface QuizItem {
   id: string;
   title: string;
@@ -29,6 +39,7 @@ interface QuizItem {
     id: string;
     name: string;
   } | null;
+  assignments?: QuizAssignmentItem[];
   _count: {
     questions: number;
   };
@@ -115,7 +126,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [duration, setDuration] = useState(15);
   const [passingScore, setPassingScore] = useState(5);
   const [subjectId, setSubjectId] = useState("");
-  const [classId, setClassId] = useState("");
+  const [assignments, setAssignments] = useState<QuizAssignmentItem[]>([]);
   const [isPublic, setIsPublic] = useState(false);
   const [showOnList, setShowOnList] = useState(true);
   const [answerVisibility, setAnswerVisibility] = useState("IMMEDIATELY");
@@ -565,6 +576,72 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     }
   };
 
+  const selectedClassIds = useMemo(() => new Set(assignments.map((assignment) => assignment.classId)), [assignments]);
+  const canUseAfterAllSubmitted = !isPublic && assignments.length > 0;
+
+  const buildAssignmentPayload = () =>
+    assignments.map((assignment) => ({
+      classId: assignment.classId,
+      deadlineOverride: assignment.deadlineOverride
+        ? new Date(assignment.deadlineOverride).toISOString()
+        : null,
+      startsAtOverride: assignment.startsAtOverride
+        ? new Date(assignment.startsAtOverride).toISOString()
+        : null,
+    }));
+
+  const handleToggleClassAssignment = (classId: string, checked: boolean) => {
+    setAssignments((prev) => {
+      if (checked) {
+        if (prev.some((assignment) => assignment.classId === classId)) return prev;
+        return [...prev, { classId, deadlineOverride: "", startsAtOverride: "" }];
+      }
+
+      const next = prev.filter((assignment) => assignment.classId !== classId);
+      if (next.length === 0 && answerVisibility === "AFTER_ALL_SUBMITTED") {
+        setAnswerVisibility("IMMEDIATELY");
+      }
+      return next;
+    });
+  };
+
+  const handleAssignmentDateChange = (
+    classId: string,
+    field: "deadlineOverride" | "startsAtOverride",
+    value: string,
+  ) => {
+    setAssignments((prev) =>
+      prev.map((assignment) =>
+        assignment.classId === classId ? { ...assignment, [field]: value } : assignment,
+      ),
+    );
+  };
+
+  const getClassName = (classId: string): string => classes.find((item) => item.id === classId)?.name ?? classId;
+
+  const getQuizAssignments = (quiz: QuizItem): QuizAssignmentItem[] => {
+    if (quiz.assignments && quiz.assignments.length > 0) {
+      return quiz.assignments.map((assignment) => ({
+        classId: assignment.classId,
+        class: assignment.class ?? null,
+        deadlineOverride: assignment.deadlineOverride ? toLocalDateTimeInput(assignment.deadlineOverride) : "",
+        startsAtOverride: assignment.startsAtOverride ? toLocalDateTimeInput(assignment.startsAtOverride) : "",
+      }));
+    }
+
+    return quiz.class?.id ? [{ classId: quiz.class.id, class: quiz.class, deadlineOverride: "", startsAtOverride: "" }] : [];
+  };
+
+  const getQuizClassNames = (quiz: QuizItem): string[] => {
+    const quizAssignments = quiz.assignments && quiz.assignments.length > 0
+      ? quiz.assignments
+      : quiz.class?.id
+        ? [{ classId: quiz.class.id, class: quiz.class }]
+        : [];
+
+    return quizAssignments.map((assignment) => assignment.class?.name ?? getClassName(assignment.classId));
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSuccessMsg(null);
@@ -583,7 +660,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         passingScore: Number(passingScore),
         deadline: deadline ? new Date(deadline).toISOString() : null,
         subjectId,
-        classId: classId || undefined,
+        assignments: buildAssignmentPayload(),
         isPublic,
         answerVisibility,
         shuffleQuestions,
@@ -607,7 +684,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         passingScore: Number(passingScore),
         deadline: deadline ? new Date(deadline).toISOString() : null,
         subjectId,
-        classId: classId || undefined,
+        assignments: buildAssignmentPayload(),
         isPublic,
         answerVisibility,
         shuffleQuestions,
@@ -632,7 +709,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setDuration(15);
     setPassingScore(5);
     setSubjectId("");
-    setClassId("");
+    setAssignments([]);
     setIsPublic(false);
     setShowOnList(true);
     setAnswerVisibility("IMMEDIATELY");
@@ -663,12 +740,13 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setDuration(q.duration);
     setPassingScore(q.passingScore);
     setSubjectId(q.subject.id);
-    setClassId(q.class?.id || "");
+    const quizAssignments = getQuizAssignments(q);
+    setAssignments(quizAssignments);
     setIsPublic(q.isPublic || false);
     setShuffleQuestions(q.shuffleQuestions ?? true);
     setDeadline(q.deadline ? toLocalDateTimeInput(q.deadline) : "");
     setAnswerVisibility(
-      q.answerVisibility === "AFTER_ALL_SUBMITTED" && q.class?.id
+      q.answerVisibility === "AFTER_ALL_SUBMITTED" && quizAssignments.length > 0 && !q.isPublic
         ? "AFTER_ALL_SUBMITTED"
         : q.answerVisibility === "AFTER_ALL_SUBMITTED"
         ? "IMMEDIATELY"
@@ -1021,11 +1099,19 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-primary px-2.5 py-0.5 rounded-full">
                       {q.subject.name}
                     </span>
-                    {q.class && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-orange-50 text-orange-600 px-2.5 py-0.5 rounded-full">
-                        Lớp {q.class.name}
-                      </span>
-                    )}
+                    {(() => {
+                      const classNames = getQuizClassNames(q);
+                      if (classNames.length === 0) return null;
+
+                      return (
+                        <span
+                          title={classNames.join(", ")}
+                          className="text-[10px] font-bold uppercase tracking-wider bg-orange-50 text-orange-600 px-2.5 py-0.5 rounded-full"
+                        >
+                          {classNames.length === 1 ? `Lớp ${classNames[0]}` : `${classNames.length} lớp`}
+                        </span>
+                      );
+                    })()}
                     {q.isPublic ? (
                       <span className="text-[10px] font-bold uppercase tracking-wider bg-green-50 text-green-700 px-2.5 py-0.5 rounded-full">
                         Công khai
@@ -1162,22 +1248,64 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   </select>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-caption-strong text-ink-muted-80">Lớp học (Tùy chọn)</label>
-                  <select
-                    value={classId}
-                    onChange={(e) => {
-                      setClassId(e.target.value);
-                      // AFTER_ALL_SUBMITTED cần gắn lớp — nếu bỏ lớp thì hạ cấp về IMMEDIATELY
-                      if (answerVisibility === "AFTER_ALL_SUBMITTED" && !e.target.value) setAnswerVisibility("IMMEDIATELY");
-                    }}
-                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
-                  >
-                    <option value="">— Tất cả học viên (Mặc định) —</option>
-                    {classes.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                <div className="flex flex-col gap-3 md:col-span-2 border border-divider-soft rounded-lg bg-surface-pearl p-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-caption-strong text-ink-muted-80">Giao đề theo lớp</label>
+                    <span className="text-[10px] text-ink-muted-48">
+                      Chọn một hoặc nhiều lớp. Mỗi lớp có thể override thời gian mở đề và deadline riêng.
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {classes.map((item) => (
+                      <label
+                        key={item.id}
+                        className="flex items-center gap-2 rounded-md border border-hairline bg-canvas px-3 py-2 text-xs font-semibold text-ink-muted-80"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedClassIds.has(item.id)}
+                          onChange={(e) => handleToggleClassAssignment(item.id, e.target.checked)}
+                          className="h-4 w-4 rounded text-primary focus:ring-primary cursor-pointer"
+                        />
+                        {item.name}
+                      </label>
                     ))}
-                  </select>
+                  </div>
+
+                  {assignments.length === 0 ? (
+                    <span className="text-[10px] text-ink-muted-48">Không chọn lớp = đề nội bộ mở cho tất cả học sinh đăng nhập.</span>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {assignments.map((assignment) => (
+                        <div key={assignment.classId} className="grid grid-cols-1 md:grid-cols-3 gap-2 rounded-md border border-hairline bg-canvas p-3">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600">Lớp</span>
+                            <span className="text-xs font-semibold text-ink">{getClassName(assignment.classId)}</span>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-semibold text-ink-muted-80">Mở đề từ</label>
+                            <input
+                              type="datetime-local"
+                              value={assignment.startsAtOverride ?? ""}
+                              onChange={(e) => handleAssignmentDateChange(assignment.classId, "startsAtOverride", e.target.value)}
+                              className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-semibold text-ink-muted-80">Deadline riêng</label>
+                            <input
+                              type="datetime-local"
+                              value={assignment.deadlineOverride ?? ""}
+                              onChange={(e) => handleAssignmentDateChange(assignment.classId, "deadlineOverride", e.target.value)}
+                              className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full"
+                            />
+                            <span className="text-[10px] text-ink-muted-48">Bỏ trống = dùng deadline mặc định.</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-3 md:col-span-2 mt-2 bg-surface-pearl border border-divider-soft p-3 rounded-md">
@@ -1189,6 +1317,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                       onChange={(e) => {
                         setIsPublic(e.target.checked);
                         if (!e.target.checked) setShowOnList(true);
+                        if (e.target.checked) setAssignments([]);
                         // Đề public không có khái niệm lớp → hạ cấp AFTER_ALL_SUBMITTED
                         if (e.target.checked && answerVisibility === "AFTER_ALL_SUBMITTED") setAnswerVisibility("IMMEDIATELY");
                       }}
@@ -1227,13 +1356,16 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   >
                     <option value="IMMEDIATELY">Xem đáp án và giải thích ngay sau khi nộp bài</option>
                     <option value="WHEN_ENDED">Xem đáp án và giải thích khi hết thời gian thi (timer = 0)</option>
-                    <option value="AFTER_ALL_SUBMITTED" disabled={!classId || isPublic}>
+                    <option value="AFTER_ALL_SUBMITTED" disabled={!canUseAfterAllSubmitted}>
                       Hiển thị đáp án sau khi tất cả học sinh trong lớp nộp bài
                     </option>
                     <option value="NEVER">Không cho học viên xem đáp án và giải thích</option>
                   </select>
                   {isPublic && (
                     <span className="text-[10px] text-ink-muted-48">Đề công khai không có tùy chọn "sau khi cả lớp nộp bài" (không có khái niệm lớp).</span>
+                  )}
+                  {!isPublic && assignments.length === 0 && (
+                    <span className="text-[10px] text-ink-muted-48">Chọn ít nhất một lớp để bật chế độ hiển thị đáp án sau khi cả lớp nộp bài.</span>
                   )}
                 </div>
 

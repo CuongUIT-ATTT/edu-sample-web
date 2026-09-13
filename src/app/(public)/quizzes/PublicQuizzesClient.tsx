@@ -35,6 +35,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
   const [timeLeft, setTimeLeft] = useState(0);
   const [quizStarted, setQuizStarted] = useState(false);
   const [guestName, setGuestName] = useState("");
+  const guestNameInputRef = useRef<HTMLInputElement | null>(null);
   const [showNameModal, setShowNameModal] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [tempSelectedQuiz, setTempSelectedQuiz] = useState<Quiz | null>(null);
@@ -127,6 +128,19 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
     }
   }, [timeLeft]);
 
+  const readGuestName = (): string => {
+    const refGuestName = guestNameInputRef.current?.value?.trim();
+    if (refGuestName) return refGuestName;
+    const domGuestName = document
+      .querySelectorAll<HTMLInputElement>('input[placeholder="Ví dụ: Nguyễn Văn A..."]')
+      .item(0)
+      ?.value?.trim();
+    if (domGuestName) return domGuestName;
+    const stateGuestName = guestName.trim();
+    if (stateGuestName) return stateGuestName;
+    return "";
+  };
+
   const handleOpenNamePrompt = (quiz: Quiz) => {
     setTempSelectedQuiz(quiz);
     setShowRules(true);
@@ -134,7 +148,8 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
   };
 
   const handleStartQuiz = async () => {
-    if (!guestName.trim()) {
+    const currentGuestName = readGuestName();
+    if (!currentGuestName.trim()) {
       showToast("Vui lòng nhập Họ tên để bắt đầu làm bài thi thử.", "warning");
       return;
     }
@@ -151,9 +166,10 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
       showToast("Đề đã quá hạn — bài làm của bạn sẽ được đánh dấu Nộp muộn.", "warning");
     }
     try {
+      setGuestName(currentGuestName);
       const res = await startQuizAttempt({
         quizId: tempSelectedQuiz.id,
-        guestName,
+        guestName: currentGuestName,
       });
       if (res.success && res.data) {
         setPaper(res.data.questions);
@@ -813,6 +829,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
               <div className="flex flex-col gap-2">
                 <h4 className="font-bold text-ink flex items-center gap-1">📋 Nhập Họ Tên Thí Sinh *</h4>
                 <input
+                  ref={guestNameInputRef}
                   type="text"
                   placeholder="Ví dụ: Nguyễn Văn A..."
                   value={guestName}

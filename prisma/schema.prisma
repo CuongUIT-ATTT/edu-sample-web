@@ -128,6 +128,7 @@ model Class {
   schedules          Schedule[]
   scheduleSeries     ScheduleSeries[]
   quizzes            Quiz[]
+  quizAssignments    QuizClassAssignment[]
   documentVisibility DocumentClassVisibility[]
   tuitions           Tuition[]
   credits            StudentCredit[]
@@ -350,11 +351,28 @@ model Quiz {
   classId String?
   class   Class?  @relation(fields: [classId], references: [id], onDelete: SetNull)
 
-  questions   Question[]
-  submissions QuizSubmission[]
-  attempts    QuizAttempt[]
-  schedules   Schedule[]
+  questions      Question[]
+  submissions    QuizSubmission[]
+  attempts       QuizAttempt[]
+  assignments    QuizClassAssignment[]
+  schedules      Schedule[]
   scheduleSeries ScheduleSeries[]
+}
+
+model QuizClassAssignment {
+  id                 String   @id @default(uuid())
+  quizId             String
+  quiz               Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  classId            String
+  class              Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  deadlineOverride   DateTime?
+  startsAtOverride   DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([quizId, classId])
+  @@index([quizId])
+  @@index([classId])
 }
 
 model Question {

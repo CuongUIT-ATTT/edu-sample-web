@@ -24,6 +24,7 @@ interface Quiz {
   duration: number;
   passingScore: number;
   deadline?: string | null;
+  startsAt?: string | null;
   questions: Question[];
 }
 
@@ -131,6 +132,10 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     if (!selectedQuiz) return;
     if (!agreed) {
       showToast("Vui lòng đồng ý với Nội quy phòng thi để tiếp tục.", "warning");
+      return;
+    }
+    if (selectedQuiz.startsAt && Date.now() < new Date(selectedQuiz.startsAt).getTime()) {
+      showToast("Đề thi chưa mở cho lớp của bạn.", "warning");
       return;
     }
     if (selectedQuiz.deadline && Date.now() > new Date(selectedQuiz.deadline).getTime()) {

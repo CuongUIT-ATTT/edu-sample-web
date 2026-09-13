@@ -138,6 +138,7 @@ async function clearDatabase() {
   await prisma.document.deleteMany();
 
   await prisma.quizSubmission.deleteMany();
+  await prisma.quizClassAssignment.deleteMany();
   await prisma.question.deleteMany();
   await prisma.quiz.deleteMany();
 
@@ -709,10 +710,13 @@ async function main() {
       duration: 15,
       passingScore: 5,
       deadline: addDays(TODAY, -3), // đã đóng đề 3 ngày trước
-      answerVisibility: "AFTER_DEADLINE",
+      answerVisibility: "WHEN_ENDED",
       subjectId: subjects["PHY101"].id,
       teacherId: teacherProfiles[3].id,
       classId: classes["12A1"].id,
+      assignments: {
+        create: [{ classId: classes["12A1"].id, deadlineOverride: addDays(TODAY, -3) }],
+      },
       questions: {
         create: [
           {
@@ -778,6 +782,46 @@ async function main() {
             options: ["Na", "N", "Ni", "Ne"],
             correctAnswer: "Na",
             score: 10,
+          },
+        ],
+      },
+    },
+  });
+
+  // Quiz B2: một đề giao nhiều lớp, mỗi lớp có deadline/mốc mở đề riêng.
+  await prisma.quiz.create({
+    data: {
+      title: "Ôn tập liên lớp - Hàm số bậc hai",
+      description: "Một đề dùng chung cho 10A1 và 10A2 với override riêng theo lớp.",
+      duration: 30,
+      passingScore: 5,
+      deadline: addDays(TODAY, 10),
+      answerVisibility: "AFTER_ALL_SUBMITTED",
+      subjectId: subjects["MATH101"].id,
+      teacherId: teacherProfiles[0].id,
+      classId: classes["10A1"].id,
+      assignments: {
+        create: [
+          {
+            classId: classes["10A1"].id,
+            deadlineOverride: addDays(TODAY, 7),
+          },
+          {
+            classId: classes["10A2"].id,
+            startsAtOverride: addDays(TODAY, 2),
+            deadlineOverride: addDays(TODAY, 14),
+          },
+        ],
+      },
+      questions: {
+        create: [
+          {
+            text: "Đồ thị hàm số y = ax² có dạng gì?",
+            type: "MULTIPLE_CHOICE",
+            options: ["Parabol", "Đường thẳng", "Đường tròn", "Hyperbol"],
+            correctAnswer: "Parabol",
+            score: 10,
+            explanation: "Hàm số bậc hai một biến có đồ thị là parabol.",
           },
         ],
       },

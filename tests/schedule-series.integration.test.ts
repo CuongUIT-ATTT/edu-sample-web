@@ -68,7 +68,11 @@ describe("ScheduleSeries CRUD integration", () => {
     }
   });
 
+  // Cố định "hôm nay" để các guard ngày quá khứ luôn deterministic.
   beforeAll(async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-05T00:00:00.000Z"));
+
     subjectId = (await db.subject.findFirstOrThrow()).id;
     // Tạo 1 teacher riêng cho test — không phải seed teacher
     const tU = await db.user.create({ data: { email: unique("srT") + "@t.local", name: "Sr Teacher", passwordHash: "x", role: "TEACHER" } });
@@ -103,6 +107,7 @@ describe("ScheduleSeries CRUD integration", () => {
       await db.teacherProfile.deleteMany({ where: { userId: teacherTestUserId2 } }).catch(() => {});
       await db.user.deleteMany({ where: { id: teacherTestUserId2 } }).catch(() => {});
     }
+    vi.useRealTimers();
   });
 
   it("1. createSchedule tạo 1 ScheduleSeries + expand ra đúng số buổi", async () => {
@@ -362,33 +367,33 @@ describe("ScheduleSeries CRUD integration", () => {
   });
 
   it("10. updateSchedule ONLY_THIS dời ngày → buổi cũ biến mất, buổi mới ở ngày dời", async () => {
-    // Series Thứ 3 (dayOfWeek 2) từ 04/08 vô hạn
+    // Series Thứ 3 (dayOfWeek 2) từ 03/08/2027 vô hạn
     const res = await createSchedule({
       classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 2, startTime: "07:00", endTime: "08:30", room: "SERIES-K",
-      startDate: "2026-08-04",
+      startDate: "2027-08-03",
     });
     expect(res.success).toBe(true);
     const seriesId = (res as any).data.seriesId;
 
-    // Dời buổi 11/08 sang 14/08 (Thứ 6, ngoài lưới Thứ 3)
+    // Dời buổi 10/08/2027 sang 13/08/2027 (Thứ 6, ngoài lưới Thứ 3)
     const upd = await updateSchedule({
-      seriesId, instanceDate: "2026-08-11",
+      seriesId, instanceDate: "2027-08-10",
       classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 2, startTime: "09:00", endTime: "10:30", room: "SERIES-K",
-      rescheduledDate: "2026-08-14",
+      rescheduledDate: "2027-08-13",
       updateMode: "ONLY_THIS",
     });
     expect(upd.success).toBe(true);
 
     const full = await db.scheduleSeries.findUnique({ where: { id: seriesId }, include: { exceptions: true } });
-    const instances = expandSeriesToInstances(full!, full!.exceptions, normalizeDateUtc("2026-08-01"), normalizeDateUtc("2026-08-31"));
+    const instances = expandSeriesToInstances(full!, full!.exceptions, normalizeDateUtc("2027-08-01"), normalizeDateUtc("2027-08-31"));
     const dates = instances.map((i) => dateToUtcStr(i.instanceDate));
-    expect(dates).not.toContain("2026-08-11"); // buổi gốc biến mất
-    expect(dates).toContain("2026-08-14"); // buổi mới ở ngày dời
-    expect(dates).toContain("2026-08-04");
-    expect(dates).toContain("2026-08-18");
-    const moved = instances.find((i) => dateToUtcStr(i.instanceDate) === "2026-08-14")!;
+    expect(dates).not.toContain("2027-08-10"); // buổi gốc biến mất
+    expect(dates).toContain("2027-08-13"); // buổi mới ở ngày dời
+    expect(dates).toContain("2027-08-03");
+    expect(dates).toContain("2027-08-17");
+    const moved = instances.find((i) => dateToUtcStr(i.instanceDate) === "2027-08-13")!;
     expect(moved.startTime).toBe("09:00");
   });
 
@@ -396,17 +401,17 @@ describe("ScheduleSeries CRUD integration", () => {
     const res = await createSchedule({
       classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 2, startTime: "07:00", endTime: "08:30", room: "SERIES-L",
-      startDate: "2026-08-04",
+      startDate: "2027-08-03",
     });
     expect(res.success).toBe(true);
     const seriesId = (res as any).data.seriesId;
 
-    // Dời 11/08 sang 18/08 — 18/08 vốn đã có buổi trong chuỗi
+    // Dời 10/08/2027 sang 17/08/2027 — 17/08 vốn đã có buổi trong chuỗi
     const upd = await updateSchedule({
-      seriesId, instanceDate: "2026-08-11",
+      seriesId, instanceDate: "2027-08-10",
       classId: classId1, subjectId, teacherId: teacherTestId,
       dayOfWeek: 2, startTime: "07:00", endTime: "08:30", room: "SERIES-L",
-      rescheduledDate: "2026-08-18",
+      rescheduledDate: "2027-08-17",
       updateMode: "ONLY_THIS",
     });
     expect(upd.success).toBe(false);

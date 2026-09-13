@@ -1,7 +1,64 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getSession } from "@/lib/auth";
-import { submitQuiz } from "@/actions/quizzes";
+import { startQuizAttempt, submitQuiz } from "@/actions/quizzes";
 import { mockDb } from "./setup";
+
+interface MockQuestion {
+  id: string;
+  text: string;
+  type: string;
+  options: string[];
+  correctAnswer: string;
+  score: number;
+  explanation: string | null;
+  imageUrl?: string | null;
+}
+
+interface MockAssignment {
+  classId: string;
+  deadlineOverride: Date | null;
+  startsAtOverride: Date | null;
+  class?: { id: string; name: string } | null;
+}
+
+interface MockQuiz {
+  id: string;
+  title: string;
+  duration: number;
+  passingScore: number;
+  answerVisibility: string;
+  classId: string | null;
+  deadline: Date | null;
+  isPublic: boolean;
+  shuffleQuestions: boolean;
+  teacherId: string | null;
+  subjectId: string;
+  assignments: MockAssignment[];
+  questions: MockQuestion[];
+}
+
+interface MockAttempt {
+  id: string;
+  quizId: string;
+  studentId: string | null;
+  guestName: string | null;
+  examCode: string;
+  layout: {
+    questionOrder: Record<string, string[]>;
+    optionOrder: Record<string, number[]>;
+  };
+  startsAt: Date;
+  endsAt: Date;
+  submittedAt: Date | null;
+  status: string;
+  quiz: MockQuiz;
+}
+
+const assignedStudentProfile = {
+  id: "sp-1",
+  userId: "student-1",
+  classes: [{ id: "c1", name: "10A1" }],
+};
 
 // Reset all mocks between tests
 beforeEach(() => {
@@ -13,13 +70,17 @@ beforeEach(() => {
     name: "Học sinh test",
     isRoot: false,
   });
-  mockDb.studentProfile.findUnique.mockResolvedValue({ id: "sp-1", userId: "student-1" });
-  mockDb.quizSubmission.create.mockImplementation(({ data }: any) => Promise.resolve({ id: "sub-1", ...data }));
+  mockDb.studentProfile.findUnique.mockResolvedValue(assignedStudentProfile);
+  mockDb.quizSubmission.create.mockImplementation(({ data }: { data: Record<string, unknown> }) => Promise.resolve({ id: "sub-1", ...data }));
   mockDb.grade.create.mockResolvedValue({ id: "g-1" });
   mockDb.teacherProfile.findFirst.mockResolvedValue({ id: "t-1" });
+  mockDb.quizAttempt.create.mockImplementation(({ data }: { data: { endsAt: Date; examCode: string } }) =>
+    Promise.resolve({ id: "attempt-1", examCode: data.examCode, endsAt: data.endsAt }),
+  );
+  mockDb.quizAttempt.findFirst.mockResolvedValue(null);
 });
 
-function makeQuiz(overrides: any = {}) {
+function makeQuiz(overrides: Partial<MockQuiz> = {}): MockQuiz {
   return {
     id: "quiz-1",
     title: "Test Quiz",
@@ -30,9 +91,31 @@ function makeQuiz(overrides: any = {}) {
     deadline: null,
     isPublic: false,
     shuffleQuestions: true,
+    teacherId: "teacher-1",
+    subjectId: "subject-1",
+    assignments: [],
     questions: [
-      { id: "q1", text: "Cau 1", type: "MULTIPLE_CHOICE", options: ["A", "B"], correctAnswer: "0", score: 1, explanation: "Giai thich" },
+      {
+        id: "q1",
+        text: "Cau 1",
+        type: "MULTIPLE_CHOICE",
+        options: ["A", "B"],
+        correctAnswer: "0",
+        score: 1,
+        explanation: "Giai thich",
+        imageUrl: null,
+      },
     ],
+    ...overrides,
+  };
+}
+
+function makeAssignment(overrides: Partial<MockAssignment> = {}): MockAssignment {
+  return {
+    classId: "c1",
+    deadlineOverride: null,
+    startsAtOverride: null,
+    class: { id: "c1", name: "10A1" },
     ...overrides,
   };
 }
@@ -51,6 +134,18 @@ describe("submitQuiz - deadline / isLate", () => {
     const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
     expect(res.success).toBe(true);
     expect(res.data?.isLate).toBe(false);
+  });
+
+  it("deadlineOverride quá khứ → isLate=true dù deadline mặc định còn hạn", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({
+      deadline: new Date(Date.now() + 86400000),
+      assignments: [makeAssignment({ deadlineOverride: new Date(Date.now() - 3600000) })],
+    }));
+
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+
+    expect(res.success).toBe(true);
+    expect(res.data?.isLate).toBe(true);
   });
 });
 
@@ -98,6 +193,31 @@ describe("submitQuiz - answerVisibility", () => {
     expect(res.data?.correctAnswers).not.toBeNull();
   });
 
+  it("AFTER_ALL_SUBMITTED + assignment lớp hiệu lực chưa đủ người → không show", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({
+      answerVisibility: "AFTER_ALL_SUBMITTED",
+      assignments: [makeAssignment({ classId: "c1" }), makeAssignment({ classId: "c2" })],
+    }));
+    mockDb.class.findUnique.mockResolvedValue({ _count: { students: 2 } });
+    mockDb.quizSubmission.findMany.mockResolvedValue([{ studentId: "s1" }]);
+
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+
+    expect(mockDb.class.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "c1" } }));
+    expect(res.data?.correctAnswers).toBeNull();
+  });
+
+  it("AFTER_ALL_SUBMITTED + qua deadline override của lớp → show", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({
+      answerVisibility: "AFTER_ALL_SUBMITTED",
+      deadline: new Date(Date.now() + 3600000),
+      assignments: [makeAssignment({ deadlineOverride: new Date(Date.now() - 3600000) })],
+    }));
+    mockDb.quizSubmission.findMany.mockResolvedValue([{ studentId: "s1" }]);
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+    expect(res.data?.correctAnswers).not.toBeNull();
+  });
+
   it("AFTER_ALL_SUBMITTED + qua deadline (chưa đủ người) → show", async () => {
     mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({
       answerVisibility: "AFTER_ALL_SUBMITTED",
@@ -117,6 +237,54 @@ describe("submitQuiz - answerVisibility", () => {
   });
 });
 
+describe("startQuizAttempt - class assignments", () => {
+  it("học sinh trong lớp được gán có thể bắt đầu làm bài", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ assignments: [makeAssignment()] }));
+
+    const res = await startQuizAttempt({ quizId: "quiz-1" });
+
+    expect(res.success).toBe(true);
+    expect(res.data?.attemptId).toBe("attempt-1");
+    expect(mockDb.quizAttempt.create).toHaveBeenCalled();
+  });
+
+  it("học sinh ngoài các lớp được gán không thể bắt đầu quiz private", async () => {
+    mockDb.studentProfile.findUnique.mockResolvedValue({
+      id: "sp-1",
+      userId: "student-1",
+      classes: [{ id: "other-class", name: "10A2" }],
+    });
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ assignments: [makeAssignment()] }));
+
+    const res = await startQuizAttempt({ quizId: "quiz-1" });
+
+    expect(res.success).toBe(false);
+    expect(res.error).toContain("không tham gia");
+    expect(mockDb.quizAttempt.create).not.toHaveBeenCalled();
+  });
+
+  it("startsAtOverride trong tương lai chặn bắt đầu làm bài", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({
+      assignments: [makeAssignment({ startsAtOverride: new Date(Date.now() + 3600000) })],
+    }));
+
+    const res = await startQuizAttempt({ quizId: "quiz-1" });
+
+    expect(res.success).toBe(false);
+    expect(res.error).toBe("Đề thi chưa mở cho lớp của bạn.");
+    expect(mockDb.quizAttempt.create).not.toHaveBeenCalled();
+  });
+
+  it("legacy classId path vẫn cho học sinh đúng lớp bắt đầu", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ classId: "c1", assignments: [] }));
+
+    const res = await startQuizAttempt({ quizId: "quiz-1" });
+
+    expect(res.success).toBe(true);
+    expect(mockDb.quizAttempt.create).toHaveBeenCalled();
+  });
+});
+
 describe("submitQuiz - attemptId (mã đề xáo trộn)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -127,14 +295,14 @@ describe("submitQuiz - attemptId (mã đề xáo trộn)", () => {
       name: "Học sinh test",
       isRoot: false,
     });
-    mockDb.studentProfile.findUnique.mockResolvedValue({ id: "sp-1", userId: "student-1" });
-    mockDb.quizSubmission.create.mockImplementation(({ data }: any) => Promise.resolve({ id: "sub-1", ...data }));
+    mockDb.studentProfile.findUnique.mockResolvedValue(assignedStudentProfile);
+    mockDb.quizSubmission.create.mockImplementation(({ data }: { data: Record<string, unknown> }) => Promise.resolve({ id: "sub-1", ...data }));
     mockDb.grade.create.mockResolvedValue({ id: "g-1" });
     mockDb.teacherProfile.findFirst.mockResolvedValue({ id: "t-1" });
     mockDb.quizAttempt.update.mockResolvedValue({ id: "attempt-1", status: "SUBMITTED" });
   });
 
-  function makeAttempt(overrides: any = {}) {
+  function makeAttempt(overrides: Partial<MockAttempt> = {}): MockAttempt {
     return {
       id: "attempt-1",
       quizId: "quiz-1",

@@ -28,6 +28,11 @@ describe("Tuition - Thanh toán", () => {
   it("student2 có StudentCredit dương (dư tiết)", async () => {
     const u = await db.user.findUnique({ where: { email: "student2@eduweb.vn" }, include: { studentProfile: true } });
     const studentId = u?.studentProfile?.id;
+    expect(studentId).toBeTruthy();
+    if (!studentId) {
+      throw new Error("Thiếu studentProfile cho student2@eduweb.vn trong seed data");
+    }
+
     const cls = await db.class.findFirstOrThrow({ where: { students: { some: { id: studentId } } } });
     const credit = await db.studentCredit.findUnique({ where: { studentId_classId: { studentId, classId: cls.id } } });
     expect(credit).not.toBeNull();
