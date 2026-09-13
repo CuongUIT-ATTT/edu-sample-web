@@ -118,6 +118,14 @@ export default function SingleQuizPlayer({
     forceSubmitRef.current = handleSubmit;
   }, [answers, guestName, timeLeft]);
 
+  useEffect(() => {
+    if (!quizStarted || quizResult) return;
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }, [quizStarted, quizResult]);
+
   // Anti-cheating logic
   useEffect(() => {
     if (!quizStarted || quizResult || isCheatedLocked) return;
@@ -319,7 +327,7 @@ export default function SingleQuizPlayer({
   };
 
   return (
-    <div className="relative min-h-screen bg-canvas text-ink py-10 px-4 sm:px-6 overflow-hidden transition-colors duration-300">
+    <div className="relative min-h-screen bg-canvas text-ink px-3 py-6 sm:px-6 sm:py-10 overflow-hidden transition-colors duration-300">
       {/* Radiant Background Blur */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(0,102,204,0.12),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(168,85,247,0.1),transparent_50%)]" />
 
@@ -426,7 +434,7 @@ export default function SingleQuizPlayer({
         {/* 2. PLAYING EXAM VIEW */}
         {quizStarted && !quizResult && (
           <div
-            className="flex flex-col gap-6 max-w-[860px] mx-auto w-full select-none relative animate-fade-in"
+            className="flex flex-col gap-5 sm:gap-6 max-w-[860px] mx-auto w-full select-none relative animate-fade-in"
             onCopy={(e) => e.preventDefault()}
             onCut={(e) => e.preventDefault()}
             onPaste={(e) => e.preventDefault()}
@@ -442,8 +450,8 @@ export default function SingleQuizPlayer({
             </div>
 
             {/* Sticky Timer Bar */}
-            <div className="sticky top-20 z-30 backdrop-blur-2xl bg-white/85 dark:bg-slate-900/85 border border-white/60 dark:border-white/15 rounded-2xl p-4 sm:p-5 shadow-xl flex items-center justify-between gap-4">
-              <div className="flex flex-col gap-1 min-w-0">
+            <div className="sticky top-3 sm:top-6 z-30 backdrop-blur-2xl bg-white/85 dark:bg-slate-900/85 border border-white/60 dark:border-white/15 rounded-2xl p-3 sm:p-5 shadow-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+              <div className="flex flex-col gap-1 min-w-0 w-full sm:w-auto">
                 <h2 className="font-body-strong text-sm sm:text-base text-ink font-extrabold truncate">{quiz.title}</h2>
                 <div className="flex items-center gap-2 text-xs text-ink-muted-80 flex-wrap">
                   <span className="font-semibold text-primary">Thí sinh: {guestName}</span>
@@ -455,14 +463,14 @@ export default function SingleQuizPlayer({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 text-red-600 dark:text-red-400 font-mono font-bold text-base sm:text-lg bg-red-500/10 border border-red-500/20 px-4 py-2 rounded-full shadow-inner flex-shrink-0">
+              <div className="flex items-center justify-center gap-2.5 text-red-600 dark:text-red-400 font-mono font-bold text-base sm:text-lg bg-red-500/10 border border-red-500/20 px-4 py-2 rounded-full shadow-inner flex-shrink-0 w-full sm:w-auto">
                 <Clock className="h-5 w-5 animate-pulse text-red-500" />
                 <span>{formatTime(timeLeft)}</span>
               </div>
             </div>
 
             {/* Questions Stack */}
-            <div className="flex flex-col gap-8 relative mt-2">
+            <div className="flex flex-col gap-5 sm:gap-8 relative mt-1 sm:mt-2">
               {isCheatedLocked && (
                 <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md z-40 flex flex-col items-center justify-center p-8 rounded-3xl text-white text-center min-h-[360px] shadow-2xl">
                   <Lock className="h-16 w-16 text-red-400 mb-4 animate-bounce" />
@@ -476,7 +484,7 @@ export default function SingleQuizPlayer({
               {(paper || []).map((q, idx) => (
                 <div
                   key={q.id}
-                  className="backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/15 rounded-3xl p-6 sm:p-8 flex flex-col gap-4 shadow-lg text-left"
+                  className="backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/15 rounded-2xl sm:rounded-3xl p-4 sm:p-8 flex flex-col gap-4 shadow-lg text-left"
                 >
                   <h3 className="font-body-strong text-sm sm:text-base text-ink font-bold leading-relaxed">
                     Câu {idx + 1}: <MathRenderer text={q.questionText} />

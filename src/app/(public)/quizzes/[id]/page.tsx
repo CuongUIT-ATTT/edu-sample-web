@@ -142,7 +142,7 @@ export default async function SharedQuizPage({
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto py-8 px-4">
+    <div className="w-full">
       <SingleQuizPlayer
         quiz={formattedQuiz as any}
         sessionUser={session ? { name: session.name, role: session.role } : null}

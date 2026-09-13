@@ -2,7 +2,7 @@
 
 import React, { useActionState, useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { AlertCircle, RefreshCw, Eye, EyeOff, ShieldCheck, UserCheck, GraduationCap, Users, ArrowRight, Lock } from "lucide-react";
+import { AlertCircle, RefreshCw, Eye, EyeOff, ArrowRight, Lock } from "lucide-react";
 import { login, type LoginResponse } from "@/actions/auth";
 import ThemeToggle from "@/components/ThemeToggle";
 import { EduWebLogo } from "@/components/ui/EduWebLogo";
@@ -29,12 +29,6 @@ const INITIAL_STATE: LoginResponse = {
   success: false,
 };
 
-const DEMO_ACCOUNTS = [
-  { label: "Học sinh", email: "student1@eduweb.vn", role: "student", icon: GraduationCap },
-  { label: "Phụ huynh", email: "parent1@eduweb.vn", role: "parent", icon: Users },
-  { label: "Giáo viên", email: "teacher.toan@eduweb.vn", role: "teacher", icon: UserCheck },
-  { label: "Admin", email: "admin@eduweb.vn", role: "admin", icon: ShieldCheck },
-];
 
 export default function LoginPage() {
   const [homeHref, setHomeHref] = useState("/");
@@ -50,14 +44,6 @@ export default function LoginPage() {
       setHomeHref(HOME_BY_ROLE[role]);
     }
   }, []);
-
-  const fillDemoAccount = (acc: typeof DEMO_ACCOUNTS[0]) => {
-    setEmailInput(acc.email);
-    setRoleInput(acc.role);
-    if (passwordInputRef.current) {
-      passwordInputRef.current.value = acc.email === "admin@eduweb.vn" ? "hungcuong123" : "Test@1234";
-    }
-  };
 
   return (
     <div className="relative bg-canvas min-h-screen flex items-center justify-center px-4 py-12 overflow-hidden transition-colors duration-300">
@@ -155,34 +141,6 @@ export default function LoginPage() {
                   <option value="admin">Quản trị viên (Admin)</option>
                 </select>
                 <Lock className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-ink-muted-48" />
-              </div>
-            </div>
-
-            {/* Quick Demo Account Selector */}
-            <div className="flex flex-col gap-2 my-1">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted-48 text-center">
-                Dùng thử tài khoản mẫu
-              </span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                {DEMO_ACCOUNTS.map((acc) => {
-                  const Icon = acc.icon;
-                  const isSelected = emailInput === acc.email;
-                  return (
-                    <button
-                      key={acc.role}
-                      type="button"
-                      onClick={() => fillDemoAccount(acc)}
-                      className={`flex flex-col items-center gap-1 p-2 rounded-2xl border text-[11px] font-bold transition-all ${
-                        isSelected
-                          ? "bg-primary text-white border-primary shadow-md scale-105"
-                          : "bg-canvas/60 dark:bg-slate-800/60 border-hairline text-ink hover:bg-primary/5 hover:border-primary/30"
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      <span>{acc.label}</span>
-                    </button>
-                  );
-                })}
               </div>
             </div>
 

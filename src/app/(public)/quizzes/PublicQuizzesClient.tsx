@@ -83,6 +83,14 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
     forceSubmitRef.current = handleSubmit;
   }, [answers, timeLeft, selectedQuiz]);
 
+  useEffect(() => {
+    if (!quizStarted || quizResult) return;
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }, [quizStarted, quizResult]);
+
   // Anti-cheating logic (Tab switching / Blur detection)
   useEffect(() => {
     if (!quizStarted || quizResult || isCheatedLocked) return;
@@ -281,7 +289,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
   );
 
   return (
-    <div className="relative min-h-screen bg-canvas text-ink py-12 px-4 sm:px-6 overflow-hidden transition-colors duration-300">
+    <div className="relative min-h-screen bg-canvas text-ink px-3 py-6 sm:px-6 sm:py-12 overflow-hidden transition-colors duration-300">
       {/* Radiant Background Blur Orbs */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(0,102,204,0.12),transparent_50%),radial-gradient(circle_at_80%_80%,rgba(168,85,247,0.1),transparent_50%),radial-gradient(circle_at_50%_50%,rgba(16,185,129,0.08),transparent_55%)]" />
 
@@ -435,7 +443,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
         {/* 2. INTERACTIVE QUIZ PLAYER VIEW */}
         {quizStarted && !quizResult && selectedQuiz && (
           <div
-            className="flex flex-col gap-6 max-w-[860px] mx-auto w-full select-none relative animate-fade-in"
+            className="flex flex-col gap-5 sm:gap-6 max-w-[860px] mx-auto w-full select-none relative animate-fade-in"
             onCopy={(e) => e.preventDefault()}
             onCut={(e) => e.preventDefault()}
             onPaste={(e) => e.preventDefault()}
@@ -451,8 +459,8 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
             </div>
 
             {/* Floating Glass Exam Header */}
-            <div className="sticky top-20 z-30 backdrop-blur-2xl bg-white/85 dark:bg-slate-900/85 border border-white/60 dark:border-white/15 rounded-2xl p-4 sm:p-5 shadow-xl flex items-center justify-between gap-4">
-              <div className="flex flex-col gap-1 min-w-0">
+            <div className="sticky top-3 sm:top-6 z-30 backdrop-blur-2xl bg-white/85 dark:bg-slate-900/85 border border-white/60 dark:border-white/15 rounded-2xl p-3 sm:p-5 shadow-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+              <div className="flex flex-col gap-1 min-w-0 w-full sm:w-auto">
                 <h2 className="font-body-strong text-sm sm:text-base text-ink font-extrabold truncate">
                   {selectedQuiz.title}
                 </h2>
@@ -467,14 +475,14 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
               </div>
 
               {/* Countdown Timer */}
-              <div className="flex items-center gap-2.5 text-red-600 dark:text-red-400 font-mono font-bold text-base sm:text-lg bg-red-500/10 border border-red-500/20 px-4 py-2 rounded-full shadow-inner flex-shrink-0">
+              <div className="flex items-center justify-center gap-2.5 text-red-600 dark:text-red-400 font-mono font-bold text-base sm:text-lg bg-red-500/10 border border-red-500/20 px-4 py-2 rounded-full shadow-inner flex-shrink-0 w-full sm:w-auto">
                 <Clock className="h-5 w-5 animate-pulse text-red-500" />
                 <span>{formatTime(timeLeft)}</span>
               </div>
             </div>
 
             {/* Questions Stack */}
-            <div className="flex flex-col gap-8 relative mt-2">
+            <div className="flex flex-col gap-5 sm:gap-8 relative mt-1 sm:mt-2">
               {isCheatedLocked && (
                 <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md z-40 flex flex-col items-center justify-center p-8 rounded-3xl text-white text-center min-h-[360px] shadow-2xl">
                   <Lock className="h-16 w-16 text-red-400 mb-4 animate-bounce" />
@@ -487,7 +495,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
 
               {/* PHẦN I: Trắc nghiệm MCQ */}
               {(paper || []).some((q) => q.type === "MULTIPLE_CHOICE") && (
-                <div className="backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/15 rounded-3xl p-6 sm:p-8 flex flex-col gap-6 shadow-lg">
+                <div className="backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/15 rounded-2xl sm:rounded-3xl p-4 sm:p-8 flex flex-col gap-5 sm:gap-6 shadow-lg">
                   <div className="flex items-center gap-3 border-b border-hairline pb-4">
                     <StitchIconBadge icon={Zap} variant="blue" size="sm" />
                     <div>
@@ -501,7 +509,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                   {(paper || [])
                     .filter((q) => q.type === "MULTIPLE_CHOICE")
                     .map((q, qIndex) => (
-                      <div key={q.id} className="flex flex-col gap-4 border-b border-hairline pb-6 last:border-0 last:pb-0">
+                      <div key={q.id} className="flex flex-col gap-4 border-b border-hairline pb-5 sm:pb-6 last:border-0 last:pb-0">
                         <h4 className="font-body-strong text-sm sm:text-base text-ink font-bold leading-relaxed">
                           Câu {qIndex + 1}: <MathRenderer text={cleanQuestionText(q.text)} />
                         </h4>
@@ -551,7 +559,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
 
               {/* PHẦN II: Đúng/Sai */}
               {(paper || []).some((q) => q.type === "TRUE_FALSE") && (
-                <div className="backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/15 rounded-3xl p-6 sm:p-8 flex flex-col gap-6 shadow-lg">
+                <div className="backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/15 rounded-2xl sm:rounded-3xl p-4 sm:p-8 flex flex-col gap-5 sm:gap-6 shadow-lg">
                   <div className="flex items-center gap-3 border-b border-hairline pb-4">
                     <StitchIconBadge icon={CheckCircle2} variant="amber" size="sm" />
                     <div>
@@ -565,7 +573,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                   {(paper || [])
                     .filter((q) => q.type === "TRUE_FALSE")
                     .map((q, qIndex) => (
-                      <div key={q.id} className="flex flex-col gap-4 border-b border-hairline pb-6 last:border-0 last:pb-0">
+                      <div key={q.id} className="flex flex-col gap-4 border-b border-hairline pb-5 sm:pb-6 last:border-0 last:pb-0">
                         <h4 className="font-body-strong text-sm sm:text-base text-ink font-bold leading-relaxed">
                           Câu {qIndex + 1}: <MathRenderer text={cleanQuestionText(q.text)} />
                         </h4>
@@ -631,7 +639,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
 
               {/* PHẦN III: Trả lời ngắn */}
               {(paper || []).some((q) => q.type === "SHORT_ANSWER") && (
-                <div className="backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/15 rounded-3xl p-6 sm:p-8 flex flex-col gap-6 shadow-lg">
+                <div className="backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/15 rounded-2xl sm:rounded-3xl p-4 sm:p-8 flex flex-col gap-5 sm:gap-6 shadow-lg">
                   <div className="flex items-center gap-3 border-b border-hairline pb-4">
                     <StitchIconBadge icon={BookOpen} variant="emerald" size="sm" />
                     <div>
@@ -645,7 +653,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                   {(paper || [])
                     .filter((q) => q.type === "SHORT_ANSWER")
                     .map((q, qIndex) => (
-                      <div key={q.id} className="flex flex-col gap-4 border-b border-hairline pb-6 last:border-0 last:pb-0">
+                      <div key={q.id} className="flex flex-col gap-4 border-b border-hairline pb-5 sm:pb-6 last:border-0 last:pb-0">
                         <h4 className="font-body-strong text-sm sm:text-base text-ink font-bold leading-relaxed">
                           Câu {qIndex + 1}: <MathRenderer text={cleanQuestionText(q.text)} />
                         </h4>
