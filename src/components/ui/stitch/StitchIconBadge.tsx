@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 
 export type StitchIconBadgeVariant =
@@ -65,7 +63,7 @@ const sizeStyles: Record<
 };
 
 export function StitchIconBadge({
-  icon: IconComponent,
+  icon,
   variant = "blue",
   size = "sm",
   isActive = false,
@@ -78,18 +76,20 @@ export function StitchIconBadge({
     ? "ring-2 ring-white/90 dark:ring-white/80 shadow-lg scale-105"
     : "";
 
-  const Icon = IconComponent as React.ComponentType<{ className?: string }>;
+  let iconNode: React.ReactNode = null;
+  if (React.isValidElement(icon)) {
+    iconNode = icon;
+  } else if (typeof icon === "function" || (typeof icon === "object" && icon !== null)) {
+    const IconComp = icon as React.ComponentType<{ className?: string }>;
+    iconNode = <IconComp className={`${currentSize.icon} text-white drop-shadow-xs`} />;
+  }
 
   return (
     <span
       aria-hidden="true"
       className={`inline-flex items-center justify-center flex-shrink-0 transition-all duration-200 ${currentSize.container} ${currentVariant} ${activeStyles} ${className}`}
     >
-      {React.isValidElement(IconComponent) ? (
-        IconComponent
-      ) : IconComponent ? (
-        <Icon className={`${currentSize.icon} text-white drop-shadow-xs`} />
-      ) : null}
+      {iconNode}
     </span>
   );
 }

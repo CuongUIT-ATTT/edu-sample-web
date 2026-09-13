@@ -129,6 +129,8 @@ model Class {
   scheduleSeries     ScheduleSeries[]
   quizzes            Quiz[]
   quizAssignments    QuizClassAssignment[]
+  submissions        QuizSubmission[]
+  attempts           QuizAttempt[]
   documentVisibility DocumentClassVisibility[]
   tuitions           Tuition[]
   credits            StudentCredit[]
@@ -395,6 +397,8 @@ model QuizSubmission {
   student   StudentProfile? @relation(fields: [studentId], references: [id], onDelete: Cascade)
   quizId    String
   quiz      Quiz            @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  classId   String?
+  class     Class?          @relation(fields: [classId], references: [id], onDelete: SetNull)
 
   score       Float
   answers     Json // Map of question ID to student's answer
@@ -414,6 +418,8 @@ model QuizAttempt {
   quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
   studentId String?
   student   StudentProfile? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId   String?
+  class     Class?          @relation(fields: [classId], references: [id], onDelete: SetNull)
   guestName String?
   examCode  String // mã đề ngắn, VD "ab12" — chống trao đổi đáp án theo "đề A/B"
   layout    Json // { questionOrder: {TYPE: [qid...]}, optionOrder: {qid: [origIdx...]} }

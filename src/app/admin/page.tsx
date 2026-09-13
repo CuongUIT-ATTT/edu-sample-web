@@ -6,12 +6,12 @@ import StitchIconBadge from "@/components/ui/stitch/StitchIconBadge";
 
 export const dynamic = "force-dynamic";
 
-// Module-level constants: computed once at module load time (not during render)
-const MODULE_LOAD_TIME = new Date();
-
-function formatTimeAgo(date: Date) {
-  const now = MODULE_LOAD_TIME;
-  const diffMs = now.getTime() - date.getTime();
+function formatTimeAgo(date: Date | string | null | undefined) {
+  if (!date) return "Vừa xong";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "Vừa xong";
+  const now = new Date();
+  const diffMs = Math.max(0, now.getTime() - d.getTime());
   const diffMins = Math.floor(diffMs / (1000 * 60));
   if (diffMins < 1) return "Vừa xong";
   if (diffMins < 60) return `${diffMins} phút trước`;
@@ -62,7 +62,7 @@ export default async function AdminDashboardPage() {
     dbClassesList = classes.map((c) => ({
       id: c.id,
       name: c.name,
-      studentsCount: c._count.students,
+      studentsCount: c._count?.students ?? 0,
     }));
 
     // Fetch dynamic activities
@@ -130,7 +130,7 @@ export default async function AdminDashboardPage() {
       });
     });
 
-    activitiesList.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    activitiesList.sort((a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0));
     displayActivities = activitiesList.slice(0, 5);
   } catch (error) {
     console.error("Prisma error in Admin Dashboard:", error);
@@ -182,7 +182,7 @@ export default async function AdminDashboardPage() {
           className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-primary transition-all duration-200 apple-active-scale cursor-pointer group shadow-sm hover:shadow-md"
         >
           <div className="flex items-center justify-between">
-            <StitchIconBadge icon={Users} variant="blue" size="md" />
+            <StitchIconBadge icon={<Users className="h-5 w-5" />} variant="blue" size="md" />
             <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200/50">
               Giảng viên
             </span>
@@ -202,7 +202,7 @@ export default async function AdminDashboardPage() {
           className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-green-600 transition-all duration-200 apple-active-scale cursor-pointer group shadow-sm hover:shadow-md"
         >
           <div className="flex items-center justify-between">
-            <StitchIconBadge icon={GraduationCap} variant="emerald" size="md" />
+            <StitchIconBadge icon={<GraduationCap className="h-5 w-5" />} variant="emerald" size="md" />
             <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200/50">
               Học viên
             </span>
@@ -222,7 +222,7 @@ export default async function AdminDashboardPage() {
           className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-purple-600 transition-all duration-200 apple-active-scale cursor-pointer group shadow-sm hover:shadow-md"
         >
           <div className="flex items-center justify-between">
-            <StitchIconBadge icon={BookOpen} variant="purple" size="md" />
+            <StitchIconBadge icon={<BookOpen className="h-5 w-5" />} variant="purple" size="md" />
             <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200/50">
               Lớp học
             </span>
@@ -242,7 +242,7 @@ export default async function AdminDashboardPage() {
           className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-orange-600 transition-all duration-200 apple-active-scale cursor-pointer group shadow-sm hover:shadow-md"
         >
           <div className="flex items-center justify-between">
-            <StitchIconBadge icon={Calendar} variant="amber" size="md" />
+            <StitchIconBadge icon={<Calendar className="h-5 w-5" />} variant="amber" size="md" />
             <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200/50">
               Hôm nay
             </span>
