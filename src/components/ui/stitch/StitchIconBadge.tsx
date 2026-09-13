@@ -78,16 +78,17 @@ export function StitchIconBadge({
     ? "ring-2 ring-white/90 dark:ring-white/80 shadow-lg scale-105"
     : "";
 
+  const Icon = IconComponent as React.ComponentType<{ className?: string }>;
+
   return (
     <span
+      aria-hidden="true"
       className={`inline-flex items-center justify-center flex-shrink-0 transition-all duration-200 ${currentSize.container} ${currentVariant} ${activeStyles} ${className}`}
     >
       {React.isValidElement(IconComponent) ? (
         IconComponent
-      ) : typeof IconComponent === "function" ||
-        typeof IconComponent === "object" ? (
-        // @ts-expect-error IconComponent can be a Lucide React component
-        <IconComponent className={`${currentSize.icon} text-white drop-shadow-xs`} />
+      ) : IconComponent ? (
+        <Icon className={`${currentSize.icon} text-white drop-shadow-xs`} />
       ) : null}
     </span>
   );
