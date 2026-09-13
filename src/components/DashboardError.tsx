@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { AlertTriangle, RotateCcw, ArrowLeft } from "lucide-react";
 
 interface DashboardErrorProps {
@@ -16,6 +16,12 @@ export default function DashboardError({
   homeHref,
   roleName,
 }: DashboardErrorProps) {
+  useEffect(() => {
+    if (error) {
+      console.error(`[DashboardError:${roleName}]`, error);
+    }
+  }, [error, roleName]);
+
   return (
     <div className="flex items-center justify-center min-h-[60vh] px-6">
       <div className="max-w-md w-full bg-canvas border border-hairline rounded-lg p-8 shadow-product flex flex-col items-center text-center animate-fade-in gap-6">

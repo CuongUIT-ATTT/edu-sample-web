@@ -46,9 +46,9 @@ function getDb(): PrismaClient {
  * but the actual PrismaClient is only constructed on first property access (query).
  */
 export const db: PrismaClient = new Proxy({} as PrismaClient, {
-  get(_target, prop, receiver) {
+  get(_target, prop) {
     const client = getDb();
-    const value = Reflect.get(client, prop, receiver);
+    const value = Reflect.get(client, prop);
     if (typeof value === "function") {
       return value.bind(client);
     }
@@ -58,9 +58,9 @@ export const db: PrismaClient = new Proxy({} as PrismaClient, {
 
 // Export pool lazily for test SQL round-trip counting (Prisma adapter pg không emit $on("query"))
 export const pool: pg.Pool = new Proxy({} as pg.Pool, {
-  get(_target, prop, receiver) {
+  get(_target, prop) {
     const p = getPool();
-    const value = Reflect.get(p, prop, receiver);
+    const value = Reflect.get(p, prop);
     if (typeof value === "function") {
       return value.bind(p);
     }
