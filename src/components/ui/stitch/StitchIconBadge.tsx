@@ -25,21 +25,21 @@ export interface StitchIconBadgeProps {
 }
 
 const variantStyles: Record<StitchIconBadgeVariant, string> = {
-  blue: "bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-xs shadow-blue-500/20 dark:from-blue-600 dark:to-blue-700",
+  blue: "bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white shadow-md shadow-blue-500/30 dark:from-blue-500 dark:to-blue-600 dark:shadow-blue-500/40 ring-1 ring-white/25",
   indigo:
-    "bg-gradient-to-b from-indigo-500 to-indigo-600 text-white shadow-xs shadow-indigo-500/20 dark:from-indigo-600 dark:to-indigo-700",
+    "bg-gradient-to-br from-indigo-500 via-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-500/30 dark:from-indigo-500 dark:to-indigo-600 dark:shadow-indigo-500/40 ring-1 ring-white/25",
   purple:
-    "bg-gradient-to-b from-purple-500 to-purple-600 text-white shadow-xs shadow-purple-500/20 dark:from-purple-600 dark:to-purple-700",
+    "bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 text-white shadow-md shadow-purple-500/30 dark:from-purple-500 dark:to-purple-600 dark:shadow-purple-500/40 ring-1 ring-white/25",
   emerald:
-    "bg-gradient-to-b from-emerald-500 to-emerald-600 text-white shadow-xs shadow-emerald-500/20 dark:from-emerald-600 dark:to-emerald-700",
+    "bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 text-white shadow-md shadow-emerald-500/30 dark:from-emerald-500 dark:to-emerald-600 dark:shadow-emerald-500/40 ring-1 ring-white/25",
   amber:
-    "bg-gradient-to-b from-amber-500 to-amber-600 text-white shadow-xs shadow-amber-500/20 dark:from-amber-600 dark:to-amber-700",
-  rose: "bg-gradient-to-b from-rose-500 to-rose-600 text-white shadow-xs shadow-rose-500/20 dark:from-rose-600 dark:to-rose-700",
-  teal: "bg-gradient-to-b from-teal-500 to-teal-600 text-white shadow-xs shadow-teal-500/20 dark:from-teal-600 dark:to-teal-700",
-  cyan: "bg-gradient-to-b from-cyan-500 to-cyan-600 text-white shadow-xs shadow-cyan-500/20 dark:from-cyan-600 dark:to-cyan-700",
+    "bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/30 dark:from-amber-400 dark:to-amber-600 dark:shadow-amber-500/40 ring-1 ring-white/25",
+  rose: "bg-gradient-to-br from-rose-500 via-rose-600 to-rose-700 text-white shadow-md shadow-rose-500/30 dark:from-rose-500 dark:to-rose-600 dark:shadow-rose-500/40 ring-1 ring-white/25",
+  teal: "bg-gradient-to-br from-teal-400 via-teal-500 to-teal-600 text-white shadow-md shadow-teal-500/30 dark:from-teal-400 dark:to-teal-600 dark:shadow-teal-500/40 ring-1 ring-white/25",
+  cyan: "bg-gradient-to-br from-cyan-400 via-cyan-500 to-cyan-600 text-white shadow-md shadow-cyan-500/30 dark:from-cyan-400 dark:to-cyan-600 dark:shadow-cyan-500/40 ring-1 ring-white/25",
   slate:
-    "bg-gradient-to-b from-slate-600 to-slate-700 text-white shadow-xs shadow-slate-600/20 dark:from-slate-700 dark:to-slate-800",
-  red: "bg-gradient-to-b from-red-500 to-red-600 text-white shadow-xs shadow-red-500/20 dark:from-red-600 dark:to-red-700",
+    "bg-gradient-to-br from-slate-500 via-slate-600 to-slate-700 text-white shadow-md shadow-slate-500/30 dark:from-slate-500 dark:to-slate-600 dark:shadow-slate-500/40 ring-1 ring-white/25",
+  red: "bg-gradient-to-br from-red-500 via-red-600 to-red-700 text-white shadow-md shadow-red-500/30 dark:from-red-500 dark:to-red-600 dark:shadow-red-500/40 ring-1 ring-white/25",
 };
 
 const sizeStyles: Record<
@@ -51,15 +51,15 @@ const sizeStyles: Record<
     icon: "h-3.5 w-3.5",
   },
   sm: {
-    container: "h-7 w-7 rounded-md",
-    icon: "h-4 w-4",
+    container: "h-8 w-8 rounded-lg md:rounded-xl",
+    icon: "h-4.5 w-4.5",
   },
   md: {
-    container: "h-9 w-9 rounded-lg",
+    container: "h-10 w-10 rounded-xl",
     icon: "h-5 w-5",
   },
   lg: {
-    container: "h-11 w-11 rounded-lg",
+    container: "h-12 w-12 rounded-2xl",
     icon: "h-6 w-6",
   },
 };
@@ -75,19 +75,19 @@ export function StitchIconBadge({
   const currentVariant = variantStyles[variant];
 
   const activeStyles = isActive
-    ? "ring-2 ring-primary/40 shadow-md scale-[1.04]"
+    ? "ring-2 ring-white/90 dark:ring-white/80 shadow-lg scale-105"
     : "";
 
   return (
     <span
-      className={`inline-flex items-center justify-center flex-shrink-0 transition-all duration-200 border border-black/10 dark:border-white/15 ${currentSize.container} ${currentVariant} ${activeStyles} ${className}`}
+      className={`inline-flex items-center justify-center flex-shrink-0 transition-all duration-200 ${currentSize.container} ${currentVariant} ${activeStyles} ${className}`}
     >
       {React.isValidElement(IconComponent) ? (
         IconComponent
       ) : typeof IconComponent === "function" ||
         typeof IconComponent === "object" ? (
         // @ts-expect-error IconComponent can be a Lucide React component
-        <IconComponent className={currentSize.icon} />
+        <IconComponent className={`${currentSize.icon} text-white drop-shadow-xs`} />
       ) : null}
     </span>
   );

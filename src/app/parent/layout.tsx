@@ -30,10 +30,10 @@ export default function ParentDashboardLayout({
   const isActive = (href: string) => pathname === href;
 
   const linkClass = (href: string) =>
-    `flex items-center gap-3 px-2 md:px-4 py-2.5 rounded-sm text-sm transition-colors apple-active-scale ${
+    `flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all apple-active-scale ${
       isActive(href)
-        ? "bg-surface-pearl text-ink font-body-strong border border-divider-soft"
-        : "text-ink-muted-80 hover:bg-surface-pearl hover:text-ink font-caption"
+        ? "bg-primary/10 dark:bg-white/10 text-primary dark:text-white font-semibold border border-primary/20 dark:border-white/20 shadow-xs"
+        : "text-ink-muted-80 hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink font-medium"
     }`;
 
   return (
