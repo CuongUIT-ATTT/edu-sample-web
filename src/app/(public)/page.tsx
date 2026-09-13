@@ -10,7 +10,6 @@ import {
   Clock,
   Users,
   Play,
-  Star,
   CheckCircle2,
   ShieldCheck,
   BarChart3,
@@ -79,28 +78,28 @@ export default function HomePage() {
 
   const stats = [
     {
-      value: loadingStats ? "..." : `${realStats.totalQuizzes || 8}`,
+      value: loadingStats ? "..." : `${realStats.totalQuizzes || 0}`,
       label: "Đề thi thử trực tuyến",
       subtext: "Bám sát cấu trúc Bộ GD&ĐT",
       icon: <BookOpen className="h-5 w-5" />,
       variant: "blue" as const,
     },
     {
-      value: loadingStats ? "..." : `${realStats.totalStudents || 450}`,
+      value: loadingStats ? "..." : `${realStats.totalStudents || 0}`,
       label: "Học viên đang luyện đề",
       subtext: "Hệ thống thi đua xếp hạng",
       icon: <Users className="h-5 w-5" />,
       variant: "emerald" as const,
     },
     {
-      value: loadingStats ? "..." : `${realStats.totalCourses || 12}`,
+      value: loadingStats ? "..." : `${realStats.totalCourses || 0}`,
       label: "Lớp học & Chuyên đề VIP",
-      subtext: "Giảng dạy bởi thủ khoa",
+      subtext: "Giảng dạy bởi giáo viên chuyên môn",
       icon: <GraduationCap className="h-5 w-5" />,
       variant: "purple" as const,
     },
     {
-      value: loadingStats ? "..." : `${realStats.totalSubmissions || 350}`,
+      value: loadingStats ? "..." : `${realStats.totalSubmissions || 0}`,
       label: "Lượt làm bài đã chấm",
       subtext: "Tự động phân tích điểm",
       icon: <BarChart3 className="h-5 w-5" />,
@@ -140,39 +139,12 @@ export default function HomePage() {
   ];
 
   const subjects = [
-    { name: "Toán Học", code: "MATH", count: "120+ Đề", color: "from-blue-600 to-indigo-700", icon: "📐" },
-    { name: "Vật Lý", code: "PHYS", count: "85+ Đề", color: "from-purple-600 to-pink-700", icon: "⚡" },
-    { name: "Hóa Học", code: "CHEM", count: "90+ Đề", color: "from-emerald-600 to-teal-700", icon: "🧪" },
-    { name: "Tiếng Anh", code: "ENG", count: "110+ Đề", color: "from-amber-500 to-orange-600", icon: "🌐" },
-    { name: "Ngữ Văn", code: "LIT", count: "60+ Đề", color: "from-rose-600 to-red-700", icon: "📖" },
-    { name: "Sinh Học", code: "BIO", count: "75+ Đề", color: "from-cyan-600 to-blue-700", icon: "🧬" },
-  ];
-
-  const testimonials = [
-    {
-      name: "Nguyễn Minh Anh",
-      role: "Thủ Khoa Khối A00 (29.25 điểm)",
-      school: "THPT Chuyên Hà Nội - Amsterdam",
-      content: "EduWeb giúp em rèn luyện áp lực thời gian cực tốt. Đề thi tráo câu hỏi liên tục nên không thể chép bài, giúp em tự tin tuyệt đối khi bước vào kỳ thi thật.",
-      score: "Toán 9.8 • Lý 9.75 • Hóa 9.75",
-      avatar: "MA",
-    },
-    {
-      name: "Trần Đức Hoài",
-      role: "Tân Sinh Viên ĐH Bách Khoa Hà Nội",
-      school: "THPT Chuyên Chuyên Nguyễn Trãi",
-      content: "Giao diện mượt mà như app Apple, phần giải chi tiết LaTeX đọc rất dễ hiểu. Nhờ hệ thống phân tích điểm yếu mà em nâng từ 6.5 lên 9.2 môn Toán.",
-      score: "Toán 9.2 • Lý 9.5 • Anh 9.0",
-      avatar: "DH",
-    },
-    {
-      name: "Lê Phương Thảo",
-      role: "Tân Sinh Viên ĐH Y Hà Nội",
-      school: "THPT Chuyên Lê Hồng Phong",
-      content: "Kho đề thi thử phong phú và cập nhật liên tục theo đề minh họa mới nhất. Hệ thống đếm ngược và nộp bài tự động giúp em phân bổ thời gian hợp lý.",
-      score: "Toán 9.4 • Hóa 9.8 • Sinh 9.6",
-      avatar: "PT",
-    },
+    { name: "Toán Học", code: "MATH", count: "Kho Đề Thi", icon: "📐" },
+    { name: "Vật Lý", code: "PHYS", count: "Kho Đề Thi", icon: "⚡" },
+    { name: "Hóa Học", code: "CHEM", count: "Kho Đề Thi", icon: "🧪" },
+    { name: "Tiếng Anh", code: "ENG", count: "Kho Đề Thi", icon: "🌐" },
+    { name: "Ngữ Văn", code: "LIT", count: "Kho Đề Thi", icon: "📖" },
+    { name: "Sinh Học", code: "BIO", count: "Kho Đề Thi", icon: "🧬" },
   ];
 
   return (
@@ -200,7 +172,7 @@ export default function HomePage() {
       </div>
 
       {/* Hero Section */}
-      <section className="relative min-h-[85vh] bg-canvas text-ink flex flex-col justify-center items-center text-center py-20 px-6 overflow-hidden">
+      <section className="relative min-h-[80vh] bg-canvas text-ink flex flex-col justify-center items-center text-center py-20 px-6 overflow-hidden">
         {/* Subtle Ambient Radial Lighting */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(41,151,255,0.12),transparent_50%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.08),transparent_40%)]" />
 
@@ -239,25 +211,6 @@ export default function HomePage() {
               <Play className="h-4 w-4 fill-current text-primary" /> Thi thử Demo ngay
             </Link>
           </div>
-
-          {/* Micro Social Proof */}
-          <div className="flex items-center gap-4 mt-6 text-xs text-ink-muted-80 font-body">
-            <div className="flex -space-x-2">
-              <span className="inline-block h-7 w-7 rounded-full ring-2 ring-canvas bg-blue-600 text-white font-bold text-[10px] flex items-center justify-center">A</span>
-              <span className="inline-block h-7 w-7 rounded-full ring-2 ring-canvas bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center">B</span>
-              <span className="inline-block h-7 w-7 rounded-full ring-2 ring-canvas bg-emerald-600 text-white font-bold text-[10px] flex items-center justify-center">C</span>
-              <span className="inline-block h-7 w-7 rounded-full ring-2 ring-canvas bg-purple-600 text-white font-bold text-[10px] flex items-center justify-center">D</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="flex text-amber-400">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="h-3.5 w-3.5 fill-current" />
-                ))}
-              </div>
-              <span className="font-semibold text-ink ml-1">4.9/5.0</span>
-              <span className="text-ink-muted-48">(từ 10.000+ học viên)</span>
-            </div>
-          </div>
         </div>
 
         {/* Dynamic System Stats Bento Cards */}
@@ -270,7 +223,7 @@ export default function HomePage() {
               <div className="flex items-center justify-between">
                 <StitchIconBadge icon={stat.icon} variant={stat.variant} size="md" />
                 <span className="text-[10px] font-bold text-ink-muted-48 uppercase tracking-wider bg-canvas-parchment px-2 py-0.5 rounded border border-hairline">
-                  EduWeb Verified
+                  Hệ thống EduWeb
                 </span>
               </div>
               <div className="mt-6">
@@ -298,7 +251,7 @@ export default function HomePage() {
               Giải Pháp Ôn Thi Toàn Diện Cho Học Sinh THPT
             </h2>
             <p className="font-caption text-ink-muted-80 text-sm leading-relaxed">
-              Kết hợp công nghệ đảo đề thi tự động, ngân hàng câu hỏi bám sát ma trận Bộ GD&amp;ĐT cùng giao diện trải nghiệm mượt mà chuẩn Apple.
+              Kết hợp công nghệ đảo đề thi tự động, ngân hàng câu hỏi bám sát ma trận Bộ GD&amp;ĐT cùng giao diện trải nghiệm mượt mà.
             </p>
           </div>
 
@@ -460,62 +413,6 @@ export default function HomePage() {
                   </span>
                 </div>
               </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Hall of Fame / Testimonials Section */}
-      <section className="bg-canvas py-24 px-6 border-t border-hairline">
-        <div className="max-w-[1100px] mx-auto flex flex-col gap-16">
-          <div className="text-center max-w-[600px] mx-auto flex flex-col gap-3">
-            <span className="text-[11px] font-bold uppercase tracking-widest text-amber-500">
-              Bảng Vàng Thành Tích
-            </span>
-            <h2 className="font-display-lg text-3xl sm:text-4xl font-bold text-ink">
-              Cảm Nhận Từ Các Thủ Khoa EduWeb
-            </h2>
-            <p className="font-caption text-ink-muted-80 text-sm">
-              Hàng ngàn học sinh đã bứt phá điểm số thành công và đỗ vào các trường đại học hàng đầu Việt Nam.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {testimonials.map((t) => (
-              <div
-                key={t.name}
-                className="bg-canvas-parchment border border-hairline rounded-lg p-7 shadow-sm flex flex-col justify-between gap-6"
-              >
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-1 text-amber-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-current" />
-                    ))}
-                  </div>
-                  <p className="text-xs sm:text-sm text-ink-muted-80 italic font-body leading-relaxed">
-                    &ldquo;{t.content}&rdquo;
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-3 border-t border-divider-soft pt-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary text-white font-bold text-sm flex items-center justify-center flex-shrink-0 shadow-xs">
-                      {t.avatar}
-                    </div>
-                    <div className="flex flex-col text-left">
-                      <h4 className="font-body-strong text-sm font-bold text-ink">
-                        {t.name}
-                      </h4>
-                      <span className="text-[11px] text-primary font-semibold">
-                        {t.role}
-                      </span>
-                    </div>
-                  </div>
-                  <span className="text-[11px] text-ink-muted-48 bg-canvas px-3 py-1 rounded border border-hairline w-fit">
-                    {t.score}
-                  </span>
-                </div>
-              </div>
             ))}
           </div>
         </div>
