@@ -119,8 +119,8 @@ export default async function StudentDashboardPage() {
               todayTomorrowItems.push({
                 id: `${inst.seriesId}-${instDateStr}`,
                 time: `${dayLabel}, ${inst.startTime} - ${inst.endTime}`,
-                subjectName: series.subject.name,
-                teacherName: series.teacher.user.name,
+                subjectName: series.subject?.name || "Môn học",
+                teacherName: series.teacher?.user?.name || "Giảng viên",
                 room: inst.room || "Room 302",
                 status: "Sắp diễn ra",
               });

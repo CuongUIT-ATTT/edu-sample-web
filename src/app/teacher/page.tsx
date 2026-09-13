@@ -80,8 +80,8 @@ export default async function TeacherDashboardPage() {
             return {
               id: s.id,
               time: `${s.startTime} - ${s.endTime}`,
-              subjectName: s.subject.name,
-              className: `Lớp ${s.class.name}`,
+              subjectName: s.subject?.name || "Môn học",
+              className: s.class?.name ? `Lớp ${s.class.name}` : "Lớp học",
               room: s.room || "—",
               status,
             };

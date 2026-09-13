@@ -65,12 +65,12 @@ export default async function ParentDashboardPage() {
 
       if (parentProfile && parentProfile.students.length > 0) {
         const student = parentProfile.students[0]; // Fetch the first child for summary dashboard
-        childName = student.user.name;
+        childName = student.user?.name || "Con học viên";
         className = student.classes.map((c) => c.name).join(", ") || "Chưa xếp lớp";
 
         const primaryClass = student.classes[0];
         if (primaryClass?.formTeacher) {
-          formTeacherName = primaryClass.formTeacher.user.name;
+          formTeacherName = primaryClass.formTeacher.user?.name || "Thầy cô bộ môn";
           formTeacherPhone = "1900 1234";
         }
 
@@ -83,7 +83,7 @@ export default async function ParentDashboardPage() {
 
           dbGrades = student.grades.slice(0, 3).map((g) => ({
             id: g.id,
-            subjectName: g.subject.name,
+            subjectName: g.subject?.name || "Môn học",
             type:
               g.type === "QUIZ"
                 ? "Kiểm tra 15 phút"

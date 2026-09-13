@@ -105,25 +105,27 @@ export default async function AdminDashboardPage() {
       else if (u.role === "ADMIN") roleText = "Quản trị viên";
 
       activitiesList.push({
-        title: `Tạo mới tài khoản ${roleText.toLowerCase()}: ${u.name}`,
+        title: `Tạo mới tài khoản ${roleText.toLowerCase()}: ${u.name || u.email}`,
         actor: "Thực hiện bởi Admin",
         timestamp: u.createdAt,
       });
     });
 
     recentQuizSubmissions.forEach((qs) => {
-      const name = qs.student ? qs.student.user.name : (qs.guestName || "Khách vãng lai");
+      const name = qs.student?.user?.name || qs.guestName || "Khách vãng lai";
       activitiesList.push({
-        title: `Nộp bài thi tự luyện: ${qs.quiz.title} (${qs.score.toFixed(1)}đ)`,
+        title: `Nộp bài thi tự luyện: ${qs.quiz?.title || "Đề thi"} (${(qs.score ?? 0).toFixed(1)}đ)`,
         actor: `Thực hiện bởi ${name}`,
         timestamp: qs.submittedAt,
       });
     });
 
     recentHomeworkSubmissions.forEach((hs) => {
+      const className = hs.series?.class?.name || "lớp học";
+      const studentName = hs.student?.user?.name || "Học viên";
       activitiesList.push({
-        title: `Nộp bài tập về nhà lớp ${hs.series.class.name}`,
-        actor: `Thực hiện bởi ${hs.student.user.name}`,
+        title: `Nộp bài tập về nhà ${className}`,
+        actor: `Thực hiện bởi ${studentName}`,
         timestamp: hs.submittedAt,
       });
     });
