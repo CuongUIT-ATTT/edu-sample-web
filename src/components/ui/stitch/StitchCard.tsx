@@ -11,6 +11,7 @@ export type StitchCardVariant =
 interface StitchCardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: StitchCardVariant;
   hasProductShadow?: boolean;
+  isHoverable?: boolean;
   children: React.ReactNode;
   className?: string;
 }
@@ -18,6 +19,7 @@ interface StitchCardProps extends HTMLAttributes<HTMLDivElement> {
 export function StitchCard({
   variant = "utility",
   hasProductShadow = false,
+  isHoverable = false,
   children,
   className = "",
   ...props
@@ -39,9 +41,10 @@ export function StitchCard({
   }
 
   const shadowClass = hasProductShadow ? "shadow-product" : "";
+  const hoverClass = isHoverable ? "motion-card" : "";
 
   return (
-    <div className={`${variantClasses} ${shadowClass} ${className}`} {...props}>
+    <div className={`${variantClasses} ${shadowClass} ${hoverClass} ${className}`} {...props}>
       {children}
     </div>
   );

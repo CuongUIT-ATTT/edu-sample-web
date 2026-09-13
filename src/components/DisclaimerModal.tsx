@@ -33,8 +33,8 @@ export default function DisclaimerModal() {
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md">
-      <div className="bg-canvas border border-hairline rounded-xl shadow-product max-w-xl w-full flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-modal-backdrop">
+      <div className="bg-canvas border border-hairline rounded-xl shadow-product max-w-xl w-full flex flex-col overflow-hidden animate-modal-pop">
         {/* Header */}
         <div className="bg-gradient-to-r from-primary to-blue-700 px-6 py-5 flex items-start gap-4">
           <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 mt-0.5">

@@ -45,11 +45,13 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
     <button
       type="button"
       onClick={toggleTheme}
-      className={`inline-flex h-9 w-9 items-center justify-center rounded-pill border border-hairline bg-surface-pearl text-ink-muted-80 transition-colors hover:border-primary-focus hover:bg-canvas hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary-focus apple-active-scale ${className}`}
+      className={`inline-flex h-9 w-9 items-center justify-center rounded-pill border border-hairline bg-surface-pearl text-ink-muted-80 transition-colors hover:border-primary-focus hover:bg-canvas hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary-focus motion-icon-btn ${className}`}
       aria-label={theme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
       title={theme === "dark" ? "Giao diện sáng" : "Giao diện tối"}
     >
-      {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      <span key={theme} className="inline-flex items-center justify-center animate-theme-icon">
+        {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </span>
     </button>
   );
 }

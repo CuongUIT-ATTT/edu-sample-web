@@ -23,7 +23,7 @@ export function StitchButton({
   ...props
 }: StitchButtonProps) {
   const baseClasses =
-    "inline-flex items-center justify-center font-body transition-all duration-150 apple-active-scale focus:outline-none focus:ring-2 focus:ring-primary-focus cursor-pointer disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center font-body motion-btn focus:outline-none focus:ring-2 focus:ring-primary-focus focus:ring-offset-1 cursor-pointer disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed select-none";
 
   let variantClasses = "";
   switch (variant) {

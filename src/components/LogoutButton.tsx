@@ -22,7 +22,7 @@ export default function LogoutButton() {
       type="button"
       onClick={handleLogout}
       disabled={isPending}
-      className="flex items-center justify-start gap-3 px-2 md:px-4 py-2.5 rounded-md text-red-600 hover:bg-red-500/10 font-caption text-sm transition-all w-full text-left cursor-pointer disabled:opacity-50 apple-active-scale"
+      className="flex items-center justify-start gap-3 px-2 md:px-4 py-2.5 rounded-md text-red-600 hover:bg-red-500/10 font-caption text-sm transition-all w-full text-left cursor-pointer disabled:opacity-50 motion-btn select-none"
     >
       {isPending ? (
         <RefreshCw className="h-4 w-4 animate-spin flex-shrink-0 text-red-600" />

@@ -9,7 +9,7 @@
     "build": "prisma generate && next build",
     "postinstall": "node scripts/copy-pdf-worker.mjs",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint . --ignore-pattern .claude/** --ignore-pattern public/pdf/** --ignore-pattern scratch/**",
     "test:lint": "eslint src --max-warnings 0",
     "test:types": "tsc --noEmit",
     "test:build": "next build",

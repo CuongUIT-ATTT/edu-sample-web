@@ -41,12 +41,31 @@
 
   /* Single shadow reserved for product photography */
   --shadow-product: 3px 5px 30px 0px rgba(0, 0, 0, 0.22);
+
+  /* Motion Design Tokens */
+  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quart: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-apple-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --dur-instant: 80ms;
+  --dur-fast: 150ms;
+  --dur-normal: 240ms;
+  --dur-slow: 350ms;
 }
 
 /* Global Reset & Base styles matching design.md guidelines */
 :root {
   --background: #ffffff;
   --foreground: #1d1d1f;
+
+  /* Motion Tokens in root */
+  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quart: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-apple-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --dur-fast: 150ms;
+  --dur-normal: 240ms;
+  --dur-slow: 350ms;
 }
 
 .dark {
@@ -84,17 +103,135 @@ body {
   font-family: var(--font-sans);
   margin: 0;
   padding: 0;
-  transition: background-color 240ms ease, color 240ms ease;
+  transition: background-color 240ms var(--ease-out-quart), color 240ms var(--ease-out-quart);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* Apple design system custom transitions & micro-interactions */
-.apple-active-scale {
-  transition: transform 0.1s ease;
+.apple-active-scale,
+.motion-btn {
+  transition: transform 150ms var(--ease-out-quart), background-color 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+  will-change: transform;
 }
-.apple-active-scale:active {
-  transform: scale(0.95);
+.apple-active-scale:hover,
+.motion-btn:hover {
+  transform: translateY(-1px);
+}
+.apple-active-scale:active,
+.motion-btn:active {
+  transform: scale(0.96) translateY(0);
+}
+
+/* Motion Card micro-interactions */
+.motion-card {
+  transition: transform 240ms var(--ease-out-expo), box-shadow 240ms var(--ease-out-expo), border-color 200ms ease;
+  will-change: transform, box-shadow;
+}
+.motion-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+}
+.dark .motion-card:hover {
+  box-shadow: 0 16px 40px -8px rgba(0, 102, 204, 0.2), 0 4px 16px -2px rgba(0, 0, 0, 0.4);
+}
+
+/* Motion Chip & Pill micro-interactions */
+.motion-chip {
+  transition: transform 150ms var(--ease-out-quart), background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  will-change: transform;
+}
+.motion-chip:hover {
+  transform: scale(1.03);
+}
+.motion-chip:active {
+  transform: scale(0.96);
+}
+
+/* Motion Icon Button micro-interactions */
+.motion-icon-btn {
+  transition: transform 200ms var(--ease-apple-spring), background-color 150ms ease, color 150ms ease;
+  will-change: transform;
+}
+.motion-icon-btn:hover {
+  transform: scale(1.1);
+}
+.motion-icon-btn:active {
+  transform: scale(0.92);
+}
+
+/* Keyframes for Modals, Toasts, and Dropdowns */
+@keyframes toast-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-backdrop-fade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.94) translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes dropdown-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(-6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes icon-spin-once {
+  0% {
+    transform: rotate(0deg) scale(0.7);
+    opacity: 0.4;
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-toast-slide-in {
+  animation: toast-slide-in 240ms var(--ease-out-quart) forwards;
+}
+
+.animate-modal-backdrop {
+  animation: modal-backdrop-fade 240ms ease forwards;
+}
+
+.animate-modal-pop {
+  animation: modal-pop-in 280ms var(--ease-out-quart) forwards;
+}
+
+.animate-dropdown-appear {
+  animation: dropdown-appear 180ms var(--ease-out-quart) forwards;
+}
+
+.animate-theme-icon {
+  animation: icon-spin-once 300ms var(--ease-apple-spring) forwards;
 }
 
 /* Custom layout scroll behaviors */

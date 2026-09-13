@@ -1,12 +1,34 @@
 import React from "react";
-import { Users, BookOpen, GraduationCap, Calendar, Plus } from "lucide-react";
 import Link from "next/link";
+import { Activity, ArrowRight, BookOpen, Calendar, GraduationCap, Plus, Sparkles, Users } from "lucide-react";
 import { db } from "@/lib/db";
-import StitchIconBadge from "@/components/ui/stitch/StitchIconBadge";
+import StitchIconBadge, { type StitchIconBadgeVariant } from "@/components/ui/stitch/StitchIconBadge";
 
 export const dynamic = "force-dynamic";
 
-function formatTimeAgo(date: Date | string | null | undefined) {
+interface DashboardClassItem {
+  id: string;
+  name: string;
+  studentsCount: number;
+}
+
+interface DashboardActivity {
+  title: string;
+  actor: string;
+  timestamp: Date;
+}
+
+interface AdminStatItem {
+  label: string;
+  value: number | string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  variant: StitchIconBadgeVariant;
+  tone: string;
+  tag: string;
+}
+
+function formatTimeAgo(date: Date | string | null | undefined): string {
   if (!date) return "Vừa xong";
   const d = typeof date === "string" ? new Date(date) : date;
   if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "Vừa xong";
@@ -22,26 +44,39 @@ function formatTimeAgo(date: Date | string | null | undefined) {
 }
 
 export default async function AdminDashboardPage() {
-  // 1. Dynamic database counts and activities using Prisma
   let teachersCount = 0;
   let studentsCount = 0;
   let classesCount = 0;
   let todaySchedulesCount = 0;
-  let dbClassesList: { id: string; name: string; studentsCount: number }[] = [];
-  let displayActivities: { title: string; actor: string; timestamp: Date }[] = [];
+  let dbClassesList: DashboardClassItem[] = [];
+  let displayActivities: DashboardActivity[] = [];
 
   try {
     teachersCount = await db.teacherProfile.count();
     studentsCount = await db.studentProfile.count();
     classesCount = await db.class.count();
 
-    // Count schedule series active today (1 series = 1 ca học trong ngày)
-    const jsDay = new Date().getDay(); // 0=Sun, 1=Mon...
-    const todayDow = jsDay === 0 ? 7 : jsDay; // Convert to Prisma dayOfWeek (1=Mon, 7=Sun)
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    const jsDay = new Date().getDay();
+    const todayDow = jsDay === 0 ? 7 : jsDay;
+    const todayStartSource = new Date();
+    const todayStart = new Date(
+      todayStartSource.getFullYear(),
+      todayStartSource.getMonth(),
+      todayStartSource.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+    const todayEnd = new Date(
+      todayStartSource.getFullYear(),
+      todayStartSource.getMonth(),
+      todayStartSource.getDate(),
+      23,
+      59,
+      59,
+      999
+    );
     todaySchedulesCount = await db.scheduleSeries.count({
       where: {
         dayOfWeek: todayDow,
@@ -65,10 +100,15 @@ export default async function AdminDashboardPage() {
       studentsCount: c._count?.students ?? 0,
     }));
 
-    // Fetch dynamic activities
     const recentUsers = await db.user.findMany({
       orderBy: { createdAt: "desc" },
       take: 5,
+      select: {
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
     });
 
     const recentQuizSubmissions = await db.quizSubmission.findMany({
@@ -77,9 +117,13 @@ export default async function AdminDashboardPage() {
       include: {
         quiz: true,
         student: {
-          include: { user: true }
-        }
-      }
+          include: {
+            user: {
+              select: { name: true },
+            },
+          },
+        },
+      },
     });
 
     const recentHomeworkSubmissions = await db.homeworkSubmission.findMany({
@@ -87,15 +131,19 @@ export default async function AdminDashboardPage() {
       take: 5,
       include: {
         series: {
-          include: { class: true }
+          include: { class: true },
         },
         student: {
-          include: { user: true }
-        }
-      }
+          include: {
+            user: {
+              select: { name: true },
+            },
+          },
+        },
+      },
     });
 
-    const activitiesList: { title: string; actor: string; timestamp: Date }[] = [];
+    const activitiesList: DashboardActivity[] = [];
 
     recentUsers.forEach((u) => {
       let roleText = "Người dùng";
@@ -136,7 +184,6 @@ export default async function AdminDashboardPage() {
     console.error("Prisma error in Admin Dashboard:", error);
   }
 
-  // 2. Premium UI Fallback data if DB is empty
   const totalTeachers = teachersCount || 28;
   const totalStudents = studentsCount || 452;
   const totalClasses = classesCount || 16;
@@ -151,162 +198,103 @@ export default async function AdminDashboardPage() {
           { id: "3", name: "Lớp 12C3", studentsCount: 28 },
         ];
 
-  const finalActivities = displayActivities;
-
+  const stats: AdminStatItem[] = [
+    { label: "Tổng giảng viên", value: totalTeachers, href: "/admin/users", icon: Users, variant: "blue", tone: "text-primary", tag: "Giảng viên" },
+    { label: "Tổng học viên", value: totalStudents, href: "/admin/users", icon: GraduationCap, variant: "emerald", tone: "text-emerald-600 dark:text-emerald-400", tag: "Học viên" },
+    { label: "Số lớp luyện thi", value: totalClasses, href: "/admin/classes", icon: BookOpen, variant: "purple", tone: "text-purple-600 dark:text-purple-400", tag: "Lớp học" },
+    { label: "Lịch dạy hôm nay", value: `${totalSchedulesToday} ca`, href: "/admin/calendar", icon: Calendar, variant: "amber", tone: "text-amber-600 dark:text-amber-400", tag: "Hôm nay" },
+  ];
 
   return (
-    <div className="flex flex-col gap-8 max-w-[1200px]">
-      {/* Welcome Block */}
-      <div className="flex justify-between items-start md:items-center flex-col md:flex-row gap-4">
-        <div>
-          <h1 className="font-display-lg text-3xl font-semibold text-ink">
-            Xin chào, Quản trị viên
-          </h1>
-          <p className="font-caption text-ink-muted-80 mt-1">
-            Dưới đây là tổng quan hiện trạng hoạt động của trung tâm luyện thi
-            hôm nay.
-          </p>
+    <div className="relative flex flex-col gap-8 max-w-[1200px] overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_10%_0%,rgba(0,102,204,0.12),transparent_38%),radial-gradient(circle_at_85%_10%,rgba(168,85,247,0.1),transparent_36%)]" />
+
+      <section className="backdrop-blur-2xl bg-white/80 dark:bg-slate-900/80 border border-white/60 dark:border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col md:flex-row justify-between gap-6 overflow-hidden relative">
+        <div className="absolute -right-10 -top-14 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
+        <div className="relative z-10 flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <StitchIconBadge icon={Sparkles} variant="blue" size="md" />
+            <span className="inline-flex w-fit items-center text-xs font-extrabold text-primary bg-primary/10 border border-primary/20 px-3.5 py-1 rounded-full uppercase tracking-wider">
+              Bảng điều khiển quản trị
+            </span>
+          </div>
+          <div>
+            <h1 className="font-display-lg text-3xl sm:text-4xl font-extrabold text-ink tracking-tight">Xin chào, Quản trị viên</h1>
+            <p className="font-caption text-ink-muted-80 mt-2 max-w-[620px] leading-relaxed">
+              Theo dõi vận hành trung tâm luyện thi, tài khoản, lớp học và lịch dạy trong một không gian quản trị nổi bật.
+            </p>
+          </div>
         </div>
         <Link
           href="/admin/users"
-          className="bg-primary hover:bg-primary-focus text-white px-4 py-2.5 rounded-pill font-caption-strong text-xs flex items-center gap-1.5 apple-active-scale transition-colors shadow-sm cursor-pointer"
+          className="relative z-10 bg-primary hover:bg-primary-focus text-white px-5 py-3 rounded-full font-caption-strong text-xs flex items-center justify-center gap-2 apple-active-scale transition-colors shadow-lg shadow-primary/25 h-fit"
         >
           <Plus className="h-4 w-4" /> Tạo người dùng mới
         </Link>
+      </section>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <Link
+              key={stat.label}
+              href={stat.href}
+              className="group backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border border-white/60 dark:border-white/15 rounded-3xl p-6 flex flex-col gap-4 motion-card shadow-xl overflow-hidden relative"
+            >
+              <div className="absolute -right-8 -bottom-10 h-28 w-28 rounded-full bg-primary/5 blur-2xl" />
+              <div className="relative z-10 flex items-center justify-between">
+                <StitchIconBadge icon={Icon} variant={stat.variant} size="md" />
+                <span className="text-[10px] uppercase font-extrabold tracking-wider px-2.5 py-1 rounded-full bg-canvas/60 dark:bg-slate-800/60 text-ink-muted-80 border border-hairline/60">
+                  {stat.tag}
+                </span>
+              </div>
+              <div className="relative z-10">
+                <p className="text-xs text-ink-muted-48 uppercase font-extrabold tracking-wider">{stat.label}</p>
+                <h3 className={`font-display-lg text-3xl font-extrabold mt-1 transition-colors ${stat.tone}`}>
+                  {stat.value}
+                </h3>
+              </div>
+            </Link>
+          );
+        })}
       </div>
 
-      {/* Stats Cards (store-utility-card style) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Link
-          href="/admin/users"
-          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-primary transition-all duration-200 apple-active-scale cursor-pointer group shadow-sm hover:shadow-md"
-        >
-          <div className="flex items-center justify-between">
-            <StitchIconBadge icon={<Users className="h-5 w-5" />} variant="blue" size="md" />
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200/50">
-              Giảng viên
-            </span>
-          </div>
-          <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">
-              Tổng Giảng Viên
-            </p>
-            <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-primary transition-colors">
-              {totalTeachers}
-            </h3>
-          </div>
-        </Link>
-
-        <Link
-          href="/admin/users"
-          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-green-600 transition-all duration-200 apple-active-scale cursor-pointer group shadow-sm hover:shadow-md"
-        >
-          <div className="flex items-center justify-between">
-            <StitchIconBadge icon={<GraduationCap className="h-5 w-5" />} variant="emerald" size="md" />
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200/50">
-              Học viên
-            </span>
-          </div>
-          <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">
-              Tổng Học Viên
-            </p>
-            <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-green-600 transition-colors">
-              {totalStudents}
-            </h3>
-          </div>
-        </Link>
-
-        <Link
-          href="/admin/classes"
-          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-purple-600 transition-all duration-200 apple-active-scale cursor-pointer group shadow-sm hover:shadow-md"
-        >
-          <div className="flex items-center justify-between">
-            <StitchIconBadge icon={<BookOpen className="h-5 w-5" />} variant="purple" size="md" />
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200/50">
-              Lớp học
-            </span>
-          </div>
-          <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">
-              Số Lớp Luyện Thi
-            </p>
-            <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-purple-600 transition-colors">
-              {totalClasses}
-            </h3>
-          </div>
-        </Link>
-
-        <Link
-          href="/admin/calendar"
-          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-orange-600 transition-all duration-200 apple-active-scale cursor-pointer group shadow-sm hover:shadow-md"
-        >
-          <div className="flex items-center justify-between">
-            <StitchIconBadge icon={<Calendar className="h-5 w-5" />} variant="amber" size="md" />
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200/50">
-              Hôm nay
-            </span>
-          </div>
-          <div>
-            <p className="text-xs text-ink-muted-48 uppercase font-semibold">
-              Lịch dạy hôm nay
-            </p>
-            <h3 className="font-display-lg text-2xl font-bold text-ink mt-1 group-hover:text-orange-600 transition-colors">
-              {totalSchedulesToday} Ca
-            </h3>
-          </div>
-        </Link>
-      </div>
-
-      {/* Detail Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Recent actions */}
-        <div className="bg-canvas border border-hairline rounded-lg p-6">
-          <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4">
-            Hoạt động hệ thống gần đây
-          </h3>
+        <section className="backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border border-white/60 dark:border-white/15 rounded-3xl p-6 shadow-xl">
+          <div className="flex items-center justify-between gap-4 border-b border-hairline/60 pb-4 mb-4">
+            <h2 className="font-body-strong text-lg font-extrabold text-ink">Hoạt động hệ thống gần đây</h2>
+            <StitchIconBadge icon={Activity} variant="cyan" size="sm" />
+          </div>
           <div className="flex flex-col gap-4">
-            {finalActivities.length === 0 ? (
-              <p className="text-xs text-ink-muted-48 text-center py-4">
-                Chưa có hoạt động hệ thống nào gần đây.
-              </p>
+            {displayActivities.length === 0 ? (
+              <p className="text-xs text-ink-muted-48 text-center py-8">Chưa có hoạt động hệ thống nào gần đây.</p>
             ) : (
-              finalActivities.map((act, index) => (
-                <div key={index} className="flex justify-between items-start text-xs border-b border-divider-soft pb-3 last:border-0">
+              displayActivities.map((act) => (
+                <div key={`${act.title}-${act.timestamp.toISOString()}`} className="flex justify-between items-start gap-4 text-xs border-b border-hairline/50 pb-3 last:border-0">
                   <div>
-                    <p className="font-semibold text-ink">
-                      {act.title}
-                    </p>
-                    <p className="text-ink-muted-48 mt-0.5">{act.actor}</p>
+                    <p className="font-bold text-ink leading-relaxed">{act.title}</p>
+                    <p className="text-ink-muted-48 mt-1">{act.actor}</p>
                   </div>
-                  <span className="text-ink-muted-48 flex-shrink-0 ml-4">{formatTimeAgo(act.timestamp)}</span>
+                  <span className="text-ink-muted-48 flex-shrink-0 font-mono">{formatTimeAgo(act.timestamp)}</span>
                 </div>
               ))
             )}
           </div>
-        </div>
+        </section>
 
-        {/* Classes quick view */}
-        <Link
-          href="/admin/classes"
-          className="bg-canvas border border-hairline rounded-lg p-6 hover:border-primary transition-all duration-200 cursor-pointer block"
-        >
-          <h3 className="font-body-strong text-lg font-semibold text-ink border-b border-divider-soft pb-4 mb-4 flex justify-between items-center">
+        <Link href="/admin/classes" className="backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border border-white/60 dark:border-white/15 rounded-3xl p-6 shadow-xl hover:border-primary/40 transition-all block motion-card">
+          <h2 className="font-body-strong text-lg font-extrabold text-ink border-b border-hairline/60 pb-4 mb-4 flex justify-between items-center gap-3">
             <span>Xem nhanh danh sách lớp</span>
-            <span className="text-xs text-primary font-semibold hover:underline">
-              Chi tiết danh mục lớp &rarr;
+            <span className="text-xs text-primary font-extrabold flex items-center gap-1">
+              Chi tiết <ArrowRight className="h-3.5 w-3.5" />
             </span>
-          </h3>
+          </h2>
           <div className="flex flex-col gap-3">
             {displayClasses.map((item) => (
-              <div
-                key={item.id}
-                className="flex justify-between items-center text-sm"
-              >
-                <span className="font-semibold text-ink">{item.name}</span>
-                <span className="text-xs bg-canvas-parchment text-ink-muted-80 px-2.5 py-1 rounded-sm">
-                  {item.studentsCount} Học viên
-                </span>
+              <div key={item.id} className="flex justify-between items-center text-sm rounded-2xl bg-canvas/60 dark:bg-slate-800/60 border border-hairline/60 px-4 py-3">
+                <span className="font-bold text-ink">{item.name}</span>
+                <span className="text-xs bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full font-bold">{item.studentsCount} học viên</span>
               </div>
             ))}
           </div>
