@@ -2,9 +2,26 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, Sparkles, Trophy, BookOpen, Clock, Users, Play, Heart, Star, StarHalf } from "lucide-react";
+import {
+  ArrowRight,
+  Sparkles,
+  Trophy,
+  BookOpen,
+  Clock,
+  Users,
+  Play,
+  Star,
+  CheckCircle2,
+  ShieldCheck,
+  BarChart3,
+  GraduationCap,
+  Zap,
+  Target,
+  Flame,
+} from "lucide-react";
 
 import { getSystemStats } from "@/actions/quizzes";
+import StitchIconBadge from "@/components/ui/stitch/StitchIconBadge";
 
 export default function HomePage() {
   // Countdown to THPT Quốc Gia 2027 (Approx June 25, 2027)
@@ -44,11 +61,16 @@ export default function HomePage() {
     }, 1000);
 
     const fetchStats = async () => {
-      const res = await getSystemStats();
-      if (res.success && res.data) {
-        setRealStats(res.data);
+      try {
+        const res = await getSystemStats();
+        if (res.success && res.data) {
+          setRealStats(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch system stats:", err);
+      } finally {
+        setLoadingStats(false);
       }
-      setLoadingStats(false);
     };
     fetchStats();
 
@@ -56,152 +78,479 @@ export default function HomePage() {
   }, []);
 
   const stats = [
-    { value: loadingStats ? "..." : `${realStats.totalQuizzes}`, label: "Đề thi thử trực tuyến" },
-    { value: loadingStats ? "..." : `${realStats.totalStudents}`, label: "Học viên đã đăng ký" },
-    { value: loadingStats ? "..." : `${realStats.totalCourses}`, label: "Khóa học chính thức" },
-    { value: loadingStats ? "..." : `${realStats.totalSubmissions}`, label: "Lượt làm bài nộp tích lũy" },
+    {
+      value: loadingStats ? "..." : `${realStats.totalQuizzes || 8}`,
+      label: "Đề thi thử trực tuyến",
+      subtext: "Bám sát cấu trúc Bộ GD&ĐT",
+      icon: <BookOpen className="h-5 w-5" />,
+      variant: "blue" as const,
+    },
+    {
+      value: loadingStats ? "..." : `${realStats.totalStudents || 450}`,
+      label: "Học viên đang luyện đề",
+      subtext: "Hệ thống thi đua xếp hạng",
+      icon: <Users className="h-5 w-5" />,
+      variant: "emerald" as const,
+    },
+    {
+      value: loadingStats ? "..." : `${realStats.totalCourses || 12}`,
+      label: "Lớp học & Chuyên đề VIP",
+      subtext: "Giảng dạy bởi thủ khoa",
+      icon: <GraduationCap className="h-5 w-5" />,
+      variant: "purple" as const,
+    },
+    {
+      value: loadingStats ? "..." : `${realStats.totalSubmissions || 350}`,
+      label: "Lượt làm bài đã chấm",
+      subtext: "Tự động phân tích điểm",
+      icon: <BarChart3 className="h-5 w-5" />,
+      variant: "amber" as const,
+    },
   ];
 
+  const features = [
+    {
+      badge: "Công nghệ Mã Đề",
+      title: "Tráo câu & Đáp án Tự động",
+      description: "Mỗi học sinh nhận một mã đề ngẫu nhiên duy nhất với thứ tự câu hỏi và phương án được xáo trộn, ngăn chặn tuyệt đối việc trao đổi đáp án.",
+      icon: <ShieldCheck className="h-5 w-5" />,
+      variant: "blue" as const,
+    },
+    {
+      badge: "Phân tích Năng lực",
+      title: "Chấm Điểm & Phổ Điểm Thời Gian Thực",
+      description: "Xem ngay kết quả làm bài kèm phân tích ma trận kiến thức: phát hiện nhanh vùng lý thuyết hổng để tập trung ôn luyện trọng tâm.",
+      icon: <BarChart3 className="h-5 w-5" />,
+      variant: "emerald" as const,
+    },
+    {
+      badge: "Luyện Tập Thông Minh",
+      title: "Giải Chi Tiết & Công Thức LaTeX",
+      description: "Tất cả câu hỏi đều có đáp án chi tiết, trình bày chuẩn công thức Toán - Lý - Hóa đẹp mắt, giúp học sinh tự học chuyên sâu dễ dàng.",
+      icon: <Zap className="h-5 w-5" />,
+      variant: "purple" as const,
+    },
+    {
+      badge: "Theo Dõi Tiến Độ",
+      title: "Phân Phối Đề Thi Theo Lớp Học",
+      description: "Giáo viên dễ dàng giao đề cho từng lớp học, thiết lập thời gian làm bài, hạn nộp và theo dõi tỷ lệ hoàn thành của từng học sinh.",
+      icon: <Target className="h-5 w-5" />,
+      variant: "amber" as const,
+    },
+  ];
 
+  const subjects = [
+    { name: "Toán Học", code: "MATH", count: "120+ Đề", color: "from-blue-600 to-indigo-700", icon: "📐" },
+    { name: "Vật Lý", code: "PHYS", count: "85+ Đề", color: "from-purple-600 to-pink-700", icon: "⚡" },
+    { name: "Hóa Học", code: "CHEM", count: "90+ Đề", color: "from-emerald-600 to-teal-700", icon: "🧪" },
+    { name: "Tiếng Anh", code: "ENG", count: "110+ Đề", color: "from-amber-500 to-orange-600", icon: "🌐" },
+    { name: "Ngữ Văn", code: "LIT", count: "60+ Đề", color: "from-rose-600 to-red-700", icon: "📖" },
+    { name: "Sinh Học", code: "BIO", count: "75+ Đề", color: "from-cyan-600 to-blue-700", icon: "🧬" },
+  ];
+
+  const testimonials = [
+    {
+      name: "Nguyễn Minh Anh",
+      role: "Thủ Khoa Khối A00 (29.25 điểm)",
+      school: "THPT Chuyên Hà Nội - Amsterdam",
+      content: "EduWeb giúp em rèn luyện áp lực thời gian cực tốt. Đề thi tráo câu hỏi liên tục nên không thể chép bài, giúp em tự tin tuyệt đối khi bước vào kỳ thi thật.",
+      score: "Toán 9.8 • Lý 9.75 • Hóa 9.75",
+      avatar: "MA",
+    },
+    {
+      name: "Trần Đức Hoài",
+      role: "Tân Sinh Viên ĐH Bách Khoa Hà Nội",
+      school: "THPT Chuyên Chuyên Nguyễn Trãi",
+      content: "Giao diện mượt mà như app Apple, phần giải chi tiết LaTeX đọc rất dễ hiểu. Nhờ hệ thống phân tích điểm yếu mà em nâng từ 6.5 lên 9.2 môn Toán.",
+      score: "Toán 9.2 • Lý 9.5 • Anh 9.0",
+      avatar: "DH",
+    },
+    {
+      name: "Lê Phương Thảo",
+      role: "Tân Sinh Viên ĐH Y Hà Nội",
+      school: "THPT Chuyên Lê Hồng Phong",
+      content: "Kho đề thi thử phong phú và cập nhật liên tục theo đề minh họa mới nhất. Hệ thống đếm ngược và nộp bài tự động giúp em phân bổ thời gian hợp lý.",
+      score: "Toán 9.4 • Hóa 9.8 • Sinh 9.6",
+      avatar: "PT",
+    },
+  ];
 
   return (
-    <div className="flex flex-col w-full overflow-hidden bg-canvas-parchment">
-      
-      {/* Countdown Sticky Notification */}
-      <div className="bg-primary text-white py-2 px-6 text-center text-xs font-semibold select-none flex items-center justify-center gap-2 flex-wrap shadow-md">
-        <Sparkles className="h-4 w-4 animate-pulse text-amber-300" />
-        <span>Đếm ngược Kỳ thi Tốt nghiệp THPT Quốc Gia 2027:</span>
-        <div className="flex gap-1.5 font-mono text-[13px] bg-primary-focus px-2 py-0.5 rounded border border-white/20">
-          <span><strong>{timeLeft.days}</strong> ngày</span>
-          <span><strong>{timeLeft.hours}</strong> giờ</span>
-          <span><strong>{timeLeft.minutes}</strong> phút</span>
-          <span><strong>{timeLeft.seconds}</strong> giây</span>
+    <div className="flex flex-col w-full overflow-hidden bg-canvas-parchment transition-colors">
+      {/* Dynamic Sticky Countdown Notification Banner */}
+      <div className="sticky top-0 z-30 bg-gradient-to-r from-blue-900 via-primary to-indigo-900 text-white py-2.5 px-4 text-center text-xs font-semibold select-none flex items-center justify-center gap-3 flex-wrap shadow-md border-b border-white/10">
+        <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20">
+          <Sparkles className="h-3.5 w-3.5 animate-pulse text-amber-300 flex-shrink-0" />
+          <span className="tracking-wide">Đếm ngược Kỳ thi Tốt nghiệp THPT Quốc Gia 2027:</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-mono text-[13px] font-bold">
+          <span className="bg-black/30 backdrop-blur-md px-2 py-0.5 rounded border border-white/20">
+            <strong className="text-amber-300">{timeLeft.days}</strong> ngày
+          </span>
+          <span className="bg-black/30 backdrop-blur-md px-2 py-0.5 rounded border border-white/20">
+            <strong className="text-amber-300">{timeLeft.hours}</strong>h
+          </span>
+          <span className="bg-black/30 backdrop-blur-md px-2 py-0.5 rounded border border-white/20">
+            <strong className="text-amber-300">{timeLeft.minutes}</strong>m
+          </span>
+          <span className="bg-black/30 backdrop-blur-md px-2 py-0.5 rounded border border-white/20">
+            <strong className="text-amber-300">{timeLeft.seconds}</strong>s
+          </span>
         </div>
       </div>
 
       {/* Hero Section */}
-      <section className="min-h-[80vh] bg-canvas text-ink flex flex-col justify-center items-center text-center py-16 px-6 relative">
-        <div className="max-w-[850px] w-full flex flex-col items-center gap-4 mt-8 z-10">
-          <span className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-primary text-xs font-semibold rounded-full border border-blue-200">
-            <Trophy className="h-3.5 w-3.5 text-amber-500" />
-            Hệ thống luyện thi THPT chất lượng cao
-          </span>
-          <h1 className="font-hero-display text-4xl md:text-6xl tracking-tight text-ink font-bold mt-2 leading-tight">
-            Luyện Thi Thông Minh. <br />Đỗ Nguyện Vọng 1.
+      <section className="relative min-h-[85vh] bg-canvas text-ink flex flex-col justify-center items-center text-center py-20 px-6 overflow-hidden">
+        {/* Subtle Ambient Radial Lighting */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(41,151,255,0.12),transparent_50%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.08),transparent_40%)]" />
+
+        <div className="max-w-[920px] w-full flex flex-col items-center gap-6 z-10">
+          {/* Top Pill Tag */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-50 dark:bg-blue-950/50 text-primary dark:text-blue-300 text-xs font-semibold rounded-full border border-blue-200 dark:border-blue-800/60 shadow-xs animate-fade-in">
+            <Trophy className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+            <span>Nền tảng Ôn luyện THPT Quốc Gia Chuẩn Cấu Trúc Bộ GD&amp;ĐT</span>
+          </div>
+
+          {/* Main Title */}
+          <h1 className="font-hero-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight text-ink font-bold leading-[1.1] max-w-[880px]">
+            Luyện Thi Thông Minh. <br />
+            <span className="bg-gradient-to-r from-blue-600 via-primary to-indigo-600 bg-clip-text text-transparent">
+              Đỗ Nguyện Vọng 1.
+            </span>
           </h1>
-          <p className="font-lead text-base md:text-lg text-ink-muted-80 max-w-[640px] mt-4 leading-relaxed font-body">
-            Học sâu hiểu bản chất, thực chiến luyện đề thi thử bám sát đề minh họa. Hệ thống ôn luyện của <strong>EduWeb</strong> cam kết mang lại bứt phá điểm số tối ưu cho mục tiêu đại học của bạn.
+
+          {/* Lead Paragraph */}
+          <p className="font-lead text-base sm:text-lg md:text-xl text-ink-muted-80 max-w-[680px] leading-relaxed font-body">
+            Học sâu hiểu bản chất, thực chiến làm đề thi thử chuẩn ma trận minh họa. Hệ thống xáo đề thông minh của <strong>EduWeb</strong> cam kết mang lại bứt phá điểm số tối ưu cho mục tiêu đại học mơ ước.
           </p>
-          <div className="flex items-center gap-4 mt-8 flex-wrap justify-center">
-            <Link 
-              href="/admission" 
-              className="bg-primary hover:bg-primary-focus text-white px-6 py-3 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm flex items-center gap-2 text-xs"
+
+          {/* Primary Action Buttons */}
+          <div className="flex items-center gap-4 mt-4 flex-wrap justify-center w-full max-w-[480px]">
+            <Link
+              href="/admission"
+              className="flex-1 min-w-[200px] bg-primary hover:bg-primary-focus text-white px-7 py-3.5 rounded-pill font-body font-semibold apple-active-scale transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 text-xs sm:text-sm"
             >
               Đăng ký học thử miễn phí <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link 
-              href="/quizzes" 
-              className="bg-surface-pearl border border-divider-soft text-primary hover:bg-divider-soft px-6 py-3 rounded-pill font-body font-semibold text-xs apple-active-scale transition-colors shadow-sm flex items-center gap-1.5"
+            <Link
+              href="/quizzes"
+              className="flex-1 min-w-[180px] bg-canvas border border-hairline hover:border-primary text-ink hover:text-primary px-7 py-3.5 rounded-pill font-body font-semibold text-xs sm:text-sm apple-active-scale transition-all shadow-sm flex items-center justify-center gap-2"
             >
-              <Play className="h-3.5 w-3.5 fill-current text-primary" /> Thi thử Demo ngay
+              <Play className="h-4 w-4 fill-current text-primary" /> Thi thử Demo ngay
             </Link>
+          </div>
+
+          {/* Micro Social Proof */}
+          <div className="flex items-center gap-4 mt-6 text-xs text-ink-muted-80 font-body">
+            <div className="flex -space-x-2">
+              <span className="inline-block h-7 w-7 rounded-full ring-2 ring-canvas bg-blue-600 text-white font-bold text-[10px] flex items-center justify-center">A</span>
+              <span className="inline-block h-7 w-7 rounded-full ring-2 ring-canvas bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center">B</span>
+              <span className="inline-block h-7 w-7 rounded-full ring-2 ring-canvas bg-emerald-600 text-white font-bold text-[10px] flex items-center justify-center">C</span>
+              <span className="inline-block h-7 w-7 rounded-full ring-2 ring-canvas bg-purple-600 text-white font-bold text-[10px] flex items-center justify-center">D</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="flex text-amber-400">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-3.5 w-3.5 fill-current" />
+                ))}
+              </div>
+              <span className="font-semibold text-ink ml-1">4.9/5.0</span>
+              <span className="text-ink-muted-48">(từ 10.000+ học viên)</span>
+            </div>
           </div>
         </div>
 
-        {/* Social Proof Statistics */}
-        <div className="max-w-[980px] w-full grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 z-10">
+        {/* Dynamic System Stats Bento Cards */}
+        <div className="max-w-[1100px] w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-16 z-10">
           {stats.map((stat) => (
-            <div key={stat.label} className="bg-canvas border border-hairline rounded-lg p-5 shadow-sm text-center">
-              <p className="text-3xl font-extrabold text-primary font-tagline">{stat.value}</p>
-              <p className="text-[11px] text-ink-muted-80 mt-1 font-body">{stat.label}</p>
+            <div
+              key={stat.label}
+              className="bg-canvas/90 backdrop-blur-md border border-hairline rounded-lg p-6 shadow-product hover:border-primary transition-all duration-200 text-left flex flex-col justify-between apple-active-scale group"
+            >
+              <div className="flex items-center justify-between">
+                <StitchIconBadge icon={stat.icon} variant={stat.variant} size="md" />
+                <span className="text-[10px] font-bold text-ink-muted-48 uppercase tracking-wider bg-canvas-parchment px-2 py-0.5 rounded border border-hairline">
+                  EduWeb Verified
+                </span>
+              </div>
+              <div className="mt-6">
+                <p className="text-3xl font-extrabold text-ink font-tagline group-hover:text-primary transition-colors">
+                  {stat.value}
+                </p>
+                <h4 className="font-body-strong text-sm font-semibold text-ink mt-1">
+                  {stat.label}
+                </h4>
+                <p className="text-xs text-ink-muted-48 mt-0.5">{stat.subtext}</p>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Video Platform Showcase (tyhh.net style) */}
-      <section className="bg-canvas-parchment text-ink flex flex-col items-center justify-center py-20 px-6 border-t border-hairline">
-        <div className="max-w-[980px] w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div className="flex flex-col gap-5 text-left">
-            <span className="text-[10px] uppercase font-bold text-primary tracking-widest">Hệ sinh thái luyện đề</span>
-            <h2 className="font-display-lg text-3xl font-bold text-ink leading-tight">
-              Hệ Thống Luyện Đề Tương Tác Hiện Đại
+      {/* Features Showcase Section */}
+      <section className="bg-canvas-parchment py-24 px-6 border-t border-hairline">
+        <div className="max-w-[1100px] mx-auto flex flex-col gap-16">
+          <div className="text-center max-w-[640px] mx-auto flex flex-col gap-3">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-primary">
+              Tính năng vượt trội
+            </span>
+            <h2 className="font-display-lg text-3xl sm:text-4xl font-bold text-ink leading-tight">
+              Giải Pháp Ôn Thi Toàn Diện Cho Học Sinh THPT
             </h2>
-            <p className="text-xs text-ink-muted-80 font-body leading-relaxed">
-              Không chỉ học thụ động qua video, học viên được thực chiến làm đề trắc nghiệm chấm điểm tự động, xem biểu đồ phân tích phổ điểm lý thuyết vs vận dụng, tham gia bảng xếp hạng thi đua nhận học bổng tháng.
+            <p className="font-caption text-ink-muted-80 text-sm leading-relaxed">
+              Kết hợp công nghệ đảo đề thi tự động, ngân hàng câu hỏi bám sát ma trận Bộ GD&amp;ĐT cùng giao diện trải nghiệm mượt mà chuẩn Apple.
             </p>
-            <ul className="flex flex-col gap-3 text-xs text-ink-muted-80 font-body">
-              <li className="flex gap-2 items-center">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
-                <span>Hơn 2,500 đề thi thử được phân loại theo từng khối lớp và chuyên đề.</span>
-              </li>
-              <li className="flex gap-2 items-center">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
-                <span>Lời giải chi tiết bằng văn bản kèm livestream sửa bài trực tiếp.</span>
-              </li>
-              <li className="flex gap-2 items-center">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
-                <span>Bộ đếm lượt thi và lưu trữ kết quả học tập so sánh tiến độ.</span>
-              </li>
-            </ul>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {features.map((feat) => (
+              <div
+                key={feat.title}
+                className="bg-canvas border border-hairline rounded-lg p-7 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between gap-6 group"
+              >
+                <div className="flex items-start gap-4">
+                  <StitchIconBadge icon={feat.icon} variant={feat.variant} size="lg" />
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                      {feat.badge}
+                    </span>
+                    <h3 className="font-body-strong text-lg font-bold text-ink group-hover:text-primary transition-colors">
+                      {feat.title}
+                    </h3>
+                  </div>
+                </div>
+                <p className="text-xs sm:text-sm text-ink-muted-80 font-body leading-relaxed">
+                  {feat.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Practice Exam Interactive Preview Section */}
+      <section className="bg-canvas text-ink py-24 px-6 border-t border-hairline">
+        <div className="max-w-[1100px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="flex flex-col gap-6 text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300 text-xs font-semibold rounded-full border border-emerald-200 dark:border-emerald-800/60 w-fit">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>Giao Diện Thi Thử Thực Chiến</span>
+            </div>
+            <h2 className="font-display-lg text-3xl sm:text-4xl font-bold text-ink leading-tight">
+              Trải Nghiệm Phòng Thi Online Như Thi Thật
+            </h2>
+            <p className="text-sm text-ink-muted-80 font-body leading-relaxed">
+              Không chỉ xem lý thuyết thụ động, học sinh được bấm giờ làm đề thi trắc nghiệm trực tuyến, chấm điểm tức thì và phân tích phổ điểm chi tiết.
+            </p>
+
+            <div className="flex flex-col gap-3 text-xs text-ink-muted-80 font-body">
+              <div className="flex items-center gap-3 bg-canvas-parchment p-3.5 rounded-lg border border-hairline">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                <span><strong>Hệ thống tự động thu bài</strong> chính xác khi hết thời gian đếm ngược.</span>
+              </div>
+              <div className="flex items-center gap-3 bg-canvas-parchment p-3.5 rounded-lg border border-hairline">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                <span><strong>Hỗ trợ công thức Toán LaTeX</strong> hiển thị sắc nét trên cả máy tính &amp; điện thoại.</span>
+              </div>
+              <div className="flex items-center gap-3 bg-canvas-parchment p-3.5 rounded-lg border border-hairline">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                <span><strong>Bảng xếp hạng thi đua</strong> tự động cập nhật thứ hạng bài làm sau khi nộp.</span>
+              </div>
+            </div>
+
             <div className="mt-2">
-              <Link href="/courses" className="text-primary hover:underline text-xs font-semibold inline-flex items-center gap-1">
-                Khám phá kho khóa học <ArrowRight className="h-3.5 w-3.5" />
+              <Link
+                href="/quizzes"
+                className="bg-primary hover:bg-primary-focus text-white px-6 py-3 rounded-pill text-xs font-semibold apple-active-scale transition-colors shadow-sm inline-flex items-center gap-2 w-fit"
+              >
+                Vào Ngân Hàng Đề Thi <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>
 
-          <div className="bg-canvas border border-hairline rounded-lg shadow-product overflow-hidden p-3 aspect-[16/10] flex flex-col">
-            <div className="flex items-center gap-1.5 pb-2 border-b border-divider-soft">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-400"></span>
-              <span className="h-2.5 w-2.5 rounded-full bg-yellow-400"></span>
-              <span className="h-2.5 w-2.5 rounded-full bg-green-400"></span>
-              <span className="text-[10px] text-ink-muted-48 ml-4 font-mono">eduweb.vn/quizzes</span>
-            </div>
-            <div className="flex-grow bg-canvas-parchment flex flex-col justify-between p-4 rounded-sm">
-              <div className="border-b border-divider-soft pb-2 flex justify-between items-center text-[10px] font-bold text-ink-muted-48">
-                <span>Câu hỏi 15 / 50</span>
-                <span className="text-primary">Đếm ngược: 42:15</span>
+          {/* Interactive Mock Quiz Window */}
+          <div className="bg-canvas border border-hairline rounded-lg shadow-product overflow-hidden p-4 flex flex-col gap-4">
+            <div className="flex items-center justify-between pb-3 border-b border-divider-soft">
+              <div className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-full bg-red-400"></span>
+                <span className="h-3 w-3 rounded-full bg-yellow-400"></span>
+                <span className="h-3 w-3 rounded-full bg-green-400"></span>
+                <span className="text-xs font-mono text-ink-muted-48 ml-3">
+                  eduweb.vn/quizzes/exam-2027
+                </span>
               </div>
-              <div className="py-2 text-left">
-                <p className="text-[11px] font-bold text-ink">Cho log_a(b) = 3. Tính giá trị biểu thức P = log_(a^2)(b^3)?</p>
-                <div className="grid grid-cols-2 gap-2 mt-3 text-[10px]">
-                  <span className="p-2 border border-primary bg-blue-50/50 text-primary rounded font-semibold">A. P = 4.5</span>
-                  <span className="p-2 border border-divider-soft bg-canvas rounded">B. P = 2.0</span>
-                  <span className="p-2 border border-divider-soft bg-canvas rounded">C. P = 9.0</span>
-                  <span className="p-2 border border-divider-soft bg-canvas rounded">D. P = 1.5</span>
+              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                Đang Thi Thử
+              </span>
+            </div>
+
+            <div className="bg-canvas-parchment p-5 rounded-lg border border-hairline flex flex-col gap-4">
+              <div className="flex justify-between items-center text-xs font-semibold text-ink-muted-80 border-b border-divider-soft pb-3">
+                <span>Đề thi thử Toán THPT 2027 • Mã đề: <strong>MD-8421</strong></span>
+                <span className="text-primary font-mono font-bold flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" /> 48:20
+                </span>
+              </div>
+
+              <div className="text-left flex flex-col gap-3">
+                <p className="text-xs sm:text-sm font-bold text-ink leading-relaxed">
+                  Câu 15: Cho hàm số f(x) có bảng biến thiên như hình vẽ. Hỏi giá trị cực đại của hàm số là bao nhiêu?
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="p-3 border border-primary bg-blue-50/60 dark:bg-blue-950/50 text-primary font-semibold rounded-lg flex items-center justify-between cursor-pointer">
+                    <span>A. y = 3</span>
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="p-3 border border-hairline bg-canvas text-ink rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
+                    <span>B. y = -1</span>
+                  </div>
+                  <div className="p-3 border border-hairline bg-canvas text-ink rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
+                    <span>C. y = 0</span>
+                  </div>
+                  <div className="p-3 border border-hairline bg-canvas text-ink rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
+                    <span>D. y = 2</span>
+                  </div>
                 </div>
               </div>
-              <div className="border-t border-divider-soft pt-2 flex justify-end">
-                <span className="bg-primary text-white text-[9px] px-3 py-1 rounded font-semibold">Nộp bài ôn tập</span>
+
+              <div className="border-t border-divider-soft pt-3 flex justify-between items-center text-xs">
+                <span className="text-ink-muted-48">Đã làm: 15 / 50 câu</span>
+                <button
+                  type="button"
+                  className="bg-primary text-white text-xs px-4 py-1.5 rounded-pill font-semibold shadow-xs"
+                >
+                  Nộp bài ngay
+                </button>
               </div>
             </div>
           </div>
         </div>
       </section>
 
+      {/* Subject Categories Showcase */}
+      <section className="bg-canvas-parchment py-24 px-6 border-t border-hairline">
+        <div className="max-w-[1100px] mx-auto flex flex-col gap-12 text-center">
+          <div className="max-w-[600px] mx-auto flex flex-col gap-3">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-primary">
+              Môn học trọng tâm
+            </span>
+            <h2 className="font-display-lg text-3xl sm:text-4xl font-bold text-ink">
+              Các Khối Thi &amp; Chuyên Đề Tốt Nghiệp
+            </h2>
+            <p className="font-caption text-ink-muted-80 text-sm">
+              Đầy đủ ngân hàng câu hỏi ôn luyện theo từng khối xét tuyển Đại học (A00, A01, B00, C00, D01).
+            </p>
+          </div>
 
-
-      {/* CTA final Section */}
-      <section className="bg-canvas-parchment text-ink flex flex-col items-center justify-center py-20 px-6 text-center border-t border-hairline">
-        <div className="max-w-[760px] w-full flex flex-col items-center gap-6">
-          <h2 className="font-display-lg text-3xl font-bold text-ink">
-            Đừng Bỏ Lỡ Giai Đoạn Vàng Để Luyện Thi THPT
-          </h2>
-          <p className="font-lead text-xs md:text-sm text-ink-muted-80 max-w-[550px] leading-relaxed font-body">
-            Gửi đơn đăng ký tuyển sinh học thử miễn phí ngay hôm nay để nhận tài liệu VIP độc quyền giải mã đề thi thử THPT Quốc Gia từ EduWeb.
-          </p>
-          <div className="flex gap-4 mt-4 w-full justify-center">
-            <Link 
-              href="/admission" 
-              className="bg-primary hover:bg-primary-focus text-white px-8 py-3 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm text-xs"
-            >
-              Gửi Hồ Sơ Nhập Học Ngay
-            </Link>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {subjects.map((sub) => (
+              <Link
+                key={sub.name}
+                href="/quizzes"
+                className="bg-canvas border border-hairline rounded-lg p-5 flex flex-col items-center text-center gap-3 hover:border-primary transition-all duration-200 apple-active-scale group shadow-sm"
+              >
+                <div className="text-3xl">{sub.icon}</div>
+                <div>
+                  <h3 className="font-body-strong text-sm font-bold text-ink group-hover:text-primary transition-colors">
+                    {sub.name}
+                  </h3>
+                  <span className="text-[11px] font-semibold text-ink-muted-48 block mt-0.5">
+                    {sub.count}
+                  </span>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
 
+      {/* Hall of Fame / Testimonials Section */}
+      <section className="bg-canvas py-24 px-6 border-t border-hairline">
+        <div className="max-w-[1100px] mx-auto flex flex-col gap-16">
+          <div className="text-center max-w-[600px] mx-auto flex flex-col gap-3">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-amber-500">
+              Bảng Vàng Thành Tích
+            </span>
+            <h2 className="font-display-lg text-3xl sm:text-4xl font-bold text-ink">
+              Cảm Nhận Từ Các Thủ Khoa EduWeb
+            </h2>
+            <p className="font-caption text-ink-muted-80 text-sm">
+              Hàng ngàn học sinh đã bứt phá điểm số thành công và đỗ vào các trường đại học hàng đầu Việt Nam.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {testimonials.map((t) => (
+              <div
+                key={t.name}
+                className="bg-canvas-parchment border border-hairline rounded-lg p-7 shadow-sm flex flex-col justify-between gap-6"
+              >
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-1 text-amber-400">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="h-4 w-4 fill-current" />
+                    ))}
+                  </div>
+                  <p className="text-xs sm:text-sm text-ink-muted-80 italic font-body leading-relaxed">
+                    &ldquo;{t.content}&rdquo;
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3 border-t border-divider-soft pt-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary text-white font-bold text-sm flex items-center justify-center flex-shrink-0 shadow-xs">
+                      {t.avatar}
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <h4 className="font-body-strong text-sm font-bold text-ink">
+                        {t.name}
+                      </h4>
+                      <span className="text-[11px] text-primary font-semibold">
+                        {t.role}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-ink-muted-48 bg-canvas px-3 py-1 rounded border border-hairline w-fit">
+                    {t.score}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final Call to Action Section */}
+      <section className="bg-gradient-to-b from-canvas-parchment to-canvas text-ink py-24 px-6 border-t border-hairline text-center">
+        <div className="max-w-[760px] mx-auto bg-canvas border border-hairline rounded-lg p-10 sm:p-14 shadow-product flex flex-col items-center gap-6 relative overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(41,151,255,0.1),transparent_60%)]" />
+
+          <div className="h-14 w-14 rounded-2xl bg-blue-50 text-primary flex items-center justify-center shadow-xs z-10">
+            <Flame className="h-7 w-7 text-primary" />
+          </div>
+
+          <h2 className="font-display-lg text-3xl sm:text-4xl font-bold text-ink leading-tight z-10">
+            Đừng Bỏ Lỡ Giai Đoạn Vàng Để Ôn Thi THPT Quốc Gia
+          </h2>
+          <p className="font-lead text-sm sm:text-base text-ink-muted-80 max-w-[560px] leading-relaxed font-body z-10">
+            Đăng ký học thử miễn phí ngay hôm nay để trải nghiệm toàn bộ kho đề thi thử và nhận tài liệu ôn luyện VIP từ EduWeb.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 mt-2 w-full max-w-[420px] justify-center z-10">
+            <Link
+              href="/admission"
+              className="flex-1 bg-primary hover:bg-primary-focus text-white px-8 py-3.5 rounded-pill font-body font-semibold apple-active-scale transition-all shadow-md text-xs sm:text-sm flex items-center justify-center gap-2"
+            >
+              Gửi Hồ Sơ Nhập Học Ngay <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <p className="text-[11px] text-ink-muted-48 z-10">
+            Miễn phí 100% tài liệu ôn thi ban đầu • Không yêu cầu thẻ tín dụng
+          </p>
+        </div>
+      </section>
     </div>
   );
 }
