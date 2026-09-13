@@ -238,7 +238,7 @@ export default async function AdminDashboardPage() {
         </Link>
 
         <Link
-          href="/admin/schedules"
+          href="/admin/calendar"
           className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-orange-600 transition-all duration-200 apple-active-scale cursor-pointer group shadow-sm hover:shadow-md"
         >
           <div className="flex items-center justify-between">
