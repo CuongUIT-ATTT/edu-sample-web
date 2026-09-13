@@ -2104,23 +2104,39 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 />
               </div>
 
-              {/* Links theo từng lớp được gán */}
+              {/* Links theo từng lớp được gán hoặc tất cả các lớp trong hệ thống */}
               <div className="flex flex-col gap-2.5">
                 <span className="font-bold text-ink text-xs">🏫 Link riêng cho từng lớp (Tự động ghi nhận lớp học):</span>
 
-                {shareModalQuiz.assignments && shareModalQuiz.assignments.length > 0 ? (
-                  shareModalQuiz.assignments.map((assignment) => {
-                    const className = assignment.class?.name || classes.find((c) => c.id === assignment.classId)?.name || assignment.classId;
-                    const classUrl = typeof window !== "undefined" ? `${window.location.origin}/quizzes/${shareModalQuiz.id}?classId=${assignment.classId}` : "";
+                {(() => {
+                  const targetClasses = (shareModalQuiz.assignments && shareModalQuiz.assignments.length > 0)
+                    ? shareModalQuiz.assignments.map((a) => ({
+                        classId: a.classId,
+                        className: a.class?.name || classes.find((c) => c.id === a.classId)?.name || a.classId,
+                      }))
+                    : shareModalQuiz.class
+                    ? [{ classId: shareModalQuiz.class.id, className: shareModalQuiz.class.name }]
+                    : classes.map((c) => ({ classId: c.id, className: c.name }));
+
+                  if (targetClasses.length === 0) {
                     return (
-                      <div key={assignment.classId} className="bg-blue-50/50 border border-blue-200/60 rounded-xl p-3 flex flex-col gap-2">
+                      <span className="text-xs text-ink-muted-48 italic">Chưa có dữ liệu lớp học trong hệ thống.</span>
+                    );
+                  }
+
+                  return targetClasses.map((c) => {
+                    const classUrl = typeof window !== "undefined" ? `${window.location.origin}/quizzes/${shareModalQuiz.id}?classId=${c.classId}` : "";
+                    return (
+                      <div key={c.classId} className="bg-blue-50/50 border border-blue-200/60 rounded-xl p-3 flex flex-col gap-2">
                         <div className="flex justify-between items-center">
-                          <span className="font-semibold text-primary">Lớp {className}</span>
+                          <span className="font-semibold text-primary">Lớp {c.className}</span>
                           <button
+                            type="button"
                             onClick={() => {
-                              navigator.clipboard.writeText(classUrl).then(() => {
-                                showToast(`Đã sao chép link dành riêng cho lớp ${className}!`, "success");
-                              });
+                              navigator.clipboard.writeText(classUrl).then(
+                                () => showToast(`Đã sao chép link dành riêng cho lớp ${c.className}!`, "success"),
+                                () => showToast("Không thể sao chép tự động. Vui lòng sao chép thủ công.", "error")
+                              );
                             }}
                             className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-pill font-semibold text-[11px] transition-colors"
                           >
@@ -2135,74 +2151,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                         />
                       </div>
                     );
-                  })
-                ) : shareModalQuiz.class ? (
-                  <div className="bg-blue-50/50 border border-blue-200/60 rounded-xl p-3 flex flex-col gap-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-primary">Lớp {shareModalQuiz.class.name}</span>
-                      <button
-                        onClick={() => {
-                          const classUrl = `${window.location.origin}/quizzes/${shareModalQuiz.id}?classId=${shareModalQuiz.class!.id}`;
-                          navigator.clipboard.writeText(classUrl).then(() => {
-                            showToast(`Đã sao chép link dành riêng cho lớp ${shareModalQuiz.class!.name}!`, "success");
-                          });
-                        }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-pill font-semibold text-[11px] transition-colors"
-                      >
-                        Sao chép link lớp
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      readOnly
-                      value={typeof window !== "undefined" ? `${window.location.origin}/quizzes/${shareModalQuiz.id}?classId=${shareModalQuiz.class.id}` : ""}
-                      className="bg-canvas border border-hairline rounded-lg px-3 py-1 text-ink-muted-80 font-mono text-[11px] w-full"
-                    />
-                  </div>
-                ) : null}
-
-                {/* Cho phép chọn thủ công bất kỳ lớp nào (hữu ích cho đề thi cũ hoặc đề công khai) */}
-                {classes.length > 0 && (
-                  <div className="bg-canvas border border-hairline rounded-xl p-3 flex flex-col gap-2.5 mt-1">
-                    <label className="font-semibold text-xs text-ink-muted">Tạo link riêng theo lớp chọn thủ công:</label>
-                    <div className="flex gap-2 items-center">
-                      <select
-                        value={manualShareClassId}
-                        onChange={(e) => setManualShareClassId(e.target.value)}
-                        className="bg-surface-pearl border border-hairline rounded-lg px-3 py-1.5 text-ink text-xs flex-1"
-                      >
-                        <option value="">-- Chọn lớp học --</option>
-                        {classes.map((cls) => (
-                          <option key={cls.id} value={cls.id}>
-                            Lớp {cls.name}
-                          </option>
-                        ))}
-                      </select>
-                      {manualShareClassId && (
-                        <button
-                          onClick={() => {
-                            const selectedClass = classes.find((c) => c.id === manualShareClassId);
-                            const classUrl = `${window.location.origin}/quizzes/${shareModalQuiz.id}?classId=${manualShareClassId}`;
-                            navigator.clipboard.writeText(classUrl).then(() => {
-                              showToast(`Đã sao chép link dành riêng cho lớp ${selectedClass?.name || manualShareClassId}!`, "success");
-                            });
-                          }}
-                          className="bg-primary hover:bg-primary/90 text-white px-3 py-1.5 rounded-lg font-semibold text-xs transition-colors whitespace-nowrap"
-                        >
-                          Sao chép link
-                        </button>
-                      )}
-                    </div>
-                    {manualShareClassId && (
-                      <input
-                        type="text"
-                        readOnly
-                        value={typeof window !== "undefined" ? `${window.location.origin}/quizzes/${shareModalQuiz.id}?classId=${manualShareClassId}` : ""}
-                        className="bg-canvas border border-hairline rounded-lg px-3 py-1 text-ink-muted-80 font-mono text-[11px] w-full"
-                      />
-                    )}
-                  </div>
-                )}
+                  });
+                })()}
               </div>
             </div>
 
