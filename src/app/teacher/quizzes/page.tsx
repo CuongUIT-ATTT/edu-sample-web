@@ -14,44 +14,50 @@ export default async function TeacherQuizzesPage() {
     redirect("/login");
   }
 
-  const teacher = await db.teacherProfile.findUnique({
-    where: { userId: session.userId },
-    include: { subjects: true },
-  });
+  let quizzes: any[] = [];
+  let subjects: any[] = [];
+  let classes: any[] = [];
 
-  if (!teacher) {
-    redirect("/login");
+  try {
+    const teacher = await db.teacherProfile.findUnique({
+      where: { userId: session.userId },
+      include: { subjects: true },
+    });
+
+    if (teacher) {
+      // Fetch quizzes created by this teacher
+      quizzes = await db.quiz.findMany({
+        where: { teacherId: teacher.id },
+        include: {
+          subject: true,
+          class: true,
+          assignments: { include: { class: true } },
+          questions: true,
+          submissions: {
+            select: { score: true },
+          },
+          _count: {
+            select: { questions: true },
+          },
+        },
+        orderBy: { id: "desc" },
+      });
+
+      // GV được chọn tất cả môn học trong hệ thống
+      subjects = await db.subject.findMany({
+        orderBy: { name: "asc" },
+      });
+
+      // Lớp GV phụ trách: chủ nhiệm HOẶC có dạy (scheduleSeries)
+      const ownedClassIds = await teacherClassIds(session.userId);
+      classes = await db.class.findMany({
+        where: { id: { in: ownedClassIds } },
+        orderBy: { name: "asc" },
+      });
+    }
+  } catch (error) {
+    console.error("Prisma error in TeacherQuizzesPage:", error);
   }
-
-  // Fetch quizzes created by this teacher
-  const quizzes = await db.quiz.findMany({
-    where: { teacherId: teacher.id },
-    include: {
-      subject: true,
-      class: true,
-      assignments: { include: { class: true } },
-      questions: true,
-      submissions: {
-        select: { score: true },
-      },
-      _count: {
-        select: { questions: true },
-      },
-    },
-    orderBy: { id: "desc" },
-  });
-
-  // GV được chọn tất cả môn học trong hệ thống
-  const subjects = await db.subject.findMany({
-    orderBy: { name: "asc" },
-  });
-
-  // Lớp GV phụ trách: chủ nhiệm HOẶC có dạy (scheduleSeries)
-  const ownedClassIds = await teacherClassIds(session.userId);
-  const classes = await db.class.findMany({
-    where: { id: { in: ownedClassIds } },
-    orderBy: { name: "asc" },
-  });
 
   return (
     <div className="flex flex-col gap-6">

@@ -13,40 +13,48 @@ export default async function AdminQuizzesPage() {
     redirect("/login");
   }
 
-  // Fetch all quizzes created by any teacher/admin
-  const quizzes = await db.quiz.findMany({
-    include: {
-      subject: true,
-      class: true,
-      assignments: { include: { class: true } },
-      questions: true,
-      submissions: {
-        select: { score: true },
-      },
-      teacher: {
-        include: {
-          user: { select: { name: true } }
-        }
-      },
-      _count: {
-        select: { questions: true },
-      },
-    },
-    orderBy: { id: "desc" },
-  });
+  let formattedQuizzes: any[] = [];
+  let subjects: any[] = [];
+  let classes: any[] = [];
 
-  const subjects = await db.subject.findMany({
-    orderBy: { name: "asc" },
-  });
+  try {
+    // Fetch all quizzes created by any teacher/admin
+    const quizzes = await db.quiz.findMany({
+      include: {
+        subject: true,
+        class: true,
+        assignments: { include: { class: true } },
+        questions: true,
+        submissions: {
+          select: { score: true },
+        },
+        teacher: {
+          include: {
+            user: { select: { name: true } }
+          }
+        },
+        _count: {
+          select: { questions: true },
+        },
+      },
+      orderBy: { id: "desc" },
+    });
 
-  const classes = await db.class.findMany({
-    orderBy: { name: "asc" },
-  });
+    subjects = await db.subject.findMany({
+      orderBy: { name: "asc" },
+    });
 
-  const formattedQuizzes = quizzes.map((q) => ({
-    ...q,
-    creatorName: q.teacher ? q.teacher.user.name : "Quản trị viên"
-  }));
+    classes = await db.class.findMany({
+      orderBy: { name: "asc" },
+    });
+
+    formattedQuizzes = quizzes.map((q) => ({
+      ...q,
+      creatorName: q.teacher?.user?.name || "Quản trị viên"
+    }));
+  } catch (error) {
+    console.error("Prisma error in AdminQuizzesPage:", error);
+  }
 
   return (
     <div className="flex flex-col gap-6">
