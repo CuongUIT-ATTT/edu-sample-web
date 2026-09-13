@@ -36,9 +36,11 @@ interface SingleQuizPlayerProps {
   quiz: Quiz;
   sessionUser: { name: string; role: string } | null;
   skipRules?: boolean;
+  classId?: string | null;
+  className?: string | null;
 }
 
-export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false }: SingleQuizPlayerProps) {
+export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false, classId, className }: SingleQuizPlayerProps) {
   const [guestName, setGuestName] = useState(sessionUser?.name || "");
   const [showNameModal, setShowNameModal] = useState(!sessionUser);
   // Luôn hiện màn giới thiệu + nội quy (giống trang public), kể cả khi đã đăng nhập
@@ -191,6 +193,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
       const res = await startQuizAttempt({
         quizId: quiz.id,
         guestName: resolvedGuestName,
+        classId: classId || undefined,
       });
       if (res.success && res.data) {
         setPaper(res.data.questions.map((q) => ({
@@ -296,6 +299,7 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
         guestName: sessionUser ? sessionUser.name : guestName,
         timeExpired: timeLeft === 0,
         attemptId: attemptId || undefined,
+        classId: classId || undefined,
       });
 
       if (response.success && response.data) {
@@ -576,6 +580,12 @@ export default function SingleQuizPlayer({ quiz, sessionUser, skipRules = false 
                 <span>Loại đề:</span>
                 <strong className="text-ink">{quiz.isPublic ? "Công khai (Miễn phí)" : "Nội bộ lớp học"}</strong>
               </div>
+              {className && (
+                <div className="flex justify-between text-primary font-semibold border-t border-divider-soft pt-2">
+                  <span>Dành riêng cho lớp:</span>
+                  <span>{className}</span>
+                </div>
+              )}
             </div>
 
             {/* Name input for guests (when skipRules and no session, or logged-in but name empty) */}

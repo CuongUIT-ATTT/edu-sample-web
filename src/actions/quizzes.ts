@@ -55,6 +55,7 @@ interface SubmitQuizInput {
   guestName?: string;
   timeExpired?: boolean;
   attemptId?: string; // mã đề (QuizAttempt) — chấm theo layout khi có
+  classId?: string;
 }
 
 async function getStudentProfileForSession(session: Session | null): Promise<StudentWithClasses | null> {
@@ -353,7 +354,11 @@ export async function submitQuiz(input: SubmitQuizInput) {
     }
 
     // Check if submitted after effective deadline — flag as late, still accept (không chặn)
-    const effectiveDeadline = getEffectiveDeadline(quiz, access.assignment);
+    const targetClassId = input.classId?.trim() || attempt?.classId || access.classId || null;
+    const targetAssignment = targetClassId
+      ? quiz.assignments.find((a) => a.classId === targetClassId) ?? access.assignment
+      : access.assignment;
+    const effectiveDeadline = getEffectiveDeadline(quiz, targetAssignment);
     const isLate = (effectiveDeadline ? new Date() > effectiveDeadline : false) || isTimedOut;
 
     const submission = await db.quizSubmission.create({
@@ -365,6 +370,7 @@ export async function submitQuiz(input: SubmitQuizInput) {
         guestName: studentProfile ? null : input.guestName?.trim(),
         isLate,
         attemptId: attempt ? attempt.id : null,
+        classId: targetClassId,
       },
     });
 
@@ -397,7 +403,7 @@ export async function submitQuiz(input: SubmitQuizInput) {
     const passed = totalScore >= quiz.passingScore;
 
     const showAnswers = await resolveAnswerVisibility(quiz, {
-      classId: access.classId,
+      classId: targetClassId,
       deadline: effectiveDeadline,
       timeExpired: !!input.timeExpired,
     });
@@ -430,6 +436,7 @@ export async function submitQuiz(input: SubmitQuizInput) {
 interface StartQuizAttemptInput {
   quizId: string;
   guestName?: string;
+  classId?: string;
 }
 
 /**
@@ -461,7 +468,11 @@ export async function startQuizAttempt(input: StartQuizAttemptInput) {
       return { success: false, error: "Vui lòng nhập Họ tên để bắt đầu làm bài thi thử công khai." };
     }
 
-    const effectiveStartsAt = getEffectiveStartsAt(access.assignment);
+    const targetClassId = input.classId?.trim() || access.classId || null;
+    const targetAssignment = targetClassId
+      ? quiz.assignments.find((a) => a.classId === targetClassId) ?? access.assignment
+      : access.assignment;
+    const effectiveStartsAt = getEffectiveStartsAt(targetAssignment);
     if (effectiveStartsAt && effectiveStartsAt > new Date()) {
       return { success: false, error: "Đề thi chưa mở cho lớp của bạn." };
     }
@@ -497,6 +508,7 @@ export async function startQuizAttempt(input: StartQuizAttemptInput) {
         layout: layout as object,
         startsAt: now,
         endsAt: new Date(now.getTime() + quiz.duration * 60 * 1000),
+        classId: targetClassId,
       },
     });
 
@@ -823,18 +835,25 @@ export async function getQuizSubmissions(quizId: string) {
             classes: { select: { id: true, name: true } },
           },
         },
+        class: { select: { id: true, name: true } },
       },
       orderBy: { submittedAt: "desc" },
     });
 
-    const formatted = submissions.map((s) => ({
-      id: s.id,
-      candidateName: s.student ? s.student.user.name : (s.guestName || "Thí sinh tự do"),
-      classIds: s.student ? s.student.classes.map((c) => c.id) : [],
-      classes: s.student ? s.student.classes.map((c) => c.name).join(", ") : "Tự do (Thi thử)",
-      score: s.score,
-      submittedAt: s.submittedAt.toISOString(),
-    }));
+    const formatted = submissions.map((s) => {
+      const candidateClassIds = s.classId ? [s.classId] : (s.student ? s.student.classes.map((c) => c.id) : []);
+      const candidateClassName = s.class?.name || (s.student && s.student.classes.length > 0 ? s.student.classes.map((c) => c.name).join(", ") : "Tự do (Thi thử)");
+
+      return {
+        id: s.id,
+        candidateName: s.student ? s.student.user.name : (s.guestName || "Thí sinh tự do"),
+        classId: s.classId ?? null,
+        classIds: candidateClassIds,
+        classes: candidateClassName,
+        score: s.score,
+        submittedAt: s.submittedAt.toISOString(),
+      };
+    });
 
     const quizInfo = {
       id: quiz.id,

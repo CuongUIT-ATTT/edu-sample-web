@@ -101,6 +101,9 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [selectedClassTab, setSelectedClassTab] = useState<string>("ALL");
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
 
+  // Share modal state
+  const [shareModalQuiz, setShareModalQuiz] = useState<QuizItem | null>(null);
+
   const handleViewSubmissions = async (quizId: string, quizTitle: string) => {
     setSelectedQuizTitle(quizTitle);
     setIsSubmissionsOpen(true);
@@ -773,13 +776,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setIsCreateOpen(true);
   };
 
-  const handleShareClick = (quizId: string) => {
-    const url = window.location.origin + "/quizzes/" + quizId;
-    navigator.clipboard.writeText(url).then(() => {
-      showToast("Đã sao chép đường dẫn chia sẻ đề thi vào bộ nhớ tạm!", "success");
-    }).catch(() => {
-      showToast("Không thể sao chép link. Hãy copy thủ công đường dẫn: " + url, "error");
-    });
+  const handleShareClick = (quiz: QuizItem) => {
+    setShareModalQuiz(quiz);
   };
 
   const renderQuestionEditor = (q: any, qIdx: number, displayIdx: number) => {
@@ -1177,7 +1175,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   <Award className="h-3.5 w-3.5" /> Kết quả
                 </button>
                 <button
-                  onClick={() => handleShareClick(q.id)}
+                  onClick={() => handleShareClick(q)}
                   className="bg-green-50 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
                 >
                   <Share2 className="h-3.5 w-3.5" /> Chia sẻ
@@ -1835,7 +1833,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   // Calculate filtered submissions by class tab
                   const filteredSubmissions = selectedClassTab === "ALL"
                     ? submissionsList
-                    : submissionsList.filter((s) => s.classIds && s.classIds.includes(selectedClassTab));
+                    : submissionsList.filter((s) => s.classId === selectedClassTab || (s.classIds && s.classIds.includes(selectedClassTab)));
 
                   const totalSubmissions = filteredSubmissions.length;
                   const avgScoreNum = totalSubmissions > 0
@@ -1906,7 +1904,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                             </button>
 
                             {assignmentsList.map((a) => {
-                              const classSubs = submissionsList.filter((s) => s.classIds && s.classIds.includes(a.classId));
+                              const classSubs = submissionsList.filter((s) => s.classId === a.classId || (s.classIds && s.classIds.includes(a.classId)));
                               const classAvg = classSubs.length > 0
                                 ? (classSubs.reduce((acc, s) => acc + Number(s.score), 0) / classSubs.length).toFixed(1)
                                 : "N/A";
@@ -2027,6 +2025,125 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               <button
                 onClick={() => setIsSubmissionsOpen(false)}
                 className="bg-primary hover:bg-primary-focus text-white px-6 py-2 rounded-full text-xs font-semibold shadow-sm"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Links Modal */}
+      {shareModalQuiz && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-canvas border border-hairline rounded-2xl shadow-xl max-w-lg w-full p-6 flex flex-col gap-5 animate-scale-up">
+            <div className="flex justify-between items-center border-b border-divider pb-3">
+              <h3 className="font-tagline text-lg font-bold text-ink flex items-center gap-2">
+                <Share2 className="h-5 w-5 text-primary" /> Chia sẻ đường dẫn bài thi
+              </h3>
+              <button
+                onClick={() => setShareModalQuiz(null)}
+                className="text-ink-muted-48 hover:text-ink transition-colors p-1"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-4 text-xs">
+              <div>
+                <p className="font-semibold text-ink text-sm mb-1">{shareModalQuiz.title}</p>
+                <p className="text-ink-muted-48">Sao chép đường dẫn phù hợp để gửi cho học sinh hoặc chia sẻ công khai.</p>
+              </div>
+
+              {/* Link chung */}
+              <div className="bg-surface-pearl border border-divider-soft rounded-xl p-3.5 flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-ink">🌐 Link chung (Công khai / Mặc định)</span>
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/quizzes/${shareModalQuiz.id}`;
+                      navigator.clipboard.writeText(url).then(() => {
+                        showToast("Đã sao chép link chung vào bộ nhớ tạm!", "success");
+                      });
+                    }}
+                    className="bg-primary hover:bg-primary-focus text-white px-3 py-1.5 rounded-pill font-semibold text-xs transition-colors flex items-center gap-1"
+                  >
+                    Sao chép link
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  readOnly
+                  value={typeof window !== "undefined" ? `${window.location.origin}/quizzes/${shareModalQuiz.id}` : ""}
+                  className="bg-canvas border border-hairline rounded-lg px-3 py-1.5 text-ink-muted-80 font-mono text-[11px] w-full"
+                />
+              </div>
+
+              {/* Links theo từng lớp được gán */}
+              {((shareModalQuiz.assignments && shareModalQuiz.assignments.length > 0) || shareModalQuiz.class) && (
+                <div className="flex flex-col gap-2.5">
+                  <span className="font-bold text-ink text-xs">🏫 Link riêng cho từng lớp (Tự động ghi nhận lớp học):</span>
+
+                  {shareModalQuiz.assignments && shareModalQuiz.assignments.length > 0 ? (
+                    shareModalQuiz.assignments.map((assignment) => {
+                      const className = assignment.class?.name || classes.find((c) => c.id === assignment.classId)?.name || assignment.classId;
+                      const classUrl = typeof window !== "undefined" ? `${window.location.origin}/quizzes/${shareModalQuiz.id}?classId=${assignment.classId}` : "";
+                      return (
+                        <div key={assignment.classId} className="bg-blue-50/50 border border-blue-200/60 rounded-xl p-3 flex flex-col gap-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-primary">Lớp {className}</span>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(classUrl).then(() => {
+                                  showToast(`Đã sao chép link dành riêng cho lớp ${className}!`, "success");
+                                });
+                              }}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-pill font-semibold text-[11px] transition-colors"
+                            >
+                              Sao chép link lớp
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            readOnly
+                            value={classUrl}
+                            className="bg-canvas border border-hairline rounded-lg px-3 py-1 text-ink-muted-80 font-mono text-[11px] w-full"
+                          />
+                        </div>
+                      );
+                    })
+                  ) : shareModalQuiz.class ? (
+                    <div className="bg-blue-50/50 border border-blue-200/60 rounded-xl p-3 flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-primary">Lớp {shareModalQuiz.class.name}</span>
+                        <button
+                          onClick={() => {
+                            const classUrl = `${window.location.origin}/quizzes/${shareModalQuiz.id}?classId=${shareModalQuiz.class!.id}`;
+                            navigator.clipboard.writeText(classUrl).then(() => {
+                              showToast(`Đã sao chép link dành riêng cho lớp ${shareModalQuiz.class!.name}!`, "success");
+                            });
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-pill font-semibold text-[11px] transition-colors"
+                        >
+                          Sao chép link lớp
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        readOnly
+                        value={typeof window !== "undefined" ? `${window.location.origin}/quizzes/${shareModalQuiz.id}?classId=${shareModalQuiz.class.id}` : ""}
+                        className="bg-canvas border border-hairline rounded-lg px-3 py-1 text-ink-muted-80 font-mono text-[11px] w-full"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-divider pt-3 flex justify-end">
+              <button
+                onClick={() => setShareModalQuiz(null)}
+                className="bg-surface-pearl hover:bg-slate-200 text-ink px-5 py-2 rounded-full font-semibold text-xs border border-hairline transition-colors"
               >
                 Đóng
               </button>

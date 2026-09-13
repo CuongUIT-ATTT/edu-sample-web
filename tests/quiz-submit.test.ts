@@ -283,6 +283,36 @@ describe("startQuizAttempt - class assignments", () => {
     expect(res.success).toBe(true);
     expect(mockDb.quizAttempt.create).toHaveBeenCalled();
   });
+
+  it("truyền classId khi startQuizAttempt lưu classId vào QuizAttempt", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ isPublic: true, assignments: [makeAssignment({ classId: "c1" })] }));
+
+    const res = await startQuizAttempt({ quizId: "quiz-1", guestName: "Khách test", classId: "c1" });
+
+    expect(res.success).toBe(true);
+    expect(mockDb.quizAttempt.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          classId: "c1",
+        }),
+      })
+    );
+  });
+
+  it("truyền classId khi submitQuiz lưu classId vào QuizSubmission", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ isPublic: true, assignments: [makeAssignment({ classId: "c1" })] }));
+
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, guestName: "Khách test", classId: "c1" });
+
+    expect(res.success).toBe(true);
+    expect(mockDb.quizSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          classId: "c1",
+        }),
+      })
+    );
+  });
 });
 
 describe("submitQuiz - attemptId (mã đề xáo trộn)", () => {

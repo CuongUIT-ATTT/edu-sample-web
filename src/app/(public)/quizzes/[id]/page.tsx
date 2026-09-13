@@ -9,10 +9,13 @@ export const dynamic = "force-dynamic";
 
 export default async function SharedQuizPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ classId?: string }>;
 }) {
   const { id } = await params;
+  const { classId } = await searchParams;
   const session = await getSession();
 
   const quiz = await db.quiz.findUnique({
@@ -20,7 +23,11 @@ export default async function SharedQuizPage({
     include: {
       subject: true,
       questions: true,
-      assignments: true,
+      assignments: {
+        include: {
+          class: { select: { id: true, name: true } },
+        },
+      },
     },
   });
 
@@ -29,11 +36,27 @@ export default async function SharedQuizPage({
   }
 
   let effectiveAssignment: (typeof quiz.assignments)[number] | null = null;
+  let assignedClassName: string | null = null;
+
+  if (classId) {
+    const matchedAssignment = quiz.assignments.find((a) => a.classId === classId);
+    if (matchedAssignment) {
+      effectiveAssignment = matchedAssignment;
+      assignedClassName = matchedAssignment.class.name;
+    } else {
+      const cls = await db.class.findUnique({
+        where: { id: classId },
+        select: { name: true },
+      });
+      if (cls) assignedClassName = cls.name;
+    }
+  }
 
   // Auth/Authorization check for private quizzes
   if (!quiz.isPublic) {
     if (!session) {
-      redirect(`/login?callbackUrl=/quizzes/${id}`);
+      const callback = classId ? `/quizzes/${id}?classId=${classId}` : `/quizzes/${id}`;
+      redirect(`/login?callbackUrl=${encodeURIComponent(callback)}`);
     }
 
     if (session.role === "STUDENT") {
@@ -51,13 +74,27 @@ export default async function SharedQuizPage({
       }
 
       const studentClassIds = studentProfile.classes.map((c) => c.id);
-      const matchingAssignments = quiz.assignments.filter((assignment) => studentClassIds.includes(assignment.classId));
-      effectiveAssignment = [...matchingAssignments].sort((a, b) => {
-        const aDeadline = a.deadlineOverride?.getTime() ?? Number.POSITIVE_INFINITY;
-        const bDeadline = b.deadlineOverride?.getTime() ?? Number.POSITIVE_INFINITY;
-        if (aDeadline !== bDeadline) return aDeadline - bDeadline;
-        return a.classId.localeCompare(b.classId);
-      })[0] ?? null;
+      if (classId && !studentClassIds.includes(classId)) {
+        return (
+          <div className="bg-canvas border border-hairline rounded-lg p-16 text-center max-w-xl mx-auto shadow-sm mt-10">
+            <p className="font-body text-red-600 font-semibold">Bài thi này dành riêng cho một lớp học cụ thể mà bạn không tham gia.</p>
+          </div>
+        );
+      }
+
+      if (!effectiveAssignment) {
+        const matchingAssignments = quiz.assignments.filter((assignment) => studentClassIds.includes(assignment.classId));
+        effectiveAssignment = [...matchingAssignments].sort((a, b) => {
+          const aDeadline = a.deadlineOverride?.getTime() ?? Number.POSITIVE_INFINITY;
+          const bDeadline = b.deadlineOverride?.getTime() ?? Number.POSITIVE_INFINITY;
+          if (aDeadline !== bDeadline) return aDeadline - bDeadline;
+          return a.classId.localeCompare(b.classId);
+        })[0] ?? null;
+
+        if (effectiveAssignment) {
+          assignedClassName = effectiveAssignment.class.name;
+        }
+      }
 
       if (quiz.assignments.length > 0 && !effectiveAssignment) {
         return (
@@ -106,7 +143,13 @@ export default async function SharedQuizPage({
 
   return (
     <div className="w-full max-w-4xl mx-auto py-8 px-4">
-      <SingleQuizPlayer quiz={formattedQuiz as any} sessionUser={session ? { name: session.name, role: session.role } : null} skipRules={true} />
+      <SingleQuizPlayer
+        quiz={formattedQuiz as any}
+        sessionUser={session ? { name: session.name, role: session.role } : null}
+        skipRules={true}
+        classId={classId ?? effectiveAssignment?.classId ?? null}
+        className={assignedClassName}
+      />
     </div>
   );
 }
