@@ -2,8 +2,9 @@
 
 import React, { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
-import { GraduationCap, AlertCircle, RefreshCw, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { login, type LoginResponse } from "@/actions/auth";
+import { EduWebLogo } from "@/components/ui/EduWebLogo";
 
 /** Decode JWT payload từ cookie session_token để biết role */
 function getSessionRole(): string | null {
@@ -41,11 +42,10 @@ export default function LoginPage() {
   }, []);
 
   return (
-    <div className="bg-canvas-parchment min-h-screen flex items-center justify-center px-6">
-      <div className="max-w-[400px] w-full bg-canvas border border-hairline rounded-lg p-8 shadow-product flex flex-col items-center">
-        <Link href="/" className="flex items-center gap-2 font-tagline tracking-tight text-ink mb-6 select-none">
-          <GraduationCap className="h-8 w-8 text-primary" />
-          <span className="font-semibold text-xl">EduWeb</span>
+    <div className="bg-canvas-parchment min-h-screen flex items-center justify-center px-6 py-12">
+      <div className="max-w-[420px] w-full bg-canvas border border-hairline rounded-lg p-8 shadow-product flex flex-col items-center">
+        <Link href="/" className="mb-6 hover:opacity-90 transition-opacity">
+          <EduWebLogo variant="full" size="lg" theme="light" showSubtitle={true} />
         </Link>
 
         <h1 className="font-tagline text-2xl font-semibold text-ink text-center mb-2 select-none">Đăng nhập cổng thông tin</h1>

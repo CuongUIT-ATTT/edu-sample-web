@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LogoutButton from "@/components/LogoutButton";
 import { getCurrentUser } from "@/actions/session";
+import { EduWebLogo } from "@/components/ui/EduWebLogo";
 import {
   Calendar,
   CheckSquare,
@@ -79,10 +80,10 @@ export default function StudentDashboardLayout({
           <Link
             href="/student"
             onClick={closeSidebar}
-            className="flex items-center gap-2 font-tagline tracking-tight text-ink"
+            className="flex items-center gap-2"
           >
-            <span className="font-semibold text-xs md:text-lg">EduWeb</span>
-            <span className="text-[8px] md:text-[10px] bg-blue-100 text-blue-700 px-1.5 md:px-2 py-0.5 rounded-full font-bold uppercase text-center">
+            <EduWebLogo variant="full" size="sm" theme="light" showSubtitle={false} />
+            <span className="text-[8px] md:text-[10px] bg-blue-100 text-blue-700 px-1.5 md:px-2 py-0.5 rounded-full font-bold uppercase text-center ml-auto">
               HV
             </span>
           </Link>

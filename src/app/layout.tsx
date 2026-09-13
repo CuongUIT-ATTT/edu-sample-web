@@ -12,6 +12,15 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "EduWeb - Hệ thống Quản lý & Luyện thi chất lượng cao",
   description: "Nền tảng quản lý khóa học, giảng dạy và luyện thi trực quan hàng đầu.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: ["/icon.svg"],
+    apple: [
+      { url: "/apple-icon", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 import ToastContainer from "@/components/Toast";

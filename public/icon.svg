@@ -1,0 +1,23 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="eduweb-grad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="50%" stop-color="#0066cc" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+    <linearGradient id="eduweb-gold" x1="220" y1="120" x2="380" y2="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#fde047" />
+      <stop offset="100%" stop-color="#eab308" />
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#eduweb-grad)" />
+  <rect x="16" y="16" width="480" height="240" rx="108" fill="white" fill-opacity="0.08" />
+  <path d="M112 336C160 312 216 320 256 344C296 320 352 312 400 336V208C352 184 296 192 256 216C216 192 160 184 112 208V336Z" fill="white" fill-opacity="0.22" />
+  <path d="M128 348C172 328 220 334 256 356C292 334 340 328 384 348V228C340 208 292 214 256 236C220 214 172 208 128 228V348Z" fill="white" fill-opacity="0.9" />
+  <path d="M256 112L392 180L256 248L120 180L256 112Z" fill="white" />
+  <path d="M176 212V244C176 270 212 292 256 292C300 292 336 270 336 244V212L256 252L176 212Z" fill="url(#eduweb-gold)" />
+  <path d="M364 196L368 296C368 312 356 324 340 324C324 324 312 312 312 296" stroke="url(#eduweb-gold)" stroke-width="16" stroke-linecap="round" />
+  <circle cx="368" cy="296" r="14" fill="#fde047" />
+  <polygon points="256,140 264,164 288,164 268,178 276,202 256,188 236,202 244,178 224,164 248,164" fill="#0066cc" />
+</svg>

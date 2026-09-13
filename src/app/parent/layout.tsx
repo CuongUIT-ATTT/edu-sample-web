@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import LogoutButton from "@/components/LogoutButton";
+import { EduWebLogo } from "@/components/ui/EduWebLogo";
 import {
   Calendar,
   LogOut,
@@ -32,10 +33,10 @@ export default function ParentDashboardLayout({
           {/* Brand Header */}
           <Link
             href="/parent"
-            className="flex flex-col md:flex-row items-center md:items-start gap-2 font-tagline tracking-tight text-ink justify-center md:justify-start"
+            className="flex items-center gap-2"
           >
-            <span className="font-semibold text-xs md:text-lg">EduWeb</span>
-            <span className="text-[8px] md:text-[10px] bg-purple-100 text-purple-700 px-1 md:px-2 py-0.5 rounded-full font-bold uppercase text-center">
+            <EduWebLogo variant="full" size="sm" theme="light" showSubtitle={false} />
+            <span className="text-[8px] md:text-[10px] bg-purple-100 text-purple-700 px-1.5 md:px-2 py-0.5 rounded-full font-bold uppercase text-center ml-auto">
               PH
             </span>
           </Link>
@@ -112,10 +113,10 @@ export default function ParentDashboardLayout({
               <Link
                 href="/parent"
                 onClick={closeSidebar}
-                className="flex items-center gap-2 font-tagline tracking-tight text-ink"
+                className="flex items-center gap-2"
               >
-                <span className="font-semibold text-sm">EduWeb</span>
-                <span className="text-[8px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-bold uppercase text-center">
+                <EduWebLogo variant="full" size="sm" theme="light" showSubtitle={false} />
+                <span className="text-[8px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-bold uppercase text-center ml-auto">
                   PH
                 </span>
               </Link>
