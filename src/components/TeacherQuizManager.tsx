@@ -1933,22 +1933,25 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                               );
                             })}
 
-                            {freeSubmissions.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => setSelectedClassTab("UNASSIGNED")}
-                                className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
-                                  selectedClassTab === "UNASSIGNED"
-                                    ? "bg-amber-600 text-white shadow-sm"
-                                    : "bg-surface-pearl text-ink-muted-80 hover:bg-slate-200 border border-hairline"
-                                }`}
-                              >
-                                🌐 Tự do (Thi thử)
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/30 text-ink">
-                                  {freeSubmissions.length} nộp
-                                </span>
-                              </button>
-                            )}
+                            {freeSubmissions.length > 0 && (() => {
+                              const freeAvg = (freeSubmissions.reduce((acc, s) => acc + Number(s.score), 0) / freeSubmissions.length).toFixed(1);
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedClassTab("UNASSIGNED")}
+                                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                    selectedClassTab === "UNASSIGNED"
+                                      ? "bg-amber-600 text-white shadow-sm"
+                                      : "bg-surface-pearl text-ink-muted-80 hover:bg-slate-200 border border-hairline"
+                                  }`}
+                                >
+                                  🌐 Tự do (Thi thử)
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/30 text-ink">
+                                    {freeSubmissions.length} nộp • ĐTB: {freeAvg}
+                                  </span>
+                                </button>
+                              );
+                            })()}
                           </div>
                         </div>
                       )}

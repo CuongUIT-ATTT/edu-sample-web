@@ -354,7 +354,27 @@ export async function submitQuiz(input: SubmitQuizInput) {
     }
 
     // Check if submitted after effective deadline — flag as late, still accept (không chặn)
-    const targetClassId = input.classId?.trim() || attempt?.classId || access.classId || null;
+    let targetClassId: string | null = null;
+    if (attempt?.classId) {
+      targetClassId = attempt.classId;
+    } else if (input.classId?.trim()) {
+      const requestedClassId = input.classId.trim();
+      if (studentProfile) {
+        const isEnrolled = studentProfile.classes.some((c) => c.id === requestedClassId);
+        if (isEnrolled || quiz.isPublic) {
+          targetClassId = requestedClassId;
+        } else {
+          targetClassId = access.classId;
+        }
+      } else if (quiz.isPublic) {
+        targetClassId = requestedClassId;
+      } else {
+        targetClassId = access.classId;
+      }
+    } else {
+      targetClassId = access.classId;
+    }
+
     const targetAssignment = targetClassId
       ? quiz.assignments.find((a) => a.classId === targetClassId) ?? access.assignment
       : access.assignment;
@@ -405,7 +425,7 @@ export async function submitQuiz(input: SubmitQuizInput) {
     const showAnswers = await resolveAnswerVisibility(quiz, {
       classId: targetClassId,
       deadline: effectiveDeadline,
-      timeExpired: !!input.timeExpired,
+      timeExpired: attempt ? isTimedOut : !!input.timeExpired,
     });
 
     const finalCorrectAnswers = showAnswers
@@ -468,7 +488,25 @@ export async function startQuizAttempt(input: StartQuizAttemptInput) {
       return { success: false, error: "Vui lòng nhập Họ tên để bắt đầu làm bài thi thử công khai." };
     }
 
-    const targetClassId = input.classId?.trim() || access.classId || null;
+    let targetClassId: string | null = null;
+    if (input.classId?.trim()) {
+      const requestedClassId = input.classId.trim();
+      if (studentProfile) {
+        const isEnrolled = studentProfile.classes.some((c) => c.id === requestedClassId);
+        if (isEnrolled || quiz.isPublic) {
+          targetClassId = requestedClassId;
+        } else {
+          targetClassId = access.classId;
+        }
+      } else if (quiz.isPublic) {
+        targetClassId = requestedClassId;
+      } else {
+        targetClassId = access.classId;
+      }
+    } else {
+      targetClassId = access.classId;
+    }
+
     const targetAssignment = targetClassId
       ? quiz.assignments.find((a) => a.classId === targetClassId) ?? access.assignment
       : access.assignment;
@@ -879,8 +917,8 @@ export async function getQuizSubmissions(quizId: string) {
 export async function getAllQuizzesForHomework() {
   try {
     const session = await getSession();
-    if (!session) {
-      return { success: false, error: "Bạn chưa đăng nhập." };
+    if (!session || (session.role !== "TEACHER" && session.role !== "ADMIN")) {
+      return { success: false, error: "Bạn không có quyền xem danh sách đề thi." };
     }
 
     const quizzes = await db.quiz.findMany({
