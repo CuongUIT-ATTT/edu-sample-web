@@ -97,6 +97,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [isSubmissionsOpen, setIsSubmissionsOpen] = useState(false);
   const [selectedQuizTitle, setSelectedQuizTitle] = useState("");
   const [submissionsList, setSubmissionsList] = useState<any[]>([]);
+  const [submissionsQuizInfo, setSubmissionsQuizInfo] = useState<any>(null);
+  const [selectedClassTab, setSelectedClassTab] = useState<string>("ALL");
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
 
   const handleViewSubmissions = async (quizId: string, quizTitle: string) => {
@@ -104,17 +106,20 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setIsSubmissionsOpen(true);
     setLoadingSubmissions(true);
     setSubmissionsList([]);
+    setSubmissionsQuizInfo(null);
+    setSelectedClassTab("ALL");
 
     try {
       const res = await getQuizSubmissions(quizId);
       if (res.success && res.data) {
         setSubmissionsList(res.data);
+        setSubmissionsQuizInfo(res.quizInfo || null);
       } else {
-        alert(res.error || "Không thể tải danh sách kết quả.");
+        showToast(res.error || "Không thể tải danh sách kết quả.", "error");
       }
     } catch (error) {
       console.error(error);
-      alert("Lỗi hệ thống khi tải kết quả.");
+      showToast("Lỗi hệ thống khi tải kết quả.", "error");
     } finally {
       setLoadingSubmissions(false);
     }
@@ -1248,19 +1253,58 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   </select>
                 </div>
 
-                <div className="flex flex-col gap-3 md:col-span-2 border border-divider-soft rounded-lg bg-surface-pearl p-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-caption-strong text-ink-muted-80">Giao đề theo lớp</label>
-                    <span className="text-[10px] text-ink-muted-48">
-                      Chọn một hoặc nhiều lớp. Mỗi lớp có thể override thời gian mở đề và deadline riêng.
-                    </span>
+                {/* Stitch UI: Multi-Class Quiz Assignment Interface Section */}
+                <div className="flex flex-col gap-4 md:col-span-2 border border-blue-200 rounded-xl bg-blue-50/30 p-4 shadow-sm">
+                  <div className="flex flex-col gap-1 border-b border-blue-100 pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="h-5 w-5 text-primary" />
+                        <h4 className="text-sm font-bold text-ink">Phân phối Lớp học & Cài đặt Lịch thi riêng</h4>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-blue-100 px-2.5 py-0.5 rounded-full">
+                        QuizClassAssignment
+                      </span>
+                    </div>
+                    <p className="text-xs text-ink-muted-80">
+                      Thiết lập thời gian mở đề (startsAtOverride) và hạn chót (deadlineOverride) độc lập cho từng lớp phụ trách.
+                    </p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* Selected Class Pills & Add Class selector */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold text-ink-muted-80">Lớp được phân công:</span>
+                    {assignments.length === 0 ? (
+                      <span className="text-xs italic text-ink-muted-48">Chưa chọn lớp (mở cho tất cả học sinh thuộc tổ)</span>
+                    ) : (
+                      assignments.map((assignment) => (
+                        <span
+                          key={assignment.classId}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-primary text-white shadow-xs"
+                        >
+                          {getClassName(assignment.classId)}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleClassAssignment(assignment.classId, false)}
+                            className="hover:text-red-200 transition-colors"
+                            title="Bỏ chọn lớp này"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </span>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Class Selection Checkboxes */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-canvas p-3 rounded-lg border border-hairline">
                     {classes.map((item) => (
                       <label
                         key={item.id}
-                        className="flex items-center gap-2 rounded-md border border-hairline bg-canvas px-3 py-2 text-xs font-semibold text-ink-muted-80"
+                        className={`flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold cursor-pointer transition-colors ${
+                          selectedClassIds.has(item.id)
+                            ? "border-primary bg-blue-50/60 text-primary"
+                            : "border-hairline bg-canvas text-ink-muted-80 hover:bg-surface-pearl"
+                        }`}
                       >
                         <input
                           type="checkbox"
@@ -1273,37 +1317,75 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     ))}
                   </div>
 
-                  {assignments.length === 0 ? (
-                    <span className="text-[10px] text-ink-muted-48">Không chọn lớp = đề nội bộ mở cho tất cả học sinh đăng nhập.</span>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {assignments.map((assignment) => (
-                        <div key={assignment.classId} className="grid grid-cols-1 md:grid-cols-3 gap-2 rounded-md border border-hairline bg-canvas p-3">
-                          <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600">Lớp</span>
-                            <span className="text-xs font-semibold text-ink">{getClassName(assignment.classId)}</span>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-semibold text-ink-muted-80">Mở đề từ</label>
-                            <input
-                              type="datetime-local"
-                              value={assignment.startsAtOverride ?? ""}
-                              onChange={(e) => handleAssignmentDateChange(assignment.classId, "startsAtOverride", e.target.value)}
-                              className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-semibold text-ink-muted-80">Deadline riêng</label>
-                            <input
-                              type="datetime-local"
-                              value={assignment.deadlineOverride ?? ""}
-                              onChange={(e) => handleAssignmentDateChange(assignment.classId, "deadlineOverride", e.target.value)}
-                              className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full"
-                            />
-                            <span className="text-[10px] text-ink-muted-48">Bỏ trống = dùng deadline mặc định.</span>
-                          </div>
-                        </div>
-                      ))}
+                  {/* Per-Class Schedule Table */}
+                  {assignments.length > 0 && (
+                    <div className="border border-hairline rounded-lg overflow-x-auto bg-canvas shadow-xs">
+                      <table className="w-full min-w-[580px] text-left text-xs font-body border-collapse">
+                        <thead>
+                          <tr className="bg-surface-pearl text-ink-muted-80 border-b border-divider font-semibold text-[10px] uppercase tracking-wider">
+                            <th className="p-3">Lớp phụ trách</th>
+                            <th className="p-3">Giờ mở đề riêng (startsAtOverride)</th>
+                            <th className="p-3">Hạn nộp riêng (deadlineOverride)</th>
+                            <th className="p-3 text-center">Trạng thái áp dụng</th>
+                            <th className="p-3 text-center">Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-divider-soft">
+                          {assignments.map((assignment) => {
+                            const hasOverride = Boolean(assignment.startsAtOverride || assignment.deadlineOverride);
+                            return (
+                              <tr key={assignment.classId} className="hover:bg-slate-50 transition-colors">
+                                <td className="p-3 font-bold text-ink">
+                                  <div className="flex items-center gap-2">
+                                    <span className="h-2 w-2 rounded-full bg-primary" />
+                                    <span>{getClassName(assignment.classId)}</span>
+                                  </div>
+                                </td>
+                                <td className="p-3">
+                                  <input
+                                    type="datetime-local"
+                                    value={assignment.startsAtOverride ?? ""}
+                                    onChange={(e) => handleAssignmentDateChange(assignment.classId, "startsAtOverride", e.target.value)}
+                                    className="bg-canvas border border-hairline rounded-pill px-3 py-1.5 text-xs text-ink outline-none focus:border-primary-focus w-full"
+                                  />
+                                </td>
+                                <td className="p-3">
+                                  <input
+                                    type="datetime-local"
+                                    value={assignment.deadlineOverride ?? ""}
+                                    onChange={(e) => handleAssignmentDateChange(assignment.classId, "deadlineOverride", e.target.value)}
+                                    className="bg-canvas border border-hairline rounded-pill px-3 py-1.5 text-xs text-ink outline-none focus:border-primary-focus w-full"
+                                  />
+                                </td>
+                                <td className="p-3 text-center">
+                                  {hasOverride ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                                      ✓ Lịch riêng
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
+                                      Theo lịch chung
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleClassAssignment(assignment.classId, false)}
+                                    className="p-1 text-ink-muted-48 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                    title="Gỡ lớp này"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      <div className="p-2.5 bg-surface-pearl border-t border-hairline text-[11px] text-ink-muted-80 italic">
+                        * Lưu ý: Nếu để trống ô thời gian của lớp, học sinh thuộc lớp đó sẽ tự động tuân theo Lịch mặc định chung của đề thi.
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1710,75 +1792,241 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         </div>
       )}
 
-      {/* Submissions Results View Modal */}
+      {/* Submissions Results & Multi-Class Analytics View Modal (Stitch Screen 61a756a6) */}
       {isSubmissionsOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-lg w-[650px] max-w-full shadow-product flex flex-col overflow-hidden animate-fade-in max-h-[85vh]">
-            <div className="border-b border-divider p-5 flex items-center justify-between">
-              <div>
-                <h3 className="font-tagline text-base font-bold text-ink">Kết quả làm bài thi</h3>
-                <p className="text-[10px] text-ink-muted-48">{selectedQuizTitle}</p>
+          <div className="bg-canvas border border-hairline rounded-xl w-[880px] max-w-full shadow-2xl flex flex-col overflow-hidden animate-fade-in max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="border-b border-divider p-5 bg-surface-pearl flex items-center justify-between">
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-2">
+                  <BarChart2 className="h-5 w-5 text-primary" />
+                  <h3 className="font-tagline text-base font-bold text-ink">
+                    EduWeb - Kết quả thi & Thống kê điểm theo lớp (QuizClassAssignment)
+                  </h3>
+                </div>
+                <p className="text-xs text-ink-muted-80 font-semibold">{selectedQuizTitle}</p>
               </div>
               <button
                 onClick={() => setIsSubmissionsOpen(false)}
-                className="hover:bg-surface-pearl p-1 rounded-full text-ink-muted-80 transition-colors"
+                className="hover:bg-surface-pearl p-1.5 rounded-full text-ink-muted-80 hover:text-ink transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-4">
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-6">
               {loadingSubmissions ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-2">
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
                   <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                  <span className="text-xs text-ink-muted-80 font-body">Đang tải kết quả thi...</span>
+                  <span className="text-xs text-ink-muted-80 font-body">Đang tải kết quả thi & phân tích dữ liệu đa lớp...</span>
                 </div>
               ) : submissionsList.length === 0 ? (
-                <div className="text-center py-12 border border-dashed border-divider rounded-lg">
-                  <Award className="h-10 w-10 text-ink-muted-48 mx-auto mb-2" />
-                  <span className="text-xs text-ink-muted-80 font-body">Chưa có lượt nộp bài nào cho đề thi này.</span>
+                <div className="text-center py-16 border border-dashed border-divider rounded-xl bg-surface-pearl/50 flex flex-col items-center gap-2">
+                  <Award className="h-12 w-12 text-ink-muted-48 mb-1" />
+                  <span className="text-sm font-bold text-ink">Chưa có lượt nộp bài nào</span>
+                  <span className="text-xs text-ink-muted-48">Học sinh chưa thực hiện bài kiểm tra này.</span>
                 </div>
               ) : (
-                <div className="border border-hairline rounded-lg overflow-x-auto bg-canvas">
-                  <table className="w-full min-w-[550px] text-left text-xs font-body border-collapse">
-                    <thead>
-                      <tr className="bg-surface-pearl text-ink-muted-80 border-b border-divider font-semibold text-[10px] uppercase tracking-wider">
-                        <th className="p-3">Họ và Tên</th>
-                        <th className="p-3">Lớp học</th>
-                        <th className="p-3 text-center">Điểm số</th>
-                        <th className="p-3 text-right">Thời gian nộp</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-divider-soft">
-                      {submissionsList.map((s) => (
-                        <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-3 font-semibold text-ink">{s.candidateName}</td>
-                          <td className="p-3 text-ink-muted-80">{s.classes}</td>
-                          <td className="p-3 text-center">
-                            <span className="font-bold text-primary px-2 py-0.5 bg-blue-50 border border-blue-100 rounded text-xs">
-                              {Number(s.score).toFixed(1)} / 10.0
-                            </span>
-                          </td>
-                          <td className="p-3 text-right text-ink-muted-48 text-[11px]">
-                            {new Date(s.submittedAt).toLocaleString("vi-VN", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              day: "2-digit",
-                              month: "2-digit",
+                (() => {
+                  const passingScore = submissionsQuizInfo?.passingScore ?? 5;
+                  const assignmentsList: any[] = submissionsQuizInfo?.assignments ?? [];
+
+                  // Calculate filtered submissions by class tab
+                  const filteredSubmissions = selectedClassTab === "ALL"
+                    ? submissionsList
+                    : submissionsList.filter((s) => s.classIds && s.classIds.includes(selectedClassTab));
+
+                  const totalSubmissions = filteredSubmissions.length;
+                  const avgScoreNum = totalSubmissions > 0
+                    ? filteredSubmissions.reduce((acc, s) => acc + Number(s.score), 0) / totalSubmissions
+                    : 0;
+                  const avgScoreStr = avgScoreNum.toFixed(2);
+
+                  const passedCount = filteredSubmissions.filter((s) => Number(s.score) >= passingScore).length;
+                  const passPercentage = totalSubmissions > 0
+                    ? ((passedCount / totalSubmissions) * 100).toFixed(1)
+                    : "0.0";
+
+                  const scores = filteredSubmissions.map((s) => Number(s.score));
+                  const maxScoreStr = scores.length > 0 ? Math.max(...scores).toFixed(1) : "0.0";
+                  const minScoreStr = scores.length > 0 ? Math.min(...scores).toFixed(1) : "0.0";
+
+                  // Tier breakdown (Giỏi >= 8.0, Khá 6.5-7.9, TB 5.0-6.4, Yếu < 5.0)
+                  const gioicount = filteredSubmissions.filter((s) => Number(s.score) >= 8.0).length;
+                  const khaCount = filteredSubmissions.filter((s) => Number(s.score) >= 6.5 && Number(s.score) < 8.0).length;
+                  const tbCount = filteredSubmissions.filter((s) => Number(s.score) >= 5.0 && Number(s.score) < 6.5).length;
+                  const yeuCount = filteredSubmissions.filter((s) => Number(s.score) < 5.0).length;
+
+                  return (
+                    <div className="flex flex-col gap-6">
+                      {/* Top Metric Cards */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-4 flex flex-col gap-1">
+                          <span className="text-[11px] font-semibold text-primary uppercase tracking-wider">Tổng lượt nộp</span>
+                          <span className="text-2xl font-bold text-ink">{totalSubmissions}</span>
+                          <span className="text-[10px] text-ink-muted-48">Đã hoàn thành bài làm</span>
+                        </div>
+
+                        <div className="bg-purple-50/60 border border-purple-200 rounded-xl p-4 flex flex-col gap-1">
+                          <span className="text-[11px] font-semibold text-purple-700 uppercase tracking-wider">ĐTB Khối / Lớp</span>
+                          <span className="text-2xl font-bold text-purple-900">{avgScoreStr} <span className="text-xs text-purple-600 font-normal">/ 10</span></span>
+                          <span className="text-[10px] text-purple-700/70">Điểm trung bình tích luỹ</span>
+                        </div>
+
+                        <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 flex flex-col gap-1">
+                          <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">Tỷ lệ đạt (≥ {passingScore})</span>
+                          <span className="text-2xl font-bold text-emerald-900">{passPercentage}%</span>
+                          <span className="text-[10px] text-emerald-700/70">{passedCount}/{totalSubmissions} thí sinh</span>
+                        </div>
+
+                        <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-4 flex flex-col gap-1">
+                          <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Điểm Cao / Thấp</span>
+                          <span className="text-xl font-bold text-amber-900">{maxScoreStr} <span className="text-xs font-normal text-amber-700">|</span> {minScoreStr}</span>
+                          <span className="text-[10px] text-amber-700/70">Chênh lệch điểm thi</span>
+                        </div>
+                      </div>
+
+                      {/* Class Filter Tabs */}
+                      {assignmentsList.length > 0 && (
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs font-bold text-ink">Phân lọc theo Lớp học (QuizClassAssignment):</span>
+                          <div className="flex flex-wrap gap-2 border-b border-divider pb-3">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedClassTab("ALL")}
+                              className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                selectedClassTab === "ALL"
+                                  ? "bg-primary text-white shadow-sm"
+                                  : "bg-surface-pearl text-ink-muted-80 hover:bg-slate-200 border border-hairline"
+                              }`}
+                            >
+                              Tất cả các lớp ({assignmentsList.length})
+                              <span className="ml-1 text-[10px] opacity-80">({submissionsList.length} nộp)</span>
+                            </button>
+
+                            {assignmentsList.map((a) => {
+                              const classSubs = submissionsList.filter((s) => s.classIds && s.classIds.includes(a.classId));
+                              const classAvg = classSubs.length > 0
+                                ? (classSubs.reduce((acc, s) => acc + Number(s.score), 0) / classSubs.length).toFixed(1)
+                                : "N/A";
+
+                              return (
+                                <button
+                                  key={a.classId}
+                                  type="button"
+                                  onClick={() => setSelectedClassTab(a.classId)}
+                                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                    selectedClassTab === a.classId
+                                      ? "bg-primary text-white shadow-sm"
+                                      : "bg-surface-pearl text-ink-muted-80 hover:bg-slate-200 border border-hairline"
+                                  }`}
+                                >
+                                  Lớp {a.className}
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/30 text-ink">
+                                    {classSubs.length}/{a.studentCount} nộp • ĐTB: {classAvg}
+                                  </span>
+                                </button>
+                              );
                             })}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Phổ điểm Tier Breakdown */}
+                      <div className="bg-surface-pearl border border-hairline rounded-xl p-4 flex flex-col gap-3">
+                        <span className="text-xs font-bold text-ink">Phân bố phổ điểm:</span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                          <div className="flex flex-col gap-1 p-2.5 rounded-lg bg-emerald-50 border border-emerald-100">
+                            <span className="font-semibold text-emerald-800">Giỏi (≥ 8.0)</span>
+                            <span className="text-lg font-bold text-emerald-900">{gioicount} HS ({totalSubmissions > 0 ? ((gioicount / totalSubmissions) * 100).toFixed(0) : 0}%)</span>
+                          </div>
+                          <div className="flex flex-col gap-1 p-2.5 rounded-lg bg-blue-50 border border-blue-100">
+                            <span className="font-semibold text-blue-800">Khá (6.5 - 7.9)</span>
+                            <span className="text-lg font-bold text-blue-900">{khaCount} HS ({totalSubmissions > 0 ? ((khaCount / totalSubmissions) * 100).toFixed(0) : 0}%)</span>
+                          </div>
+                          <div className="flex flex-col gap-1 p-2.5 rounded-lg bg-amber-50 border border-amber-100">
+                            <span className="font-semibold text-amber-800">Trung bình (5.0 - 6.4)</span>
+                            <span className="text-lg font-bold text-amber-900">{tbCount} HS ({totalSubmissions > 0 ? ((tbCount / totalSubmissions) * 100).toFixed(0) : 0}%)</span>
+                          </div>
+                          <div className="flex flex-col gap-1 p-2.5 rounded-lg bg-red-50 border border-red-100">
+                            <span className="font-semibold text-red-800">Yếu (&lt; 5.0)</span>
+                            <span className="text-lg font-bold text-red-900">{yeuCount} HS ({totalSubmissions > 0 ? ((yeuCount / totalSubmissions) * 100).toFixed(0) : 0}%)</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Submissions Table */}
+                      <div className="flex flex-col gap-2">
+                        <span className="text-xs font-bold text-ink">
+                          Danh sách học sinh nộp bài ({filteredSubmissions.length} lượt):
+                        </span>
+                        <div className="border border-hairline rounded-xl overflow-x-auto bg-canvas shadow-xs">
+                          <table className="w-full min-w-[620px] text-left text-xs font-body border-collapse">
+                            <thead>
+                              <tr className="bg-surface-pearl text-ink-muted-80 border-b border-divider font-semibold text-[10px] uppercase tracking-wider">
+                                <th className="p-3">Họ và Tên</th>
+                                <th className="p-3">Lớp học</th>
+                                <th className="p-3 text-center">Điểm số</th>
+                                <th className="p-3 text-center">Kết quả</th>
+                                <th className="p-3 text-right">Thời gian nộp</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-divider-soft">
+                              {filteredSubmissions.map((s) => {
+                                const isPassed = Number(s.score) >= passingScore;
+                                return (
+                                  <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="p-3 font-bold text-ink">{s.candidateName}</td>
+                                    <td className="p-3 text-ink-muted-80 font-medium">{s.classes}</td>
+                                    <td className="p-3 text-center">
+                                      <span
+                                        className={`font-bold px-2.5 py-1 rounded text-xs inline-block ${
+                                          isPassed
+                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                            : "bg-red-50 text-red-700 border border-red-200"
+                                        }`}
+                                      >
+                                        {Number(s.score).toFixed(1)} / 10.0
+                                      </span>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      {isPassed ? (
+                                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                          ĐẠT
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+                                          CHƯA ĐẠT
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="p-3 text-right text-ink-muted-48 text-[11px]">
+                                      {new Date(s.submittedAt).toLocaleString("vi-VN", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                        year: "numeric",
+                                      })}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()
               )}
             </div>
 
-            <div className="border-t border-divider p-4 flex justify-end">
+            <div className="border-t border-divider p-4 bg-surface-pearl flex justify-end">
               <button
                 onClick={() => setIsSubmissionsOpen(false)}
-                className="bg-primary hover:bg-primary-focus text-white px-5 py-2 rounded-pill text-xs font-semibold shadow-sm"
+                className="bg-primary hover:bg-primary-focus text-white px-6 py-2 rounded-full text-xs font-semibold shadow-sm"
               >
                 Đóng
               </button>

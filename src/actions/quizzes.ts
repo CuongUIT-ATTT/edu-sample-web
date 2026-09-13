@@ -787,11 +787,28 @@ export async function getQuizSubmissions(quizId: string) {
       return { success: false, error: "Bạn không có quyền xem kết quả bài kiểm tra này." };
     }
 
+    const quiz = await db.quiz.findUnique({
+      where: { id: quizId },
+      include: {
+        assignments: {
+          include: {
+            class: {
+              select: {
+                id: true,
+                name: true,
+                _count: { select: { students: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!quiz) return { success: false, error: "Đề kiểm tra không tồn tại." };
+
     // TEACHER: chỉ xem submissions của quiz mình tạo
     if (session.role === "TEACHER") {
       const teacher = await db.teacherProfile.findUnique({ where: { userId: session.userId } });
-      const quiz = await db.quiz.findUnique({ where: { id: quizId } });
-      if (!quiz) return { success: false, error: "Đề kiểm tra không tồn tại." };
       if (!teacher || quiz.teacherId !== teacher.id) {
         return { success: false, error: "Bạn không có quyền xem kết quả đề kiểm tra này." };
       }
@@ -803,22 +820,37 @@ export async function getQuizSubmissions(quizId: string) {
         student: {
           include: {
             user: { select: { name: true } },
-            classes: { select: { name: true } }
-          }
-        }
+            classes: { select: { id: true, name: true } },
+          },
+        },
       },
-      orderBy: { submittedAt: "desc" }
+      orderBy: { submittedAt: "desc" },
     });
 
-    const formatted = submissions.map(s => ({
+    const formatted = submissions.map((s) => ({
       id: s.id,
       candidateName: s.student ? s.student.user.name : (s.guestName || "Thí sinh tự do"),
-      classes: s.student ? s.student.classes.map(c => c.name).join(", ") : "Tự do (Thi thử)",
+      classIds: s.student ? s.student.classes.map((c) => c.id) : [],
+      classes: s.student ? s.student.classes.map((c) => c.name).join(", ") : "Tự do (Thi thử)",
       score: s.score,
-      submittedAt: s.submittedAt.toISOString()
+      submittedAt: s.submittedAt.toISOString(),
     }));
 
-    return { success: true, data: formatted };
+    const quizInfo = {
+      id: quiz.id,
+      title: quiz.title,
+      passingScore: quiz.passingScore,
+      deadline: quiz.deadline ? quiz.deadline.toISOString() : null,
+      assignments: quiz.assignments.map((a) => ({
+        classId: a.classId,
+        className: a.class.name,
+        studentCount: a.class._count.students,
+        deadlineOverride: a.deadlineOverride ? a.deadlineOverride.toISOString() : null,
+        startsAtOverride: a.startsAtOverride ? a.startsAtOverride.toISOString() : null,
+      })),
+    };
+
+    return { success: true, data: formatted, quizInfo };
   } catch (error) {
     console.error("Error loading quiz submissions:", error);
     return { success: false, error: "Lỗi hệ thống khi tải kết quả làm bài." };

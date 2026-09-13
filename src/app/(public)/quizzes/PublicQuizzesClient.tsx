@@ -7,6 +7,9 @@ import MathRenderer from "@/components/MathRenderer";
 import { submitQuiz, startQuizAttempt } from "@/actions/quizzes";
 import { cleanQuestionText } from "@/lib/quiz-shuffle";
 import { showToast } from "@/components/Toast";
+import { StitchButton } from "@/components/ui/stitch/StitchButton";
+import { StitchCard } from "@/components/ui/stitch/StitchCard";
+import { StitchInput } from "@/components/ui/stitch/StitchInput";
 
 interface Question {
   id: string;
@@ -291,33 +294,34 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
 
             {/* Search and List */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-6">
-              <span className="text-sm font-semibold text-ink">
+              <span className="text-sm font-semibold text-ink font-body-strong">
                 Danh sách đề thi công khai ({filteredQuizzes.length})
               </span>
-              <input
-                type="text"
-                placeholder="Tìm đề thi..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="bg-canvas border border-hairline rounded-pill px-4 py-2 h-10 text-xs text-ink outline-none focus:border-primary-focus w-full md:w-72"
-              />
+              <div className="w-full md:w-72">
+                <StitchInput
+                  variant="search"
+                  placeholder="Tìm đề thi..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
 
             {filteredQuizzes.length === 0 ? (
-              <div className="bg-canvas border border-hairline rounded-lg p-16 text-center shadow-sm">
+              <StitchCard variant="utility" className="p-16 text-center">
                 <Award className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
                 <p className="font-body text-ink-muted-80">Hiện tại chưa có đề thi công khai nào hoạt động.</p>
-              </div>
+              </StitchCard>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {filteredQuizzes.map((quiz) => (
-                  <div key={quiz.id} className="bg-canvas border border-hairline rounded-lg p-6 shadow-sm flex flex-col justify-between gap-4">
+                  <StitchCard key={quiz.id} variant="utility" className="flex flex-col justify-between gap-4">
                     <div className="flex flex-col gap-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-green-50 text-green-700 px-2.5 py-0.5 rounded-full">
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-canvas-parchment text-primary px-2.5 py-0.5 rounded-pill border border-hairline">
                           {quiz.category}
                         </span>
-                        <span className="text-[10px] text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full font-semibold uppercase">Miễn phí</span>
+                        <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-pill font-semibold uppercase">Miễn phí</span>
                       </div>
                       <h3 className="font-body-strong text-base font-bold text-ink">
                         {quiz.title}
@@ -333,14 +337,15 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                         <span>Điểm đạt: {quiz.passingScore.toFixed(1)}</span>
                       </div>
                     </div>
-                    
-                    <button
+
+                    <StitchButton
+                      variant="primary"
                       onClick={() => handleOpenNamePrompt(quiz)}
-                      className="bg-primary hover:bg-primary-focus text-white px-4 py-2.5 rounded-pill font-body-strong text-xs text-center apple-active-scale transition-colors shadow-sm w-full mt-2 flex items-center justify-center gap-1.5"
+                      className="w-full mt-2 gap-1.5"
                     >
                       Bắt đầu thi thử <Play className="h-3 w-3 fill-current" />
-                    </button>
-                  </div>
+                    </StitchButton>
+                  </StitchCard>
                 ))}
               </div>
             )}
