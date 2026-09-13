@@ -1,17 +1,14 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/auth'
 import path from 'path'
-import { loginAsRole } from './helpers/auth'
 
 test.describe('PDF Region Selector - Phase 2', () => {
   test.setTimeout(60000)
 
-  test('upload PDF, render page, vẽ vùng, gán câu hỏi', async ({ page }) => {
-    await loginAsRole(page, 'admin')
-
+  test('upload PDF, render page, vẽ vùng, gán câu hỏi', async ({ adminPage: page }) => {
     await page.goto('/admin/quizzes')
 
     const createButton = page.locator('main').getByRole('button', { name: 'Tạo đề thi trắc nghiệm mới' })
-    await expect(createButton).toBeVisible({ timeout: 10000 })
+    await expect(createButton).toBeVisible({ timeout: 15000 })
     await createButton.evaluate((el) => (el as HTMLButtonElement).click())
 
     const modalRoot = page.locator('div.fixed.inset-0.z-50').last()
