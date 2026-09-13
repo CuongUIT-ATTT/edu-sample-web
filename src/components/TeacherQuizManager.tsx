@@ -1831,9 +1831,13 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   const passingScore = submissionsQuizInfo?.passingScore ?? 5;
                   const assignmentsList: any[] = submissionsQuizInfo?.assignments ?? [];
 
+                  const freeSubmissions = submissionsList.filter((s) => !s.classId && (!s.classIds || s.classIds.length === 0));
+
                   // Calculate filtered submissions by class tab
                   const filteredSubmissions = selectedClassTab === "ALL"
                     ? submissionsList
+                    : selectedClassTab === "UNASSIGNED"
+                    ? freeSubmissions
                     : submissionsList.filter((s) => s.classId === selectedClassTab || (s.classIds && s.classIds.includes(selectedClassTab)));
 
                   const totalSubmissions = filteredSubmissions.length;
@@ -1887,7 +1891,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                       </div>
 
                       {/* Class Filter Tabs */}
-                      {assignmentsList.length > 0 && (
+                      {(assignmentsList.length > 0 || freeSubmissions.length > 0) && (
                         <div className="flex flex-col gap-2">
                           <span className="text-xs font-bold text-ink">Phân lọc theo Lớp học (QuizClassAssignment):</span>
                           <div className="flex flex-wrap gap-2 border-b border-divider pb-3">
@@ -1928,6 +1932,23 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                                 </button>
                               );
                             })}
+
+                            {freeSubmissions.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedClassTab("UNASSIGNED")}
+                                className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                  selectedClassTab === "UNASSIGNED"
+                                    ? "bg-amber-600 text-white shadow-sm"
+                                    : "bg-surface-pearl text-ink-muted-80 hover:bg-slate-200 border border-hairline"
+                                }`}
+                              >
+                                🌐 Tự do (Thi thử)
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/30 text-ink">
+                                  {freeSubmissions.length} nộp
+                                </span>
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}
