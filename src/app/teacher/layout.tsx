@@ -7,10 +7,10 @@ import LogoutButton from "@/components/LogoutButton";
 import ThemeToggle from "@/components/ThemeToggle";
 import { getCurrentUser } from "@/actions/session";
 import { EduWebLogo } from "@/components/ui/EduWebLogo";
+import StitchIconBadge from "@/components/ui/stitch/StitchIconBadge";
 import {
   BookOpen,
   Calendar,
-  LogOut,
   CheckSquare,
   LayoutDashboard,
   Settings,
@@ -91,13 +91,18 @@ export default function TeacherDashboardLayout({
           </Link>
 
           {/* Navigation Links */}
-          <nav className="flex flex-col gap-2">
+          <nav className="flex flex-col gap-1.5">
             <Link
               href="/teacher"
               onClick={closeSidebar}
               className={linkClass("/teacher")}
             >
-              <LayoutDashboard className="h-4 w-4 text-primary flex-shrink-0" />
+              <StitchIconBadge
+                icon={LayoutDashboard}
+                variant="blue"
+                size="sm"
+                isActive={isActive("/teacher")}
+              />
               <span>Tổng quan</span>
             </Link>
             <Link
@@ -105,7 +110,12 @@ export default function TeacherDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/teacher/attendance")}
             >
-              <CheckSquare className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={CheckSquare}
+                variant="emerald"
+                size="sm"
+                isActive={isActive("/teacher/attendance")}
+              />
               <span>Điểm danh</span>
             </Link>
             <Link
@@ -113,7 +123,12 @@ export default function TeacherDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/teacher/classes")}
             >
-              <BookOpen className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={BookOpen}
+                variant="purple"
+                size="sm"
+                isActive={isActive("/teacher/classes")}
+              />
               <span>Lớp luyện thi</span>
             </Link>
             <Link
@@ -121,7 +136,12 @@ export default function TeacherDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/teacher/calendar")}
             >
-              <Calendar className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={Calendar}
+                variant="cyan"
+                size="sm"
+                isActive={isActive("/teacher/calendar")}
+              />
               <span>Lịch</span>
             </Link>
             <Link
@@ -129,7 +149,12 @@ export default function TeacherDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/teacher/quizzes")}
             >
-              <HelpCircle className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={HelpCircle}
+                variant="rose"
+                size="sm"
+                isActive={isActive("/teacher/quizzes")}
+              />
               <span>Quản lý bài test</span>
             </Link>
             <Link
@@ -137,7 +162,12 @@ export default function TeacherDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/teacher/documents")}
             >
-              <FileText className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={FileText}
+                variant="indigo"
+                size="sm"
+                isActive={isActive("/teacher/documents")}
+              />
               <span>Tài liệu học tập</span>
             </Link>
             <Link
@@ -145,20 +175,30 @@ export default function TeacherDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/teacher/tuition")}
             >
-              <DollarSign className="h-4 w-4 text-green-600 flex-shrink-0" />
+              <StitchIconBadge
+                icon={DollarSign}
+                variant="amber"
+                size="sm"
+                isActive={isActive("/teacher/tuition")}
+              />
               <span>Học phí</span>
             </Link>
           </nav>
         </div>
 
         {/* Footer Utilities */}
-        <div className="flex flex-col gap-2 border-t border-divider-soft pt-4">
+        <div className="flex flex-col gap-1.5 border-t border-divider-soft pt-4">
           <Link
             href="/teacher/settings"
             onClick={closeSidebar}
             className={linkClass("/teacher/settings")}
           >
-            <Settings className="h-4 w-4 flex-shrink-0" />
+            <StitchIconBadge
+              icon={Settings}
+              variant="slate"
+              size="sm"
+              isActive={isActive("/teacher/settings")}
+            />
             <span>Thiết lập</span>
           </Link>
           <LogoutButton />

@@ -2,6 +2,7 @@ import React from "react";
 import { Users, BookOpen, GraduationCap, Calendar, Plus } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
+import StitchIconBadge from "@/components/ui/stitch/StitchIconBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -176,10 +177,13 @@ export default async function AdminDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <Link
           href="/admin/users"
-          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-primary transition-all duration-200 apple-active-scale cursor-pointer group"
+          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-primary transition-all duration-200 apple-active-scale cursor-pointer group shadow-sm hover:shadow-md"
         >
-          <div className="h-10 w-10 rounded-sm bg-blue-50 text-primary flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-            <Users className="h-5 w-5" />
+          <div className="flex items-center justify-between">
+            <StitchIconBadge icon={Users} variant="blue" size="md" />
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200/50">
+              Giảng viên
+            </span>
           </div>
           <div>
             <p className="text-xs text-ink-muted-48 uppercase font-semibold">
@@ -193,10 +197,13 @@ export default async function AdminDashboardPage() {
 
         <Link
           href="/admin/users"
-          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-green-600 transition-all duration-200 apple-active-scale cursor-pointer group"
+          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-green-600 transition-all duration-200 apple-active-scale cursor-pointer group shadow-sm hover:shadow-md"
         >
-          <div className="h-10 w-10 rounded-sm bg-green-50 text-green-600 flex items-center justify-center group-hover:bg-green-100 transition-colors">
-            <GraduationCap className="h-5 w-5" />
+          <div className="flex items-center justify-between">
+            <StitchIconBadge icon={GraduationCap} variant="emerald" size="md" />
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200/50">
+              Học viên
+            </span>
           </div>
           <div>
             <p className="text-xs text-ink-muted-48 uppercase font-semibold">
@@ -210,10 +217,13 @@ export default async function AdminDashboardPage() {
 
         <Link
           href="/admin/classes"
-          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-purple-600 transition-all duration-200 apple-active-scale cursor-pointer group"
+          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-purple-600 transition-all duration-200 apple-active-scale cursor-pointer group shadow-sm hover:shadow-md"
         >
-          <div className="h-10 w-10 rounded-sm bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
-            <BookOpen className="h-5 w-5" />
+          <div className="flex items-center justify-between">
+            <StitchIconBadge icon={BookOpen} variant="purple" size="md" />
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200/50">
+              Lớp học
+            </span>
           </div>
           <div>
             <p className="text-xs text-ink-muted-48 uppercase font-semibold">
@@ -227,10 +237,13 @@ export default async function AdminDashboardPage() {
 
         <Link
           href="/admin/schedules"
-          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-orange-600 transition-all duration-200 apple-active-scale cursor-pointer group"
+          className="bg-canvas border border-hairline rounded-lg p-6 flex flex-col gap-3 hover:border-orange-600 transition-all duration-200 apple-active-scale cursor-pointer group shadow-sm hover:shadow-md"
         >
-          <div className="h-10 w-10 rounded-sm bg-orange-50 text-orange-600 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
-            <Calendar className="h-5 w-5" />
+          <div className="flex items-center justify-between">
+            <StitchIconBadge icon={Calendar} variant="amber" size="md" />
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200/50">
+              Hôm nay
+            </span>
           </div>
           <div>
             <p className="text-xs text-ink-muted-48 uppercase font-semibold">

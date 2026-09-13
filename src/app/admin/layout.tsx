@@ -7,11 +7,11 @@ import LogoutButton from "@/components/LogoutButton";
 import ThemeToggle from "@/components/ThemeToggle";
 import { getCurrentUser } from "@/actions/session";
 import { EduWebLogo } from "@/components/ui/EduWebLogo";
+import StitchIconBadge from "@/components/ui/stitch/StitchIconBadge";
 import {
   Users,
   BookOpen,
   Calendar,
-  LogOut,
   ShieldAlert,
   LayoutDashboard,
   Settings,
@@ -94,13 +94,18 @@ export default function AdminDashboardLayout({
           </Link>
 
           {/* Navigation Links */}
-          <nav className="flex flex-col gap-2">
+          <nav className="flex flex-col gap-1.5">
             <Link
               href="/admin"
               onClick={closeSidebar}
               className={linkClass("/admin")}
             >
-              <LayoutDashboard className="h-4 w-4 text-primary flex-shrink-0" />
+              <StitchIconBadge
+                icon={LayoutDashboard}
+                variant="blue"
+                size="sm"
+                isActive={isActive("/admin")}
+              />
               <span>Tổng quan</span>
             </Link>
             <Link
@@ -108,7 +113,12 @@ export default function AdminDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/admin/users")}
             >
-              <Users className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={Users}
+                variant="indigo"
+                size="sm"
+                isActive={isActive("/admin/users")}
+              />
               <span>Người dùng</span>
             </Link>
             <Link
@@ -116,7 +126,12 @@ export default function AdminDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/admin/classes")}
             >
-              <BookOpen className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={BookOpen}
+                variant="purple"
+                size="sm"
+                isActive={isActive("/admin/classes")}
+              />
               <span>Lớp luyện thi</span>
             </Link>
             <Link
@@ -124,7 +139,12 @@ export default function AdminDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/admin/subjects")}
             >
-              <Calendar className="h-4 w-4 text-purple-500 flex-shrink-0" />
+              <StitchIconBadge
+                icon={Calendar}
+                variant="teal"
+                size="sm"
+                isActive={isActive("/admin/subjects")}
+              />
               <span>Môn học</span>
             </Link>
             <Link
@@ -132,7 +152,12 @@ export default function AdminDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/admin/rooms")}
             >
-              <Home className="h-4 w-4 text-orange-500 flex-shrink-0" />
+              <StitchIconBadge
+                icon={Home}
+                variant="amber"
+                size="sm"
+                isActive={isActive("/admin/rooms")}
+              />
               <span>Phòng học</span>
             </Link>
             <Link
@@ -140,7 +165,12 @@ export default function AdminDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/admin/calendar")}
             >
-              <Calendar className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={Calendar}
+                variant="cyan"
+                size="sm"
+                isActive={isActive("/admin/calendar")}
+              />
               <span>Lịch</span>
             </Link>
             <Link
@@ -148,7 +178,12 @@ export default function AdminDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/admin/quizzes")}
             >
-              <HelpCircle className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={HelpCircle}
+                variant="rose"
+                size="sm"
+                isActive={isActive("/admin/quizzes")}
+              />
               <span>Quản lý đề thi</span>
             </Link>
             <Link
@@ -156,7 +191,12 @@ export default function AdminDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/admin/documents")}
             >
-              <FileText className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={FileText}
+                variant="emerald"
+                size="sm"
+                isActive={isActive("/admin/documents")}
+              />
               <span>Quản lý tài liệu</span>
             </Link>
             <Link
@@ -164,7 +204,12 @@ export default function AdminDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/admin/tuition")}
             >
-              <DollarSign className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={DollarSign}
+                variant="amber"
+                size="sm"
+                isActive={isActive("/admin/tuition")}
+              />
               <span>Học phí</span>
             </Link>
             <Link
@@ -172,7 +217,12 @@ export default function AdminDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/admin/attendance")}
             >
-              <ClipboardCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
+              <StitchIconBadge
+                icon={ClipboardCheck}
+                variant="blue"
+                size="sm"
+                isActive={isActive("/admin/attendance")}
+              />
               <span>Điểm danh</span>
             </Link>
             <Link
@@ -180,20 +230,30 @@ export default function AdminDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/admin/system")}
             >
-              <ShieldAlert className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={ShieldAlert}
+                variant="red"
+                size="sm"
+                isActive={isActive("/admin/system")}
+              />
               <span>Bảo mật hệ thống</span>
             </Link>
           </nav>
         </div>
 
         {/* Footer Utilities */}
-        <div className="flex flex-col gap-2 border-t border-divider-soft pt-4">
+        <div className="flex flex-col gap-1.5 border-t border-divider-soft pt-4">
           <Link
             href="/admin/settings"
             onClick={closeSidebar}
             className={linkClass("/admin/settings")}
           >
-            <Settings className="h-4 w-4 flex-shrink-0" />
+            <StitchIconBadge
+              icon={Settings}
+              variant="slate"
+              size="sm"
+              isActive={isActive("/admin/settings")}
+            />
             <span>Thiết lập</span>
           </Link>
           <LogoutButton />

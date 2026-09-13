@@ -7,6 +7,7 @@ import LogoutButton from "@/components/LogoutButton";
 import ThemeToggle from "@/components/ThemeToggle";
 import { getCurrentUser } from "@/actions/session";
 import { EduWebLogo } from "@/components/ui/EduWebLogo";
+import StitchIconBadge from "@/components/ui/stitch/StitchIconBadge";
 import {
   Calendar,
   CheckSquare,
@@ -90,13 +91,18 @@ export default function StudentDashboardLayout({
           </Link>
 
           {/* Navigation Links */}
-          <nav className="flex flex-col gap-2">
+          <nav className="flex flex-col gap-1.5">
             <Link
               href="/student"
               onClick={closeSidebar}
               className={linkClass("/student")}
             >
-              <LayoutDashboard className="h-4 w-4 text-primary flex-shrink-0" />
+              <StitchIconBadge
+                icon={LayoutDashboard}
+                variant="blue"
+                size="sm"
+                isActive={isActive("/student")}
+              />
               <span>Tổng quan</span>
             </Link>
             <Link
@@ -104,7 +110,12 @@ export default function StudentDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/student/calendar")}
             >
-              <Calendar className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={Calendar}
+                variant="cyan"
+                size="sm"
+                isActive={isActive("/student/calendar")}
+              />
               <span>Lịch</span>
             </Link>
             <Link
@@ -112,7 +123,12 @@ export default function StudentDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/student/attendance")}
             >
-              <CheckSquare className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={CheckSquare}
+                variant="emerald"
+                size="sm"
+                isActive={isActive("/student/attendance")}
+              />
               <span>Chuyên cần</span>
             </Link>
             <Link
@@ -120,7 +136,12 @@ export default function StudentDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/student/grades")}
             >
-              <TrendingUp className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={TrendingUp}
+                variant="indigo"
+                size="sm"
+                isActive={isActive("/student/grades")}
+              />
               <span>Kết quả thi thử</span>
             </Link>
             <Link
@@ -128,7 +149,12 @@ export default function StudentDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/student/quizzes")}
             >
-              <CheckSquare className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={CheckSquare}
+                variant="rose"
+                size="sm"
+                isActive={isActive("/student/quizzes")}
+              />
               <span>Bài tập &amp; Đề thi</span>
             </Link>
             <Link
@@ -136,7 +162,12 @@ export default function StudentDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/student/leaderboard")}
             >
-              <Trophy className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={Trophy}
+                variant="amber"
+                size="sm"
+                isActive={isActive("/student/leaderboard")}
+              />
               <span>Bảng xếp hạng</span>
             </Link>
             <Link
@@ -144,7 +175,12 @@ export default function StudentDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/student/documents")}
             >
-              <FileText className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={FileText}
+                variant="purple"
+                size="sm"
+                isActive={isActive("/student/documents")}
+              />
               <span>Kho tài liệu</span>
             </Link>
             <Link
@@ -152,20 +188,30 @@ export default function StudentDashboardLayout({
               onClick={closeSidebar}
               className={linkClass("/student/payment")}
             >
-              <DollarSign className="h-4 w-4 flex-shrink-0" />
+              <StitchIconBadge
+                icon={DollarSign}
+                variant="teal"
+                size="sm"
+                isActive={isActive("/student/payment")}
+              />
               <span>Học phí</span>
             </Link>
           </nav>
         </div>
 
         {/* Footer Utilities */}
-        <div className="flex flex-col gap-2 border-t border-divider-soft pt-4">
+        <div className="flex flex-col gap-1.5 border-t border-divider-soft pt-4">
           <Link
             href="/student/settings"
             onClick={closeSidebar}
             className={linkClass("/student/settings")}
           >
-            <Settings className="h-4 w-4 flex-shrink-0" />
+            <StitchIconBadge
+              icon={Settings}
+              variant="slate"
+              size="sm"
+              isActive={isActive("/student/settings")}
+            />
             <span>Thiết lập</span>
           </Link>
           <LogoutButton />
