@@ -141,6 +141,50 @@ describe("gradeWithLayout", () => {
     expect(res.correctAnswers.find((c) => c.id === "mc1")?.correctAnswer).toBe("3");
   });
 
+  it("map đáp án trắc nghiệm dạng chữ cái về display space", () => {
+    const letterQuestions = {
+      legacy: {
+        id: "legacy",
+        type: "MULTIPLE_CHOICE",
+        options: ["go", "goes", "going", "gone"],
+        correctAnswer: "B",
+        score: 1,
+        explanation: null,
+      },
+    };
+    const layout: QuizLayout = {
+      questionOrder: { MULTIPLE_CHOICE: ["legacy"] },
+      optionOrder: { legacy: [2, 1, 0, 3] },
+    };
+
+    const res = gradeWithLayout(letterQuestions, layout, { legacy: "1" });
+
+    expect(res.totalScore).toBe(1);
+    expect(res.correctAnswers.find((c) => c.id === "legacy")?.correctAnswer).toBe("1");
+  });
+
+  it("map đáp án trắc nghiệm dạng text cũ về display space", () => {
+    const textQuestions = {
+      legacy: {
+        id: "legacy",
+        type: "MULTIPLE_CHOICE",
+        options: ["go", "goes", "going", "gone"],
+        correctAnswer: "goes",
+        score: 1,
+        explanation: null,
+      },
+    };
+    const layout: QuizLayout = {
+      questionOrder: { MULTIPLE_CHOICE: ["legacy"] },
+      optionOrder: { legacy: [2, 1, 0, 3] },
+    };
+
+    const res = gradeWithLayout(textQuestions, layout, { legacy: "1" });
+
+    expect(res.totalScore).toBe(1);
+    expect(res.correctAnswers.find((c) => c.id === "legacy")?.correctAnswer).toBe("1");
+  });
+
   it("TRUE_FALSE hoán vị: student đáp theo display → đúng", () => {
     // tf1 correct="T,F,T,T" (original). Hoán vị [2,0,3,1]:
     //   display stmt0 = original stmt2 = T

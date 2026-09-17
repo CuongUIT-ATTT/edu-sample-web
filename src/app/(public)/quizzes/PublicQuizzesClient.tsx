@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import MathRenderer from "@/components/MathRenderer";
-import { submitQuiz, startQuizAttempt } from "@/actions/quizzes";
+import { getQuizAnswerReview, submitQuiz, startQuizAttempt } from "@/actions/quizzes";
 import { cleanQuestionText } from "@/lib/quiz-shuffle";
 import { showToast } from "@/components/Toast";
 import StitchIconBadge from "@/components/ui/stitch/StitchIconBadge";
@@ -64,8 +64,10 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
     score: number;
     maxScore: number;
     passed: boolean;
+    submissionId: string;
     isLate?: boolean;
     correctAnswers?: { id: string; correctAnswer: string; explanation: string | null }[] | null;
+    answerReview?: { available: boolean; policy: string; message: string; availableAt: string | null };
   } | null>(null);
   const [showReview, setShowReview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -77,6 +79,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
   const [examCode, setExamCode] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const forceSubmitRef = useRef<(() => void) | null>(null);
+  const cheatWarningsRef = useRef(0);
 
   // Update forceSubmitRef with latest handleSubmit closure
   useEffect(() => {
@@ -102,20 +105,20 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
       if (now - lastWarningTime < 2000) return; // Debounce alerts
       lastWarningTime = now;
 
-      setCheatWarnings((prev) => {
-        const next = prev + 1;
-        if (next >= 3) {
-          setIsCheatedLocked(true);
-          showToast("BÀI THI BỊ KHÓA: Bạn đã rời màn hình/chuyển tab quá 3 lần. Bài thi sẽ tự động được nộp.", "error");
-          if (forceSubmitRef.current) {
-            forceSubmitRef.current();
-          }
-          return next;
-        } else {
-          showToast(`CẢNH BÁO GIAN LẬN: Bạn không được rời màn hình làm bài! Lần vi phạm: ${next}/3. Quá 3 lần bài thi sẽ tự động khóa và nộp bài.`, "warning");
-          return next;
+      const next = cheatWarningsRef.current + 1;
+      cheatWarningsRef.current = next;
+      setCheatWarnings(next);
+
+      if (next >= 3) {
+        setIsCheatedLocked(true);
+        showToast("BÀI THI BỊ KHÓA: Bạn đã rời màn hình/chuyển tab quá 3 lần. Bài thi sẽ tự động được nộp.", "error");
+        if (forceSubmitRef.current) {
+          forceSubmitRef.current();
         }
-      });
+        return;
+      }
+
+      showToast(`CẢNH BÁO GIAN LẬN: Bạn không được rời màn hình làm bài! Lần vi phạm: ${next}/3. Quá 3 lần bài thi sẽ tự động khóa và nộp bài.`, "warning");
     };
 
     const handleVisibility = () => {
@@ -206,6 +209,9 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
         setAnswers({});
         setQuizResult(null);
         setShowReview(false);
+        setCheatWarnings(0);
+        cheatWarningsRef.current = 0;
+        setIsCheatedLocked(false);
         setQuizStarted(true);
         setShowNameModal(false);
         setShowRules(false);
@@ -245,7 +251,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
   };
 
   async function handleSubmit() {
-    if (!selectedQuiz) return;
+    if (!selectedQuiz || submitting || quizResult) return;
     setSubmitting(true);
 
     try {
@@ -262,8 +268,10 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
           score: response.data.score,
           maxScore: response.data.maxScore,
           passed: response.data.passed,
+          submissionId: response.data.submissionId,
           isLate: response.data.isLate,
           correctAnswers: response.data.correctAnswers,
+          answerReview: response.data.answerReview,
         });
       } else {
         showToast(response.error || "Có lỗi xảy ra khi nộp bài.", "error");
@@ -274,6 +282,35 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
       setSubmitting(false);
     }
   }
+
+  const handleCheckAnswerReview = async () => {
+    if (!quizResult?.submissionId) return;
+
+    try {
+      const response = await getQuizAnswerReview(quizResult.submissionId, attemptId || undefined);
+      if (!response.success || !response.data) {
+        showToast(response.error || "Không thể tải đáp án.", "error");
+        return;
+      }
+
+      setQuizResult((prev) => prev
+        ? {
+            ...prev,
+            correctAnswers: response.data.correctAnswers,
+            answerReview: response.data.answerReview,
+          }
+        : prev);
+
+      if (response.data.correctAnswers) {
+        setShowReview(true);
+      } else {
+        showToast(response.data.answerReview.message, "info");
+      }
+    } catch (error) {
+      console.error("Error checking answer review:", error);
+      showToast("Lỗi hệ thống khi kiểm tra đáp án.", "error");
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -748,7 +785,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
             </div>
 
             <div className="flex flex-col gap-3 w-full">
-              {quizResult.correctAnswers && (
+              {quizResult.correctAnswers ? (
                 <button
                   onClick={() => setShowReview(true)}
                   className="w-full py-3.5 px-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-600/25 apple-active-scale transition-all flex items-center justify-center gap-2"
@@ -756,7 +793,18 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                   <BookOpen className="h-4 w-4" />
                   <span>Xem đáp án & Lời giải chi tiết</span>
                 </button>
-              )}
+              ) : quizResult.answerReview ? (
+                <div className="w-full rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-left">
+                  <p className="text-xs font-bold text-amber-700 dark:text-amber-300">Đáp án chưa được mở</p>
+                  <p className="mt-1 text-xs text-ink-muted-80 leading-relaxed">{quizResult.answerReview.message}</p>
+                  <button
+                    onClick={handleCheckAnswerReview}
+                    className="mt-3 w-full py-2.5 px-4 rounded-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs apple-active-scale transition-all"
+                  >
+                    Kiểm tra lại đáp án
+                  </button>
+                </div>
+              ) : null}
 
               <button
                 onClick={() => {
@@ -879,7 +927,13 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
                                 >
                                   {String.fromCharCode(65 + optIndex)}
                                 </span>
-                                <MathRenderer text={opt} />
+                                <div className="flex flex-1 flex-col gap-1">
+                                  <MathRenderer text={opt} />
+                                  <div className="flex flex-wrap gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+                                    {isCorrectAnswer && <span className="text-emerald-600 dark:text-emerald-400">Đáp án đúng</span>}
+                                    {isStudentSelect && <span className={isCorrect ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>Bạn chọn</span>}
+                                  </div>
+                                </div>
                               </div>
                             );
                           })}

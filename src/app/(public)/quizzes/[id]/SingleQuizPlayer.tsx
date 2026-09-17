@@ -15,7 +15,7 @@ import {
   Zap,
   HelpCircle,
 } from "lucide-react";
-import { submitQuiz, startQuizAttempt } from "@/actions/quizzes";
+import { getQuizAnswerReview, submitQuiz, startQuizAttempt } from "@/actions/quizzes";
 import { cleanQuestionText } from "@/lib/quiz-shuffle";
 import MathRenderer from "@/components/MathRenderer";
 import Link from "next/link";
@@ -70,8 +70,10 @@ export default function SingleQuizPlayer({
     score: number;
     maxScore: number;
     passed: boolean;
+    submissionId: string;
     isLate?: boolean;
     correctAnswers?: { id: string; correctAnswer: string; explanation: string | null }[] | null;
+    answerReview?: { available: boolean; policy: string; message: string; availableAt: string | null };
   } | null>(null);
 
   // Anti-screenshot protection
@@ -307,8 +309,10 @@ export default function SingleQuizPlayer({
           score: response.data.score,
           maxScore: response.data.maxScore,
           passed: response.data.passed,
+          submissionId: response.data.submissionId,
           isLate: response.data.isLate,
           correctAnswers: response.data.correctAnswers,
+          answerReview: response.data.answerReview,
         });
       } else {
         showToast(response.error || "Có lỗi xảy ra khi nộp bài.", "error");
@@ -319,6 +323,35 @@ export default function SingleQuizPlayer({
       setSubmitting(false);
     }
   }
+
+  const handleCheckAnswerReview = async () => {
+    if (!quizResult?.submissionId) return;
+
+    try {
+      const response = await getQuizAnswerReview(quizResult.submissionId, attemptId || undefined);
+      if (!response.success || !response.data) {
+        showToast(response.error || "Không thể tải đáp án.", "error");
+        return;
+      }
+
+      setQuizResult((prev) => prev
+        ? {
+            ...prev,
+            correctAnswers: response.data.correctAnswers,
+            answerReview: response.data.answerReview,
+          }
+        : prev);
+
+      if (response.data.correctAnswers) {
+        setShowReview(true);
+      } else {
+        showToast(response.data.answerReview.message, "info");
+      }
+    } catch (error) {
+      console.error("Error checking answer review:", error);
+      showToast("Lỗi hệ thống khi kiểm tra đáp án.", "error");
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -633,7 +666,7 @@ export default function SingleQuizPlayer({
             </div>
 
             <div className="flex flex-col gap-3 w-full">
-              {quizResult.correctAnswers && (
+              {quizResult.correctAnswers ? (
                 <button
                   onClick={() => setShowReview(true)}
                   className="w-full py-3.5 px-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-600/25 apple-active-scale transition-all flex items-center justify-center gap-2"
@@ -641,7 +674,18 @@ export default function SingleQuizPlayer({
                   <BookOpen className="h-4 w-4" />
                   <span>Xem đáp án & Lời giải chi tiết</span>
                 </button>
-              )}
+              ) : quizResult.answerReview ? (
+                <div className="w-full rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-left">
+                  <p className="text-xs font-bold text-amber-700 dark:text-amber-300">Đáp án chưa được mở</p>
+                  <p className="mt-1 text-xs text-ink-muted-80 leading-relaxed">{quizResult.answerReview.message}</p>
+                  <button
+                    onClick={handleCheckAnswerReview}
+                    className="mt-3 w-full py-2.5 px-4 rounded-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs apple-active-scale transition-all"
+                  >
+                    Kiểm tra lại đáp án
+                  </button>
+                </div>
+              ) : null}
 
               <Link
                 href="/quizzes"
@@ -649,6 +693,175 @@ export default function SingleQuizPlayer({
               >
                 Quay lại ngân hàng đề thi
               </Link>
+            </div>
+          </div>
+        )}
+
+        {/* 4. REVIEW VIEW */}
+        {quizStarted && quizResult && showReview && quizResult.correctAnswers && (
+          <div className="flex flex-col gap-6 max-w-[860px] mx-auto w-full animate-fade-in">
+            <div className="backdrop-blur-2xl bg-white/85 dark:bg-slate-900/85 border border-white/60 dark:border-white/15 rounded-2xl p-5 shadow-xl flex items-center justify-between gap-4">
+              <div>
+                <h3 className="font-tagline text-base font-extrabold text-ink">Chi Tiết Đáp Án & Lời Giải</h3>
+                <p className="text-xs text-ink-muted-48">{quiz.title} • Thí sinh: {guestName}</p>
+              </div>
+              <button
+                onClick={() => setShowReview(false)}
+                className="bg-primary hover:bg-primary-focus text-white px-5 py-2.5 rounded-full text-xs font-bold apple-active-scale transition-all shadow-md"
+              >
+                Xem lại kết quả
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-6">
+              {(paper || []).map((q, qIndex) => {
+                const reviewInfo = quizResult.correctAnswers?.find((ca) => ca.id === q.id);
+                const studentAnsVal = (answers[q.id] || "").trim().toUpperCase();
+                const correctAnsVal = (reviewInfo?.correctAnswer || "").trim().toUpperCase();
+                let isCorrect = studentAnsVal === correctAnsVal;
+                let scoreEarned = 0;
+                let subCorrectText = "";
+
+                if (q.type === "TRUE_FALSE") {
+                  const studentParts = studentAnsVal.split(",");
+                  const correctParts = correctAnsVal.split(",");
+                  let subCorrect = 0;
+                  for (let i = 0; i < Math.min(studentParts.length, correctParts.length); i++) {
+                    if (studentParts[i] && correctParts[i] && studentParts[i].trim() === correctParts[i].trim()) {
+                      subCorrect++;
+                    }
+                  }
+                  subCorrectText = ` (${subCorrect}/4 ý)`;
+                  if (subCorrect === 1) scoreEarned = 0.1 * q.score;
+                  else if (subCorrect === 2) scoreEarned = 0.25 * q.score;
+                  else if (subCorrect === 3) scoreEarned = 0.5 * q.score;
+                  else if (subCorrect === 4) {
+                    scoreEarned = q.score;
+                    isCorrect = true;
+                  }
+                } else if (isCorrect) {
+                  scoreEarned = q.score;
+                }
+
+                return (
+                  <div
+                    key={q.id}
+                    className="backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/60 dark:border-white/15 rounded-3xl p-6 sm:p-8 flex flex-col gap-4 shadow-lg"
+                  >
+                    <div className="flex justify-between items-start gap-4">
+                      <h4 className="font-body-strong text-sm sm:text-base text-ink font-bold leading-relaxed">
+                        Câu {qIndex + 1}: <MathRenderer text={cleanQuestionText(q.questionText)} />
+                      </h4>
+                      <span
+                        className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full flex-shrink-0 border ${
+                          isCorrect
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                            : scoreEarned > 0
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                        }`}
+                      >
+                        {isCorrect
+                          ? `Đúng (${scoreEarned.toFixed(2)}đ)`
+                          : scoreEarned > 0
+                          ? `Đúng một phần${subCorrectText} (${scoreEarned.toFixed(2)}đ)`
+                          : `Sai (0đ)`}
+                      </span>
+                    </div>
+
+                    {q.imageUrl && q.imageUrl.trim() && (
+                      <div className="my-2 border border-hairline rounded-2xl overflow-hidden max-w-full bg-canvas shadow-sm">
+                        <img src={q.imageUrl} alt={`Minh họa câu ${qIndex + 1}`} className="w-full h-auto object-contain max-h-96" />
+                      </div>
+                    )}
+
+                    {q.type === "MULTIPLE_CHOICE" && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {(q.options || []).map((opt, optIndex) => {
+                          const isStudentSelect = answers[q.id] === optIndex.toString();
+                          const isCorrectAnswer = reviewInfo?.correctAnswer === optIndex.toString();
+                          let style = "bg-canvas/60 dark:bg-slate-800/60 border-hairline text-ink";
+                          if (isStudentSelect) {
+                            style = isCorrect
+                              ? "bg-emerald-500/15 border-emerald-500 text-emerald-800 dark:text-emerald-300 font-bold"
+                              : "bg-rose-500/15 border-rose-500 text-rose-800 dark:text-rose-300 font-bold";
+                          } else if (isCorrectAnswer) {
+                            style = "bg-emerald-500/10 border-emerald-500 border-dashed text-emerald-800 dark:text-emerald-300 font-bold";
+                          }
+
+                          return (
+                            <div key={optIndex} className={`flex items-center gap-3 p-4 rounded-2xl border text-xs sm:text-sm ${style}`}>
+                              <span
+                                className={`h-6 w-6 rounded-full border flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                                  isCorrectAnswer
+                                    ? "bg-emerald-600 border-emerald-600 text-white"
+                                    : isStudentSelect
+                                    ? "bg-rose-600 border-rose-600 text-white"
+                                    : "border-ink-muted-48 text-ink-muted-48"
+                                }`}
+                              >
+                                {String.fromCharCode(65 + optIndex)}
+                              </span>
+                              <div className="flex flex-1 flex-col gap-1">
+                                <MathRenderer text={opt} />
+                                <div className="flex flex-wrap gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+                                  {isCorrectAnswer && <span className="text-emerald-600 dark:text-emerald-400">Đáp án đúng</span>}
+                                  {isStudentSelect && <span className={isCorrect ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>Bạn chọn</span>}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {q.type === "TRUE_FALSE" && reviewInfo && (
+                      <div className="flex flex-col gap-3 border border-hairline rounded-2xl p-4 bg-canvas/60 dark:bg-slate-800/60">
+                        <div className="grid grid-cols-12 text-xs font-bold text-ink-muted-48 uppercase border-b border-hairline pb-2 mb-1">
+                          <div className="col-span-6">Ý phát biểu</div>
+                          <div className="col-span-3 text-center">Lựa chọn của bạn</div>
+                          <div className="col-span-3 text-center">Đáp án đúng</div>
+                        </div>
+                        {(q.options || []).map((opt, optIndex) => {
+                          const studentParts = (answers[q.id] || "-,-,-,-").split(",");
+                          const correctParts = (reviewInfo.correctAnswer || "T,T,T,T").split(",");
+                          const studVal = studentParts[optIndex] === "T" ? "Đúng" : studentParts[optIndex] === "F" ? "Sai" : "Chưa chọn";
+                          const corrVal = correctParts[optIndex] === "T" ? "Đúng" : "Sai";
+                          const rowCorrect = studentParts[optIndex] === correctParts[optIndex];
+                          return (
+                            <div key={optIndex} className="grid grid-cols-12 items-center gap-2 py-2 text-xs border-b border-hairline/60 last:border-0">
+                              <div className="col-span-6 flex gap-2 font-medium">
+                                <span className="font-bold text-primary">{String.fromCharCode(97 + optIndex)})</span>
+                                <MathRenderer text={opt} />
+                              </div>
+                              <div className={`col-span-3 text-center font-bold ${rowCorrect ? "text-emerald-600" : "text-rose-600"}`}>{studVal}</div>
+                              <div className="col-span-3 text-center font-bold text-emerald-600">{corrVal}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {q.type === "SHORT_ANSWER" && reviewInfo && (
+                      <div className="flex flex-col gap-2 p-4 bg-canvas/60 dark:bg-slate-800/60 border border-hairline rounded-2xl text-xs sm:text-sm">
+                        <div>
+                          Bạn đã nhập: <strong className={isCorrect ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>{answers[q.id] || "(Chưa nhập)"}</strong>
+                        </div>
+                        <div>
+                          Đáp án chuẩn: <strong className="text-emerald-600 font-bold">{reviewInfo.correctAnswer}</strong>
+                        </div>
+                      </div>
+                    )}
+
+                    {reviewInfo?.explanation && (
+                      <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4 mt-1 text-xs sm:text-sm text-ink leading-relaxed">
+                        <span className="font-bold text-primary flex items-center gap-1.5 mb-1">💡 Lời giải chi tiết:</span>
+                        <MathRenderer text={reviewInfo.explanation} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

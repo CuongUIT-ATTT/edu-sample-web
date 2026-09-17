@@ -49,6 +49,19 @@ type ResolvedQuizAccess = {
   classId: string | null;
 };
 
+type CorrectAnswerItem = {
+  id: string;
+  correctAnswer: string;
+  explanation: string | null;
+};
+
+type AnswerReviewState = {
+  available: boolean;
+  policy: string;
+  message: string;
+  availableAt: string | null;
+};
+
 interface SubmitQuizInput {
   quizId: string;
   answers: Record<string, string>; // Map of question ID to answer index string
@@ -208,36 +221,94 @@ function resolveQuizAssignmentForStudent(
   return { allowed: true, assignment: null, classId: null };
 }
 
+function createAnswerReviewState(
+  policy: string,
+  available: boolean,
+  deadline: Date | null,
+): AnswerReviewState {
+  if (available) {
+    return {
+      available: true,
+      policy,
+      message: "Đáp án và lời giải đã sẵn sàng.",
+      availableAt: null,
+    };
+  }
+
+  switch (policy) {
+    case "WHEN_ENDED":
+      return {
+        available: false,
+        policy,
+        message: deadline
+          ? "Đáp án sẽ mở sau khi hết thời hạn làm đề thi."
+          : "Đề này chưa đặt thời hạn kết thúc nên đáp án chưa được mở.",
+        availableAt: deadline ? deadline.toISOString() : null,
+      };
+    case "AFTER_ALL_SUBMITTED":
+      return {
+        available: false,
+        policy,
+        message: deadline
+          ? "Đáp án sẽ mở khi tất cả học sinh trong lớp đã nộp bài hoặc khi hết thời hạn làm đề thi."
+          : "Đáp án sẽ mở khi tất cả học sinh trong lớp đã nộp bài.",
+        availableAt: deadline ? deadline.toISOString() : null,
+      };
+    case "NEVER":
+      return {
+        available: false,
+        policy,
+        message: "Giáo viên chưa cho phép học viên xem đáp án và lời giải.",
+        availableAt: null,
+      };
+    default:
+      return {
+        available: false,
+        policy,
+        message: "Đáp án chưa được mở theo cấu hình của đề thi.",
+        availableAt: null,
+      };
+  }
+}
+
 /**
  * Quyết định có hiển thị đáp án sau khi nộp hay không.
- * - IMMEDIATELY: luôn hiển thị
- * - WHEN_ENDED: chỉ khi hết thời gian (timer = 0)
- * - NEVER: không hiển thị
- * - AFTER_ALL_SUBMITTED: đề private gắn lớp — hiển thị khi tất cả học sinh trong lớp hiệu lực đã nộp
- *   HOẶC đã qua deadline hiệu lực. Nếu không có lớp → hành xử như IMMEDIATELY.
+ * - IMMEDIATELY: hiển thị ngay sau khi nộp bài.
+ * - WHEN_ENDED: hiển thị khi đã qua deadline hiệu lực của đề/lớp.
+ * - AFTER_ALL_SUBMITTED: đề private gắn lớp — hiển thị khi tất cả học sinh trong lớp hiệu lực đã nộp,
+ *   hoặc khi đã qua deadline hiệu lực.
+ * - NEVER: giữ tương thích dữ liệu cũ, không hiển thị.
  */
-async function resolveAnswerVisibility(
+async function resolveAnswerReviewState(
   quiz: { id: string; answerVisibility: string },
-  context: { classId: string | null; deadline: Date | null; timeExpired: boolean },
+  context: { classId: string | null; deadline: Date | null },
   now: Date = new Date(),
-): Promise<boolean> {
+): Promise<AnswerReviewState> {
   switch (quiz.answerVisibility) {
     case "IMMEDIATELY":
-      return true;
-    case "WHEN_ENDED":
-      return context.timeExpired;
+      return createAnswerReviewState(quiz.answerVisibility, true, context.deadline);
+    case "WHEN_ENDED": {
+      const available = context.deadline ? now > context.deadline : false;
+      return createAnswerReviewState(quiz.answerVisibility, available, context.deadline);
+    }
     case "NEVER":
-      return false;
+      return createAnswerReviewState(quiz.answerVisibility, false, context.deadline);
     case "AFTER_ALL_SUBMITTED": {
-      if (!context.classId) return true;
-      if (context.deadline && now > context.deadline) return true;
+      if (!context.classId) {
+        return createAnswerReviewState(quiz.answerVisibility, true, context.deadline);
+      }
+      if (context.deadline && now > context.deadline) {
+        return createAnswerReviewState(quiz.answerVisibility, true, context.deadline);
+      }
 
       const classInfo = await db.class.findUnique({
         where: { id: context.classId },
         select: { _count: { select: { students: true } } },
       });
       const studentCount = classInfo?._count.students ?? 0;
-      if (studentCount === 0) return false;
+      if (studentCount === 0) {
+        return createAnswerReviewState(quiz.answerVisibility, false, context.deadline);
+      }
 
       const submitted = await db.quizSubmission.findMany({
         where: {
@@ -248,11 +319,53 @@ async function resolveAnswerVisibility(
         select: { studentId: true },
         distinct: ["studentId"],
       });
-      return submitted.length >= studentCount;
+      return createAnswerReviewState(quiz.answerVisibility, submitted.length >= studentCount, context.deadline);
     }
     default:
-      return false;
+      return createAnswerReviewState(quiz.answerVisibility, false, context.deadline);
   }
+}
+
+function normalizeQuestionOptions(options: unknown): string[] {
+  if (!Array.isArray(options)) return [];
+  return options.filter((option): option is string => typeof option === "string");
+}
+
+function buildLegacyCorrectAnswers(questions: { id: string; correctAnswer: string; explanation: string | null }[]): CorrectAnswerItem[] {
+  return questions.map((q) => ({
+    id: q.id,
+    correctAnswer: q.correctAnswer,
+    explanation: q.explanation,
+  }));
+}
+
+function buildLayoutCorrectAnswers(
+  questions: { id: string; type: string; options: unknown; correctAnswer: string; score: number; explanation: string | null }[],
+  layout: { questionOrder: Record<string, string[]>; optionOrder: Record<string, number[]> },
+  answers: Record<string, string>,
+): CorrectAnswerItem[] {
+  const questionsById: Record<string, { id: string; type: string; options: string[]; correctAnswer: string; score: number; explanation: string | null }> = {};
+  for (const q of questions) {
+    questionsById[q.id] = {
+      id: q.id,
+      type: q.type,
+      options: normalizeQuestionOptions(q.options),
+      correctAnswer: q.correctAnswer,
+      score: q.score,
+      explanation: q.explanation,
+    };
+  }
+
+  return gradeWithLayout(questionsById, layout, answers).correctAnswers;
+}
+
+function normalizeAnswerVisibility(input: string | undefined, isPublic: boolean | undefined, classIds: string[]): string {
+  if (input === "WHEN_ENDED") return "WHEN_ENDED";
+  if (input === "AFTER_ALL_SUBMITTED") {
+    return isPublic || classIds.length === 0 ? "IMMEDIATELY" : "AFTER_ALL_SUBMITTED";
+  }
+  if (input === "NEVER") return "WHEN_ENDED";
+  return "IMMEDIATELY";
 }
 
 export async function submitQuiz(input: SubmitQuizInput) {
@@ -306,12 +419,16 @@ export async function submitQuiz(input: SubmitQuizInput) {
       }
 
       const layout = attempt.layout as { questionOrder: Record<string, string[]>; optionOrder: Record<string, number[]> };
-      const questionsById: Record<string, { id: string; type: string; correctAnswer: string; score: number; explanation: string | null }> = {};
-      for (const q of attempt.quiz.questions) {
-        questionsById[q.id] = { id: q.id, type: q.type, correctAnswer: q.correctAnswer, score: q.score, explanation: q.explanation };
-      }
-
-      const graded = gradeWithLayout(questionsById, layout, input.answers);
+      const graded = gradeWithLayout(
+        Object.fromEntries(
+          attempt.quiz.questions.map((q) => [
+            q.id,
+            { id: q.id, type: q.type, options: normalizeQuestionOptions(q.options), correctAnswer: q.correctAnswer, score: q.score, explanation: q.explanation },
+          ]),
+        ),
+        layout,
+        input.answers,
+      );
       totalScore = graded.totalScore;
       maxScore = graded.maxScore;
       correctAnswersData = graded.correctAnswers;
@@ -381,6 +498,40 @@ export async function submitQuiz(input: SubmitQuizInput) {
     const effectiveDeadline = getEffectiveDeadline(quiz, targetAssignment);
     const isLate = (effectiveDeadline ? new Date() > effectiveDeadline : false) || isTimedOut;
 
+    if (attempt) {
+      const existingSubmission = await db.quizSubmission.findUnique({
+        where: { attemptId: attempt.id },
+      });
+
+      if (existingSubmission) {
+        const answerReview = await resolveAnswerReviewState(quiz, {
+          classId: existingSubmission.classId,
+          deadline: effectiveDeadline,
+        });
+        const existingAnswers = existingSubmission.answers as Record<string, string>;
+        const existingCorrectAnswers = answerReview.available
+          ? buildLayoutCorrectAnswers(
+              quiz.questions,
+              attempt.layout as { questionOrder: Record<string, string[]>; optionOrder: Record<string, number[]> },
+              existingAnswers,
+            )
+          : null;
+
+        return {
+          success: true,
+          data: {
+            score: existingSubmission.score,
+            maxScore,
+            passed: existingSubmission.score >= quiz.passingScore,
+            submissionId: existingSubmission.id,
+            isLate: existingSubmission.isLate,
+            correctAnswers: existingCorrectAnswers,
+            answerReview,
+          },
+        };
+      }
+    }
+
     const submission = await db.quizSubmission.create({
       data: {
         studentId: studentProfile ? studentProfile.id : null,
@@ -422,18 +573,13 @@ export async function submitQuiz(input: SubmitQuizInput) {
 
     const passed = totalScore >= quiz.passingScore;
 
-    const showAnswers = await resolveAnswerVisibility(quiz, {
+    const answerReview = await resolveAnswerReviewState(quiz, {
       classId: targetClassId,
       deadline: effectiveDeadline,
-      timeExpired: attempt ? isTimedOut : !!input.timeExpired,
     });
 
-    const finalCorrectAnswers = showAnswers
-      ? (correctAnswersData ?? quiz.questions.map((q: { id: string; correctAnswer: string; explanation: string | null }) => ({
-          id: q.id,
-          correctAnswer: q.correctAnswer,
-          explanation: q.explanation
-        })))
+    const finalCorrectAnswers = answerReview.available
+      ? (correctAnswersData ?? buildLegacyCorrectAnswers(quiz.questions))
       : null;
 
     return {
@@ -444,12 +590,72 @@ export async function submitQuiz(input: SubmitQuizInput) {
         passed,
         submissionId: submission.id,
         isLate,
-        correctAnswers: finalCorrectAnswers
+        correctAnswers: finalCorrectAnswers,
+        answerReview,
       }
     };
   } catch (error) {
     console.error("Error submitting quiz:", error);
     return { success: false, error: "Đã xảy ra lỗi hệ thống khi chấm bài thi trắc nghiệm." };
+  }
+}
+
+export async function getQuizAnswerReview(submissionId: string, answerReviewToken?: string) {
+  try {
+    const session = await getSession();
+    const studentProfile = await getStudentProfileForSession(session);
+
+    const submission = await db.quizSubmission.findUnique({
+      where: { id: submissionId },
+      include: {
+        attempt: true,
+        quiz: {
+          include: {
+            questions: true,
+            assignments: { include: { class: true } },
+          },
+        },
+      },
+    });
+
+    if (!submission) {
+      return { success: false, error: "Không tìm thấy bài nộp." };
+    }
+
+    if (submission.studentId) {
+      if (submission.studentId !== studentProfile?.id) {
+        return { success: false, error: "Bạn không có quyền xem đáp án của bài nộp này." };
+      }
+    } else if (!submission.attemptId || submission.attemptId !== answerReviewToken) {
+      return { success: false, error: "Bạn không có quyền xem đáp án của bài nộp này." };
+    }
+
+    const targetAssignment = submission.classId
+      ? submission.quiz.assignments.find((a) => a.classId === submission.classId) ?? null
+      : null;
+    const effectiveDeadline = getEffectiveDeadline(submission.quiz, targetAssignment);
+    const answerReview = await resolveAnswerReviewState(submission.quiz, {
+      classId: submission.classId,
+      deadline: effectiveDeadline,
+    });
+
+    if (!answerReview.available) {
+      return { success: true, data: { correctAnswers: null, answerReview } };
+    }
+
+    const answers = submission.answers as Record<string, string>;
+    const correctAnswers = submission.attempt
+      ? buildLayoutCorrectAnswers(
+          submission.quiz.questions,
+          submission.attempt.layout as { questionOrder: Record<string, string[]>; optionOrder: Record<string, number[]> },
+          answers,
+        )
+      : buildLegacyCorrectAnswers(submission.quiz.questions);
+
+    return { success: true, data: { correctAnswers, answerReview } };
+  } catch (error) {
+    console.error("Error loading quiz answer review:", error);
+    return { success: false, error: "Đã xảy ra lỗi hệ thống khi tải đáp án." };
   }
 }
 
@@ -575,7 +781,7 @@ interface CreateQuizInput {
   classId?: string;
   assignments?: QuizAssignmentInput[];
   isPublic?: boolean;
-  answerVisibility?: string; // IMMEDIATELY, WHEN_ENDED, NEVER, AFTER_ALL_SUBMITTED
+  answerVisibility?: string; // IMMEDIATELY, WHEN_ENDED, AFTER_ALL_SUBMITTED
   shuffleQuestions?: boolean; // Xáo trộn câu hỏi & đáp án mỗi lượt làm bài
   questions: {
     questionText: string;
@@ -623,11 +829,7 @@ export async function createQuiz(input: CreateQuizInput) {
     const assignmentError = await assertTeacherCanAssignClasses(session, classIds);
     if (assignmentError) return { success: false, error: assignmentError };
 
-    // AFTER_ALL_SUBMITTED chỉ hợp lệ cho đề private CÓ ít nhất một lớp; ngược lại ép về IMMEDIATELY
-    const finalVisibility =
-      answerVisibility === "AFTER_ALL_SUBMITTED" && (isPublic || classIds.length === 0)
-        ? "IMMEDIATELY"
-        : answerVisibility || "IMMEDIATELY";
+    const finalVisibility = normalizeAnswerVisibility(answerVisibility, isPublic, classIds);
 
     const legacyClassId = classIds[0] ?? null;
 
@@ -757,11 +959,7 @@ export async function updateQuiz(input: UpdateQuizInput) {
     const assignmentError = await assertTeacherCanAssignClasses(session, classIds);
     if (assignmentError) return { success: false, error: assignmentError };
 
-    // AFTER_ALL_SUBMITTED chỉ hợp lệ cho đề private CÓ ít nhất một lớp
-    const finalVisibility =
-      answerVisibility === "AFTER_ALL_SUBMITTED" && (isPublic || classIds.length === 0)
-        ? "IMMEDIATELY"
-        : answerVisibility || "IMMEDIATELY";
+    const finalVisibility = normalizeAnswerVisibility(answerVisibility, isPublic, classIds);
 
     const legacyClassId = classIds[0] ?? null;
 

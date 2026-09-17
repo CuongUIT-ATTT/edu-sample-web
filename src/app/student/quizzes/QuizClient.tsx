@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Clock, CheckSquare, Award, ArrowLeft, RefreshCw, CheckCircle2, XCircle, Search, Trophy, BarChart3 } from "lucide-react";
-import { submitQuiz, startQuizAttempt } from "@/actions/quizzes";
+import { getQuizAnswerReview, submitQuiz, startQuizAttempt } from "@/actions/quizzes";
 import { cleanQuestionText } from "@/lib/quiz-shuffle";
 import { showToast } from "@/components/Toast";
 import MathRenderer from "@/components/MathRenderer";
@@ -37,8 +37,10 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     score: number;
     maxScore: number;
     passed: boolean;
+    submissionId: string;
     isLate?: boolean;
     correctAnswers?: { id: string; correctAnswer: string; explanation: string | null }[] | null;
+    answerReview?: { available: boolean; policy: string; message: string; availableAt: string | null };
   } | null>(null);
   const [showReview, setShowReview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -194,7 +196,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
   };
 
   async function handleSubmit() {
-    if (!selectedQuiz) return;
+    if (!selectedQuiz || submitting || quizResult) return;
     setSubmitting(true);
 
     try {
@@ -211,8 +213,10 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
           score: response.data.score,
           maxScore: response.data.maxScore,
           passed: response.data.passed,
+          submissionId: response.data.submissionId,
           isLate: response.data.isLate,
           correctAnswers: response.data.correctAnswers,
+          answerReview: response.data.answerReview,
         });
       } else {
         showToast(response.error || "Có lỗi xảy ra khi nộp bài.", "error");
@@ -224,13 +228,42 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     }
   }
 
+  const handleCheckAnswerReview = async () => {
+    if (!quizResult?.submissionId) return;
+
+    try {
+      const response = await getQuizAnswerReview(quizResult.submissionId);
+      if (!response.success || !response.data) {
+        showToast(response.error || "Không thể tải đáp án.", "error");
+        return;
+      }
+
+      setQuizResult((prev) => prev
+        ? {
+            ...prev,
+            correctAnswers: response.data.correctAnswers,
+            answerReview: response.data.answerReview,
+          }
+        : prev);
+
+      if (response.data.correctAnswers) {
+        setShowReview(true);
+      } else {
+        showToast(response.data.answerReview.message, "info");
+      }
+    } catch (error) {
+      console.error("Error checking answer review:", error);
+      showToast("Lỗi hệ thống khi kiểm tra đáp án.", "error");
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const filteredQuizzes = quizzes.filter(q => 
+  const filteredQuizzes = quizzes.filter(q =>
     q.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (q.description && q.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -376,7 +409,13 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
                   }`}>
                     {String.fromCharCode(65 + optIndex)}
                   </span>
-                  <MathRenderer text={opt} />
+                  <div className="flex flex-1 flex-col gap-1">
+                    <MathRenderer text={opt} />
+                    <div className="flex flex-wrap gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+                      {isCorrectAnswer && <span className="text-green-700">Đáp án đúng</span>}
+                      {isStudentSelect && <span className={isCorrect ? "text-green-700" : "text-red-700"}>Bạn chọn</span>}
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -771,14 +810,25 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
               </div>
             </div>
 
-            {quizResult.correctAnswers && (
+            {quizResult.correctAnswers ? (
               <button
                 onClick={() => setShowReview(true)}
                 className="bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 px-6 py-2.5 rounded-pill font-body font-semibold apple-active-scale transition-colors shadow-sm w-full mt-6"
               >
                 Xem đáp án & lời giải chi tiết
               </button>
-            )}
+            ) : quizResult.answerReview ? (
+              <div className="w-full rounded-lg border border-amber-200 bg-amber-50 p-4 text-left mt-6">
+                <p className="text-xs font-bold text-amber-800">Đáp án chưa được mở</p>
+                <p className="mt-1 text-xs text-amber-900 leading-relaxed">{quizResult.answerReview.message}</p>
+                <button
+                  onClick={handleCheckAnswerReview}
+                  className="mt-3 w-full py-2.5 px-4 rounded-pill bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs apple-active-scale transition-all"
+                >
+                  Kiểm tra lại đáp án
+                </button>
+              </div>
+            ) : null}
 
             <button
               onClick={() => setQuizStarted(false)}

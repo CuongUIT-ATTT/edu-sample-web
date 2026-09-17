@@ -782,9 +782,9 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setAnswerVisibility(
       q.answerVisibility === "AFTER_ALL_SUBMITTED" && quizAssignments.length > 0 && !q.isPublic
         ? "AFTER_ALL_SUBMITTED"
-        : q.answerVisibility === "AFTER_ALL_SUBMITTED"
-        ? "IMMEDIATELY"
-        : q.answerVisibility || "IMMEDIATELY"
+        : q.answerVisibility === "WHEN_ENDED" || q.answerVisibility === "NEVER"
+        ? "WHEN_ENDED"
+        : "IMMEDIATELY"
     );
     if (q.questions && q.questions.length > 0) {
       setQuestions(q.questions.map((qn) => ({
@@ -1460,12 +1460,11 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
                     required
                   >
-                    <option value="IMMEDIATELY">Xem đáp án và giải thích ngay sau khi nộp bài</option>
-                    <option value="WHEN_ENDED">Xem đáp án và giải thích khi hết thời gian thi (timer = 0)</option>
+                    <option value="IMMEDIATELY">Xem đáp án và giải thích ngay sau khi làm xong bài</option>
+                    <option value="WHEN_ENDED">Xem đáp án và giải thích khi hết thời hạn có thể làm đề thi</option>
                     <option value="AFTER_ALL_SUBMITTED" disabled={!canUseAfterAllSubmitted}>
-                      Hiển thị đáp án sau khi tất cả học sinh trong lớp nộp bài
+                      Hiển thị đáp án sau khi tất cả thành viên trong lớp nộp bài
                     </option>
-                    <option value="NEVER">Không cho học viên xem đáp án và giải thích</option>
                   </select>
                   {isPublic && (
                     <span className="text-[10px] text-ink-muted-48">Đề công khai không có tùy chọn "sau khi cả lớp nộp bài" (không có khái niệm lớp).</span>

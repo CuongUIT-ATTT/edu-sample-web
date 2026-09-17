@@ -342,7 +342,7 @@ model Quiz {
   passingScore     Float
   deadline         DateTime? // null = không đóng đề; sau deadline vẫn làm được nhưng đánh dấu nộp muộn
   isPublic         Boolean @default(false)
-  answerVisibility String  @default("IMMEDIATELY") // IMMEDIATELY, WHEN_ENDED, NEVER, AFTER_ALL_SUBMITTED
+  answerVisibility String  @default("IMMEDIATELY") // IMMEDIATELY, WHEN_ENDED, AFTER_ALL_SUBMITTED
   shuffleQuestions Boolean @default(true) // Xáo trộn câu hỏi & đáp án mỗi lượt làm bài
 
   subjectId String

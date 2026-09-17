@@ -151,6 +151,7 @@ export function isOverdue(endsAt: Date | string, now: Date = new Date()): boolea
 interface GradeInputQuestion {
   id: string;
   type: string;
+  options?: string[];
   correctAnswer: string;
   score: number;
   explanation?: string | null;
@@ -222,12 +223,25 @@ function mapCorrectToDisplay(q: GradeInputQuestion, correctAnswer: string, perm:
     const displayParts = perm.map((i) => originalParts[i] || "F");
     return displayParts.join(",");
   }
-  // MULTIPLE_CHOICE: correctAnswer là index gốc → vị trí display = perm.indexOf(correctIdx)
-  const correctIdx = Number(correctAnswer);
-  if (!isNaN(correctIdx) && perm.length > 0) {
-    const displayIdx = perm.indexOf(correctIdx);
-    if (displayIdx >= 0) return String(displayIdx);
+
+  if (q.type === "MULTIPLE_CHOICE") {
+    const originalOptions = q.options || [];
+    const normalizedAnswer = correctAnswer.trim().toUpperCase();
+    const letterIndex = normalizedAnswer.length === 1 ? normalizedAnswer.charCodeAt(0) - 65 : -1;
+    const textIndex = originalOptions.findIndex((option) => option.trim().toUpperCase() === normalizedAnswer);
+    const numericIndex = Number(correctAnswer);
+    const correctIdx = !isNaN(numericIndex)
+      ? numericIndex
+      : letterIndex >= 0 && letterIndex < originalOptions.length
+      ? letterIndex
+      : textIndex;
+
+    if (correctIdx >= 0 && perm.length > 0) {
+      const displayIdx = perm.indexOf(correctIdx);
+      if (displayIdx >= 0) return String(displayIdx);
+    }
   }
-  // SHORT_ANSWER (hoặc không phải index): giữ nguyên chuỗi
+
+  // SHORT_ANSWER (hoặc dữ liệu cũ không map được): giữ nguyên chuỗi
   return correctAnswer;
 }
