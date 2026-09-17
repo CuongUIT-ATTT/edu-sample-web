@@ -840,6 +840,13 @@ export async function getQuizSubmissions(quizId: string) {
     const quiz = await db.quiz.findUnique({
       where: { id: quizId },
       include: {
+        class: {
+          select: {
+            id: true,
+            name: true,
+            _count: { select: { students: true } },
+          },
+        },
         assignments: {
           include: {
             class: {
@@ -879,32 +886,50 @@ export async function getQuizSubmissions(quizId: string) {
     });
 
     const formatted = submissions.map((s) => {
-      const candidateClassIds = s.classId ? [s.classId] : (s.student ? s.student.classes.map((c) => c.id) : []);
-      const candidateClassName = s.class?.name || (s.student && s.student.classes.length > 0 ? s.student.classes.map((c) => c.name).join(", ") : "Tự do (Thi thử)");
+      const classGroups = s.class
+        ? [{ id: s.class.id, name: s.class.name }]
+        : s.student
+        ? s.student.classes.map((c) => ({ id: c.id, name: c.name }))
+        : [];
+      const candidateClassIds = classGroups.map((c) => c.id);
+      const candidateClassName = classGroups.length > 0 ? classGroups.map((c) => c.name).join(", ") : "Tự do (Thi thử)";
 
       return {
         id: s.id,
         candidateName: s.student ? s.student.user.name : (s.guestName || "Thí sinh tự do"),
         classId: s.classId ?? null,
         classIds: candidateClassIds,
+        classGroups,
         classes: candidateClassName,
         score: s.score,
         submittedAt: s.submittedAt.toISOString(),
       };
     });
 
+    const assignmentTabs = quiz.assignments.length > 0
+      ? quiz.assignments.map((a) => ({
+          classId: a.classId,
+          className: a.class.name,
+          studentCount: a.class._count.students,
+          deadlineOverride: a.deadlineOverride ? a.deadlineOverride.toISOString() : null,
+          startsAtOverride: a.startsAtOverride ? a.startsAtOverride.toISOString() : null,
+        }))
+      : quiz.class
+      ? [{
+          classId: quiz.class.id,
+          className: quiz.class.name,
+          studentCount: quiz.class._count.students,
+          deadlineOverride: null,
+          startsAtOverride: null,
+        }]
+      : [];
+
     const quizInfo = {
       id: quiz.id,
       title: quiz.title,
       passingScore: quiz.passingScore,
       deadline: quiz.deadline ? quiz.deadline.toISOString() : null,
-      assignments: quiz.assignments.map((a) => ({
-        classId: a.classId,
-        className: a.class.name,
-        studentCount: a.class._count.students,
-        deadlineOverride: a.deadlineOverride ? a.deadlineOverride.toISOString() : null,
-        startsAtOverride: a.startsAtOverride ? a.startsAtOverride.toISOString() : null,
-      })),
+      assignments: assignmentTabs,
     };
 
     return { success: true, data: formatted, quizInfo };

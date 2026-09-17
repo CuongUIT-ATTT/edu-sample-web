@@ -62,6 +62,14 @@ interface TeacherQuizManagerProps {
   isAdmin?: boolean;
 }
 
+interface ClassTabItem {
+  classId: string;
+  className: string;
+  studentCount: number;
+  deadlineOverride?: string | null;
+  startsAtOverride?: string | null;
+}
+
 export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin = false }: TeacherQuizManagerProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,6 +106,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [selectedQuizTitle, setSelectedQuizTitle] = useState("");
   const [submissionsList, setSubmissionsList] = useState<any[]>([]);
   const [submissionsQuizInfo, setSubmissionsQuizInfo] = useState<any>(null);
+  const [submissionsQuiz, setSubmissionsQuiz] = useState<QuizItem | null>(null);
   const [selectedClassTab, setSelectedClassTab] = useState<string>("ALL");
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
 
@@ -105,8 +114,9 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [shareModalQuiz, setShareModalQuiz] = useState<QuizItem | null>(null);
   const [manualShareClassId, setManualShareClassId] = useState<string>("");
 
-  const handleViewSubmissions = async (quizId: string, quizTitle: string) => {
-    setSelectedQuizTitle(quizTitle);
+  const handleViewSubmissions = async (quiz: QuizItem) => {
+    setSelectedQuizTitle(quiz.title);
+    setSubmissionsQuiz(quiz);
     setIsSubmissionsOpen(true);
     setLoadingSubmissions(true);
     setSubmissionsList([]);
@@ -114,7 +124,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setSelectedClassTab("ALL");
 
     try {
-      const res = await getQuizSubmissions(quizId);
+      const res = await getQuizSubmissions(quiz.id);
       if (res.success && res.data) {
         setSubmissionsList(res.data);
         setSubmissionsQuizInfo(res.quizInfo || null);
@@ -651,6 +661,21 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     return quizAssignments.map((assignment) => assignment.class?.name ?? getClassName(assignment.classId));
   };
 
+  const getShareTargetClasses = (quiz: QuizItem): { classId: string; className: string }[] => {
+    if (quiz.assignments && quiz.assignments.length > 0) {
+      return quiz.assignments.map((assignment) => ({
+        classId: assignment.classId,
+        className: assignment.class?.name || getClassName(assignment.classId),
+      }));
+    }
+
+    if (quiz.class) {
+      return [{ classId: quiz.class.id, className: quiz.class.name }];
+    }
+
+    return classes.map((item) => ({ classId: item.id, className: item.name }));
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSuccessMsg(null);
@@ -1171,7 +1196,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
               <div className="border-t border-divider-soft pt-3 flex justify-end gap-2 flex-wrap">
                 <button
-                  onClick={() => handleViewSubmissions(q.id, q.title)}
+                  onClick={() => handleViewSubmissions(q)}
                   className="bg-purple-50 text-purple-700 hover:bg-purple-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
                 >
                   <Award className="h-3.5 w-3.5" /> Kết quả
@@ -1820,16 +1845,46 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   <Loader2 className="h-8 w-8 text-primary animate-spin" />
                   <span className="text-xs text-ink-muted-80 font-body">Đang tải kết quả thi & phân tích dữ liệu đa lớp...</span>
                 </div>
-              ) : submissionsList.length === 0 ? (
-                <div className="text-center py-16 border border-dashed border-divider rounded-xl bg-surface-pearl/50 flex flex-col items-center gap-2">
-                  <Award className="h-12 w-12 text-ink-muted-48 mb-1" />
-                  <span className="text-sm font-bold text-ink">Chưa có lượt nộp bài nào</span>
-                  <span className="text-xs text-ink-muted-48">Học sinh chưa thực hiện bài kiểm tra này.</span>
-                </div>
               ) : (
                 (() => {
                   const passingScore = submissionsQuizInfo?.passingScore ?? 5;
-                  const assignmentsList: any[] = submissionsQuizInfo?.assignments ?? [];
+                  const quizAssignments: any[] = submissionsQuizInfo?.assignments ?? [];
+                  const submissionClassTabs = submissionsList.reduce((acc: any[], submission) => {
+                    const groups = submission.classGroups && submission.classGroups.length > 0
+                      ? submission.classGroups
+                      : submission.classId
+                      ? [{ id: submission.classId, name: submission.classes }]
+                      : [];
+
+                    groups.forEach((group: { id: string; name: string }) => {
+                      if (!acc.some((item) => item.classId === group.id)) {
+                        const classSubmissions = submissionsList.filter(
+                          (item) => item.classId === group.id || (item.classIds && item.classIds.includes(group.id)),
+                        );
+                        acc.push({
+                          classId: group.id,
+                          className: group.name,
+                          studentCount: classSubmissions.length,
+                        });
+                      }
+                    });
+
+                    return acc;
+                  }, []);
+                  const shareClassTabs: ClassTabItem[] = submissionsQuiz
+                    ? getShareTargetClasses(submissionsQuiz).map((item) => ({
+                        classId: item.classId,
+                        className: item.className,
+                        studentCount: 0,
+                        deadlineOverride: null,
+                        startsAtOverride: null,
+                      }))
+                    : [];
+                  const assignmentsList: ClassTabItem[] = quizAssignments.length > 0
+                    ? quizAssignments
+                    : submissionClassTabs.length > 0
+                    ? submissionClassTabs
+                    : shareClassTabs;
 
                   const freeSubmissions = submissionsList.filter((s) => !s.classId && (!s.classIds || s.classIds.length === 0));
 
@@ -1927,7 +1982,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                                 >
                                   Lớp {a.className}
                                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/30 text-ink">
-                                    {classSubs.length}/{a.studentCount} nộp • ĐTB: {classAvg}
+                                    {a.studentCount > 0 ? `${classSubs.length}/${a.studentCount}` : classSubs.length} nộp • ĐTB: {classAvg}
                                   </span>
                                 </button>
                               );
@@ -1953,6 +2008,14 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                               );
                             })()}
                           </div>
+                        </div>
+                      )}
+
+                      {submissionsList.length === 0 && (
+                        <div className="text-center py-10 border border-dashed border-divider rounded-xl bg-surface-pearl/50 flex flex-col items-center gap-2">
+                          <Award className="h-12 w-12 text-ink-muted-48 mb-1" />
+                          <span className="text-sm font-bold text-ink">Chưa có lượt nộp bài nào</span>
+                          <span className="text-xs text-ink-muted-48">Học sinh chưa thực hiện bài kiểm tra này, nhưng các tab lớp đã được hiển thị theo phân công đề.</span>
                         </div>
                       )}
 
@@ -2060,32 +2123,33 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
       {/* Share Links Modal */}
       {shareModalQuiz && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-2xl shadow-xl max-w-lg w-full p-6 flex flex-col gap-5 animate-scale-up">
-            <div className="flex justify-between items-center border-b border-divider pb-3">
-              <h3 className="font-tagline text-lg font-bold text-ink flex items-center gap-2">
-                <Share2 className="h-5 w-5 text-primary" /> Chia sẻ đường dẫn bài thi
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-canvas border border-hairline rounded-2xl shadow-xl w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden animate-scale-up">
+            <div className="flex justify-between items-start gap-3 border-b border-divider p-4 sm:p-5 flex-shrink-0">
+              <h3 className="font-tagline text-base sm:text-lg font-bold text-ink flex items-center gap-2 min-w-0">
+                <Share2 className="h-5 w-5 text-primary flex-shrink-0" />
+                <span className="truncate">Chia sẻ đường dẫn bài thi</span>
               </h3>
               <button
                 onClick={() => {
                   setManualShareClassId("");
                   setShareModalQuiz(null);
                 }}
-                className="text-ink-muted-48 hover:text-ink transition-colors p-1"
+                className="text-ink-muted-48 hover:text-ink transition-colors p-1 flex-shrink-0"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="flex flex-col gap-4 text-xs">
+            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 flex flex-col gap-4 text-xs min-h-0">
               <div>
-                <p className="font-semibold text-ink text-sm mb-1">{shareModalQuiz.title}</p>
+                <p className="font-semibold text-ink text-sm mb-1 break-words">{shareModalQuiz.title}</p>
                 <p className="text-ink-muted-48">Sao chép đường dẫn phù hợp để gửi cho học sinh hoặc chia sẻ công khai.</p>
               </div>
 
               {/* Link chung */}
               <div className="bg-surface-pearl border border-divider-soft rounded-xl p-3.5 flex flex-col gap-2">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
                   <span className="font-bold text-ink">🌐 Link chung (Công khai / Mặc định)</span>
                   <button
                     onClick={() => {
@@ -2094,7 +2158,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                         showToast("Đã sao chép link chung vào bộ nhớ tạm!", "success");
                       });
                     }}
-                    className="bg-primary hover:bg-primary-focus text-white px-3 py-1.5 rounded-pill font-semibold text-xs transition-colors flex items-center gap-1"
+                    className="bg-primary hover:bg-primary-focus text-white px-3 py-1.5 rounded-pill font-semibold text-xs transition-colors flex items-center justify-center gap-1 self-start sm:self-auto"
                   >
                     Sao chép link
                   </button>
@@ -2103,23 +2167,23 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   type="text"
                   readOnly
                   value={typeof window !== "undefined" ? `${window.location.origin}/quizzes/${shareModalQuiz.id}` : ""}
-                  className="bg-canvas border border-hairline rounded-lg px-3 py-1.5 text-ink-muted-80 font-mono text-[11px] w-full"
+                  className="bg-canvas border border-hairline rounded-lg px-3 py-1.5 text-ink-muted-80 font-mono text-[11px] w-full min-w-0"
                 />
               </div>
 
               {/* Links theo từng lớp được gán hoặc tất cả các lớp trong hệ thống */}
-              <div className="flex flex-col gap-2.5">
-                <span className="font-bold text-ink text-xs">🏫 Link riêng cho từng lớp (Tự động ghi nhận lớp học):</span>
+              <div className="flex flex-col gap-2.5 min-h-0">
+                <div className="flex flex-col gap-1">
+                  <span className="font-bold text-ink text-xs">🏫 Link riêng cho từng lớp (Tự động ghi nhận lớp học):</span>
+                  <span className="text-[11px] text-ink-muted-48">
+                    {shareModalQuiz.isPublic
+                      ? "Đề công khai vẫn được gom link theo từng lớp để thống kê kết quả đúng tab lớp."
+                      : "Đề nội bộ chỉ hiển thị các lớp đã gán trong QuizClassAssignment."}
+                  </span>
+                </div>
 
                 {(() => {
-                  const targetClasses = (shareModalQuiz.assignments && shareModalQuiz.assignments.length > 0)
-                    ? shareModalQuiz.assignments.map((a) => ({
-                        classId: a.classId,
-                        className: a.class?.name || classes.find((c) => c.id === a.classId)?.name || a.classId,
-                      }))
-                    : shareModalQuiz.class
-                    ? [{ classId: shareModalQuiz.class.id, className: shareModalQuiz.class.name }]
-                    : classes.map((c) => ({ classId: c.id, className: c.name }));
+                  const targetClasses = getShareTargetClasses(shareModalQuiz);
 
                   if (targetClasses.length === 0) {
                     return (
@@ -2127,39 +2191,43 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     );
                   }
 
-                  return targetClasses.map((c) => {
-                    const classUrl = typeof window !== "undefined" ? `${window.location.origin}/quizzes/${shareModalQuiz.id}?classId=${c.classId}` : "";
-                    return (
-                      <div key={c.classId} className="bg-blue-50/50 border border-blue-200/60 rounded-xl p-3 flex flex-col gap-2">
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold text-primary">Lớp {c.className}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(classUrl).then(
-                                () => showToast(`Đã sao chép link dành riêng cho lớp ${c.className}!`, "success"),
-                                () => showToast("Không thể sao chép tự động. Vui lòng sao chép thủ công.", "error")
-                              );
-                            }}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-pill font-semibold text-[11px] transition-colors"
-                          >
-                            Sao chép link lớp
-                          </button>
-                        </div>
-                        <input
-                          type="text"
-                          readOnly
-                          value={classUrl}
-                          className="bg-canvas border border-hairline rounded-lg px-3 py-1 text-ink-muted-80 font-mono text-[11px] w-full"
-                        />
-                      </div>
-                    );
-                  });
+                  return (
+                    <div className="flex flex-col gap-2.5 max-h-[42dvh] overflow-y-auto pr-1">
+                      {targetClasses.map((c) => {
+                        const classUrl = typeof window !== "undefined" ? `${window.location.origin}/quizzes/${shareModalQuiz.id}?classId=${c.classId}` : "";
+                        return (
+                          <div key={c.classId} className="bg-blue-50/50 border border-blue-200/60 rounded-xl p-3 flex flex-col gap-2">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
+                              <span className="font-semibold text-primary break-words">Lớp {c.className}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(classUrl).then(
+                                    () => showToast(`Đã sao chép link dành riêng cho lớp ${c.className}!`, "success"),
+                                    () => showToast("Không thể sao chép tự động. Vui lòng sao chép thủ công.", "error")
+                                  );
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-pill font-semibold text-[11px] transition-colors self-start sm:self-auto"
+                              >
+                                Sao chép link lớp
+                              </button>
+                            </div>
+                            <input
+                              type="text"
+                              readOnly
+                              value={classUrl}
+                              className="bg-canvas border border-hairline rounded-lg px-3 py-1 text-ink-muted-80 font-mono text-[11px] w-full min-w-0"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
                 })()}
               </div>
             </div>
 
-            <div className="border-t border-divider pt-3 flex justify-end">
+            <div className="border-t border-divider p-3 sm:p-4 flex justify-end flex-shrink-0">
               <button
                 onClick={() => {
                   setManualShareClassId("");
