@@ -77,8 +77,16 @@ export const mockDb = {
     update: vi.fn(),
     findFirst: vi.fn(),
   },
+  quizCandidate: {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+  },
   quizSubmission: {
     create: vi.fn(),
+    findUnique: vi.fn(),
     findMany: vi.fn(),
     count: vi.fn(),
   },
@@ -91,6 +99,7 @@ export const mockDb = {
   },
   class: {
     findUnique: vi.fn(),
+    findMany: vi.fn(),
   },
   paymentLink: {
     findUnique: vi.fn(),
@@ -110,6 +119,7 @@ export const mockDb = {
   },
   teacherProfile: {
     findFirst: vi.fn(),
+    findUnique: vi.fn(),
   },
   $transaction: vi.fn(async (arg) => {
     if (typeof arg === 'function') {

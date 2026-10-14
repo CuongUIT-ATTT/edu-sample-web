@@ -1,10 +1,25 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { teacherClassIds } from "@/lib/teacher-classes";
 import { generateExamCode, generatePaper, gradeWithLayout, isOverdue } from "@/lib/quiz-shuffle";
+import {
+  decryptCandidateCode,
+  digestCandidateCode,
+  digestCandidateSecret,
+  encryptCandidateCode,
+  generateBrowserBindingSecret,
+  generateCandidateCode,
+  getBindingExpiresAt,
+  getCandidateCookieName,
+  isBindingActive,
+  parseCandidateNames,
+  type CandidateBindingExpiryMode,
+} from "@/lib/quiz-candidate-access";
 
 type Session = NonNullable<Awaited<ReturnType<typeof getSession>>>;
 
@@ -39,7 +54,32 @@ type QuizWithAssignments = {
   deadline: Date | null;
   isPublic: boolean;
   answerVisibility: string;
+  candidateAccessRequired?: boolean;
+  candidateMaxSubmissions?: number;
+  candidateBindingExpiryMode?: string;
+  candidateBindingHours?: number | null;
   assignments?: QuizAssignment[];
+};
+
+type CandidateAccessContext = {
+  id: string;
+  name: string;
+  studentId: string | null;
+  submittedCount: number;
+};
+
+type CandidateRosterInput = {
+  classIds?: string[];
+  manualNames?: string[];
+};
+
+type CandidateAccessSettings = {
+  candidateAccessRequired?: boolean;
+  candidateMaxSubmissions?: number;
+  candidateBindingExpiryMode?: CandidateBindingExpiryMode;
+  candidateBindingHours?: number | null | string;
+  // Omit this on an ordinary protected-quiz edit to retain the issued roster.
+  candidateRoster?: CandidateRosterInput;
 };
 
 type ResolvedQuizAccess = {
@@ -359,6 +399,207 @@ function buildLayoutCorrectAnswers(
   return gradeWithLayout(questionsById, layout, answers).correctAnswers;
 }
 
+function normalizeCandidateAccessSettings(input: CandidateAccessSettings & { isPublic?: boolean; deadline?: string | null }): {
+  enabled: boolean;
+  maxSubmissions: number;
+  expiryMode: CandidateBindingExpiryMode;
+  bindingHours: number | null;
+  error?: string;
+} {
+  const enabled = input.candidateAccessRequired === true;
+  const maxSubmissions = Number(input.candidateMaxSubmissions ?? 1);
+  const expiryMode = input.candidateBindingExpiryMode === "DEADLINE" ? "DEADLINE" : "HOURS";
+  const bindingHours = input.candidateBindingHours == null || input.candidateBindingHours === ""
+    ? null
+    : Number(input.candidateBindingHours);
+
+  if (!enabled) return { enabled, maxSubmissions: 1, expiryMode: "HOURS", bindingHours: null };
+  if (!input.isPublic) return { enabled, maxSubmissions, expiryMode, bindingHours, error: "Mã dự thi chỉ áp dụng cho đề công khai." };
+  if (!Number.isInteger(maxSubmissions) || maxSubmissions < 1 || maxSubmissions > 100) {
+    return { enabled, maxSubmissions, expiryMode, bindingHours, error: "Số lượt nộp tối đa phải từ 1 đến 100." };
+  }
+  if (expiryMode === "DEADLINE" && !input.deadline) {
+    return { enabled, maxSubmissions, expiryMode, bindingHours, error: "Chọn deadline cho đề trước khi dùng thời hạn khóa đến deadline." };
+  }
+  if (expiryMode === "HOURS" && (!Number.isInteger(bindingHours) || bindingHours! < 1 || bindingHours! > 720)) {
+    return { enabled, maxSubmissions, expiryMode, bindingHours, error: "Thời hạn khóa trình duyệt phải từ 1 đến 720 giờ." };
+  }
+
+  return { enabled, maxSubmissions, expiryMode, bindingHours: expiryMode === "HOURS" ? bindingHours : null };
+}
+
+async function assertQuizManager(session: Session, quizId: string): Promise<{ error?: string; quiz?: { id: string; teacherId: string | null } }> {
+  const quiz = await db.quiz.findUnique({ where: { id: quizId }, select: { id: true, teacherId: true } });
+  if (!quiz) return { error: "Đề kiểm tra không tồn tại." };
+  if (session.role === "ADMIN") return { quiz };
+  if (session.role !== "TEACHER") return { error: "Bạn không có quyền quản lý danh sách thí sinh." };
+
+  const teacher = await db.teacherProfile.findUnique({ where: { userId: session.userId }, select: { id: true } });
+  if (!teacher || quiz.teacherId !== teacher.id) return { error: "Bạn không có quyền quản lý đề kiểm tra này." };
+  return { quiz };
+}
+
+async function resolveRosterCandidates(session: Session, roster: CandidateRosterInput | undefined): Promise<{
+  candidates: { studentId: string | null; name: string; source: "CLASS" | "MANUAL" }[];
+  error?: string;
+}> {
+  const rawClassIds = roster?.classIds ?? [];
+  if (!Array.isArray(rawClassIds) || rawClassIds.some((id) => typeof id !== "string")) {
+    return { candidates: [], error: "Danh sách lớp không hợp lệ." };
+  }
+  const uniqueClassIds = [...new Set(rawClassIds.map((id) => id.trim()).filter(Boolean))];
+  const classAccessError = await assertTeacherCanAssignClasses(session, uniqueClassIds);
+  if (classAccessError) return { candidates: [], error: classAccessError };
+
+  const manualResult = parseCandidateNames(roster?.manualNames ?? []);
+  if (!manualResult.success) return { candidates: [], error: manualResult.error };
+  if (uniqueClassIds.length === 0 && manualResult.names.length === 0) {
+    return { candidates: [], error: "Hãy chọn lớp hoặc thêm ít nhất một thí sinh cho danh sách mã dự thi." };
+  }
+
+  const seenStudents = new Set<string>();
+  const candidates: { studentId: string | null; name: string; source: "CLASS" | "MANUAL" }[] = [];
+  if (uniqueClassIds.length > 0) {
+    const classes = await db.class.findMany({
+      where: { id: { in: uniqueClassIds } },
+      include: { students: { include: { user: { select: { name: true } } } } },
+    });
+    if (classes.length !== uniqueClassIds.length) return { candidates: [], error: "Có lớp học không tồn tại." };
+    for (const classInfo of classes) {
+      for (const student of classInfo.students) {
+        if (seenStudents.has(student.id)) continue;
+        seenStudents.add(student.id);
+        candidates.push({ studentId: student.id, name: student.user.name, source: "CLASS" });
+      }
+    }
+  }
+
+  for (const name of manualResult.names) candidates.push({ studentId: null, name, source: "MANUAL" });
+  if (candidates.length > 1_000) return { candidates: [], error: "Danh sách chỉ được tối đa 1000 thí sinh." };
+  return { candidates };
+}
+
+async function syncQuizCandidates(
+  tx: Pick<Prisma.TransactionClient, "quizCandidate">,
+  quizId: string,
+  candidates: { studentId: string | null; name: string; source: "CLASS" | "MANUAL" }[],
+): Promise<void> {
+  const existing = await tx.quizCandidate.findMany({ where: { quizId } });
+  const existingByStudent = new Map(existing.filter((item) => item.studentId).map((item) => [item.studentId!, item]));
+  const manualByName = new Map<string, typeof existing>();
+  for (const candidate of existing.filter((item) => !item.studentId)) {
+    const key = candidate.name.trim().toLocaleLowerCase("vi");
+    manualByName.set(key, [...(manualByName.get(key) ?? []), candidate]);
+  }
+  const retainedIds = new Set<string>();
+
+  for (const candidate of candidates) {
+    const key = candidate.name.trim().toLocaleLowerCase("vi");
+    const matched = candidate.studentId
+      ? existingByStudent.get(candidate.studentId)
+      : manualByName.get(key)?.shift();
+    if (matched) {
+      retainedIds.add(matched.id);
+      await tx.quizCandidate.update({
+        where: { id: matched.id },
+        data: { name: candidate.name, source: candidate.source, isRevoked: false, revokedAt: null },
+      });
+      continue;
+    }
+
+    let code: string | null = null;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const generatedCode = generateCandidateCode();
+      const conflict = await tx.quizCandidate.findFirst({
+        where: { quizId, codeDigest: digestCandidateCode(generatedCode) },
+      });
+      if (!conflict) {
+        code = generatedCode;
+        break;
+      }
+    }
+    if (!code) throw new Error("Không thể cấp mã dự thi duy nhất. Vui lòng thử lại.");
+
+    const created = await tx.quizCandidate.create({
+      data: {
+        quizId,
+        studentId: candidate.studentId,
+        name: candidate.name,
+        source: candidate.source,
+        codeDigest: digestCandidateCode(code),
+        codeCiphertext: encryptCandidateCode(code),
+      },
+      select: { id: true },
+    });
+    retainedIds.add(created.id);
+  }
+
+  await tx.quizCandidate.updateMany({
+    where: { quizId, id: { notIn: [...retainedIds] }, isRevoked: false },
+    data: { isRevoked: true, revokedAt: new Date() },
+  });
+}
+
+async function getCandidateAccessContext(
+  quiz: Pick<QuizWithAssignments, "id" | "candidateAccessRequired" | "candidateMaxSubmissions">,
+  options: { allowExhausted?: boolean } = {},
+): Promise<{ context?: CandidateAccessContext; error?: string }> {
+  if (!quiz.candidateAccessRequired) return {};
+  const cookieStore = await cookies();
+  const raw = cookieStore.get(getCandidateCookieName(quiz.id))?.value;
+  const [candidateId, bindingSecret, extraPart] = raw?.split(".") ?? [];
+  if (!candidateId || !bindingSecret || extraPart) {
+    return { error: "Vui lòng nhập mã dự thi trước khi làm bài." };
+  }
+
+  const candidate = await db.quizCandidate.findFirst({
+    where: { id: candidateId, quizId: quiz.id, isRevoked: false },
+    select: { id: true, name: true, studentId: true, submittedCount: true, bindingSecretDigest: true, bindingExpiresAt: true },
+  });
+  if (!candidate || !candidate.bindingSecretDigest || !isBindingActive(candidate.bindingExpiresAt)) {
+    cookieStore.delete(getCandidateCookieName(quiz.id));
+    return { error: "Phiên mã dự thi đã hết hạn hoặc đã bị thu hồi. Vui lòng liên hệ giáo viên." };
+  }
+  if (digestCandidateSecret(bindingSecret) !== candidate.bindingSecretDigest) {
+    cookieStore.delete(getCandidateCookieName(quiz.id));
+    return { error: "Phiên mã dự thi không hợp lệ. Vui lòng liên hệ giáo viên để được gỡ khóa." };
+  }
+  if (!options.allowExhausted && candidate.submittedCount >= (quiz.candidateMaxSubmissions ?? 1)) {
+    return { error: "Mã dự thi này đã dùng hết số lượt nộp được phép." };
+  }
+
+  return { context: candidate };
+}
+
+export async function getActiveQuizCandidate(quizId: string) {
+  try {
+    if (typeof quizId !== "string") return { success: false, error: "Đề thi không hợp lệ." };
+    const quiz = await db.quiz.findUnique({
+      where: { id: quizId },
+      select: {
+        id: true,
+        candidateAccessRequired: true,
+        candidateMaxSubmissions: true,
+      },
+    });
+    if (!quiz?.candidateAccessRequired) return { success: true, data: null };
+
+    const access = await getCandidateAccessContext(quiz, { allowExhausted: true });
+    if (!access.context) return { success: true, data: null };
+
+    return {
+      success: true,
+      data: {
+        name: access.context.name,
+        remainingSubmissions: Math.max(0, quiz.candidateMaxSubmissions - access.context.submittedCount),
+      },
+    };
+  } catch (error) {
+    console.error("Error loading active quiz candidate:", error);
+    return { success: false, error: "Không thể kiểm tra phiên mã dự thi." };
+  }
+}
+
 function normalizeAnswerVisibility(input: string | undefined, isPublic: boolean | undefined, classIds: string[]): string {
   if (input === "WHEN_ENDED") return "WHEN_ENDED";
   if (input === "AFTER_ALL_SUBMITTED") {
@@ -366,6 +607,116 @@ function normalizeAnswerVisibility(input: string | undefined, isPublic: boolean 
   }
   if (input === "NEVER") return "WHEN_ENDED";
   return "IMMEDIATELY";
+}
+
+export async function activateQuizCandidateCode(quizId: string, code: string) {
+  try {
+    if (typeof quizId !== "string" || typeof code !== "string") {
+      return { success: false, error: "Mã dự thi không hợp lệ." };
+    }
+    const normalizedDigest = digestCandidateCode(code);
+    if (!normalizedDigest || !code.trim()) return { success: false, error: "Vui lòng nhập mã dự thi." };
+
+    const quiz = await db.quiz.findUnique({
+      where: { id: quizId },
+      select: {
+        id: true,
+        isPublic: true,
+        deadline: true,
+        candidateAccessRequired: true,
+        candidateMaxSubmissions: true,
+        candidateBindingExpiryMode: true,
+        candidateBindingHours: true,
+      },
+    });
+    if (!quiz || !quiz.isPublic || !quiz.candidateAccessRequired) {
+      return { success: false, error: "Đề thi này không sử dụng mã dự thi." };
+    }
+
+    const cookieStore = await cookies();
+    const cookieName = getCandidateCookieName(quizId);
+    const browserCookie = cookieStore.get(cookieName)?.value;
+    const [existingCandidateId, existingSecret, existingExtraPart] = browserCookie?.split(".") ?? [];
+    let activeBrowserCandidateId: string | null = null;
+    let activeBrowserSecret: string | null = null;
+    if (existingCandidateId && existingSecret && !existingExtraPart) {
+      const existingCandidate = await db.quizCandidate.findFirst({
+        where: { id: existingCandidateId, quizId, isRevoked: false },
+        select: { id: true, bindingSecretDigest: true, bindingExpiresAt: true },
+      });
+      if (existingCandidate && isBindingActive(existingCandidate.bindingExpiresAt) && existingCandidate.bindingSecretDigest === digestCandidateSecret(existingSecret)) {
+        activeBrowserCandidateId = existingCandidate.id;
+        activeBrowserSecret = existingSecret;
+      } else {
+        cookieStore.delete(cookieName);
+      }
+    } else if (browserCookie) {
+      cookieStore.delete(cookieName);
+    }
+
+    const candidate = await db.quizCandidate.findFirst({
+      where: { quizId, codeDigest: normalizedDigest, isRevoked: false },
+      select: { id: true, name: true, submittedCount: true, bindingSecretDigest: true, bindingExpiresAt: true },
+    });
+    if (!candidate) return { success: false, error: "Mã dự thi không đúng hoặc đã bị thu hồi." };
+    if (activeBrowserCandidateId && activeBrowserCandidateId !== candidate.id) {
+      return { success: false, error: "Trình duyệt này đang được liên kết với một mã dự thi khác. Hãy liên hệ giáo viên để gỡ khóa." };
+    }
+    if (candidate.submittedCount >= quiz.candidateMaxSubmissions) {
+      return { success: false, error: "Mã dự thi này đã dùng hết số lượt nộp được phép." };
+    }
+
+    const now = new Date();
+    if (candidate.bindingSecretDigest && isBindingActive(candidate.bindingExpiresAt, now)) {
+      if (candidate.id !== activeBrowserCandidateId || candidate.bindingSecretDigest !== digestCandidateSecret(activeBrowserSecret ?? "")) {
+        return { success: false, error: "Mã dự thi này đang được sử dụng trên một trình duyệt khác. Hãy liên hệ giáo viên để gỡ khóa." };
+      }
+      cookieStore.set(cookieName, browserCookie!, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        expires: candidate.bindingExpiresAt!,
+        path: "/",
+      });
+      return { success: true, data: { name: candidate.name, remainingSubmissions: quiz.candidateMaxSubmissions - candidate.submittedCount } };
+    }
+
+    const bindingExpiresAt = getBindingExpiresAt({
+      mode: quiz.candidateBindingExpiryMode === "DEADLINE" ? "DEADLINE" : "HOURS",
+      hours: quiz.candidateBindingHours,
+      deadline: quiz.deadline,
+      now,
+    });
+    if (!bindingExpiresAt) return { success: false, error: "Cấu hình thời hạn mã dự thi không hợp lệ. Vui lòng liên hệ giáo viên." };
+
+    const secret = generateBrowserBindingSecret();
+    const claimed = await db.quizCandidate.updateMany({
+      where: {
+        id: candidate.id,
+        OR: [{ bindingExpiresAt: null }, { bindingExpiresAt: { lte: now } }],
+      },
+      data: {
+        bindingSecretDigest: digestCandidateSecret(secret),
+        bindingStartedAt: now,
+        bindingExpiresAt,
+      },
+    });
+    if (claimed.count !== 1) {
+      return { success: false, error: "Mã dự thi này vừa được liên kết với trình duyệt khác. Vui lòng thử lại hoặc liên hệ giáo viên." };
+    }
+
+    cookieStore.set(cookieName, `${candidate.id}.${secret}`, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      expires: bindingExpiresAt,
+      path: "/",
+    });
+    return { success: true, data: { name: candidate.name, remainingSubmissions: quiz.candidateMaxSubmissions - candidate.submittedCount } };
+  } catch (error) {
+    console.error("Error activating quiz candidate code:", error);
+    return { success: false, error: "Không thể xác thực mã dự thi lúc này." };
+  }
 }
 
 export async function submitQuiz(input: SubmitQuizInput) {
@@ -386,11 +737,17 @@ export async function submitQuiz(input: SubmitQuizInput) {
     if (!access.allowed) {
       return { success: false, error: access.error ?? "Bạn không có quyền làm bài thi này." };
     }
+    // Allow a prior successful submission to remain idempotent even after it
+    // consumed the candidate's final allowed submission; the transaction below
+    // remains the authoritative cap enforcement for new submissions.
+    const candidateAccess = await getCandidateAccessContext(quiz, { allowExhausted: true });
+    if (candidateAccess.error) return { success: false, error: candidateAccess.error };
+    const candidate = candidateAccess.context;
 
     // Guest name validation for public quizzes
     // Guest (chưa đăng nhập) bắt buộc nhập họ tên. User đã đăng nhập (kể cả
     // không phải STUDENT) luôn có định danh session → không cần guestName.
-    if (!session && !studentProfile && quiz.isPublic && !input.guestName?.trim()) {
+    if (!candidate && !session && !studentProfile && quiz.isPublic && !input.guestName?.trim()) {
       return { success: false, error: "Vui lòng nhập Họ tên để bắt đầu làm bài thi thử công khai." };
     }
 
@@ -400,6 +757,7 @@ export async function submitQuiz(input: SubmitQuizInput) {
     let correctAnswersData: { id: string; correctAnswer: string; explanation: string | null }[] | null = null;
     let isTimedOut = false;
     let attempt = null;
+    let attemptStatus: "SUBMITTED" | "TIMED_OUT" | null = null;
 
     if (input.attemptId) {
       // Mã đề: chấm theo layout (display → original), không tin answers từ client
@@ -414,8 +772,11 @@ export async function submitQuiz(input: SubmitQuizInput) {
       if (attempt.quizId !== quiz.id) {
         return { success: false, error: "Mã đề này không khớp với đề kiểm tra." };
       }
-      if (attempt.studentId !== (studentProfile ? studentProfile.id : null)) {
+      if (attempt.studentId !== (candidate ? null : (studentProfile ? studentProfile.id : null))) {
         return { success: false, error: "Mã đề này không thuộc về bạn." };
+      }
+      if ((attempt.candidateId ?? null) !== (candidate?.id ?? null)) {
+        return { success: false, error: "Mã đề này không thuộc về mã dự thi hiện tại." };
       }
 
       const layout = attempt.layout as { questionOrder: Record<string, string[]>; optionOrder: Record<string, number[]> };
@@ -434,11 +795,7 @@ export async function submitQuiz(input: SubmitQuizInput) {
       correctAnswersData = graded.correctAnswers;
 
       isTimedOut = isOverdue(attempt.endsAt);
-      // Cập nhật attempt: SUBMITTED trong giờ, TIMED_OUT nếu quá giờ (tự thu bài)
-      await db.quizAttempt.update({
-        where: { id: attempt.id },
-        data: { status: isTimedOut ? "TIMED_OUT" : "SUBMITTED", submittedAt: new Date() },
-      });
+      attemptStatus = isTimedOut ? "TIMED_OUT" : "SUBMITTED";
     } else {
       // Legacy path (test / không mã đề): chấm trực tiếp như trước
       for (const question of quiz.questions) {
@@ -532,21 +889,53 @@ export async function submitQuiz(input: SubmitQuizInput) {
       }
     }
 
-    const submission = await db.quizSubmission.create({
-      data: {
-        studentId: studentProfile ? studentProfile.id : null,
-        quizId: quiz.id,
-        score: totalScore,
-        answers: JSON.parse(JSON.stringify(input.answers)),
-        guestName: studentProfile ? null : input.guestName?.trim(),
-        isLate,
-        attemptId: attempt ? attempt.id : null,
-        classId: targetClassId,
-      },
-    });
+    let submission;
+    try {
+      submission = await db.$transaction(async (tx) => {
+        if (candidate) {
+          const incremented = await tx.quizCandidate.updateMany({
+            where: {
+              id: candidate.id,
+              quizId: quiz.id,
+              isRevoked: false,
+              submittedCount: { lt: quiz.candidateMaxSubmissions },
+            },
+            data: { submittedCount: { increment: 1 } },
+          });
+          if (incremented.count !== 1) {
+            throw new Error("CANDIDATE_SUBMISSION_LIMIT");
+          }
+        }
+        if (attempt && attemptStatus) {
+          await tx.quizAttempt.update({
+            where: { id: attempt.id },
+            data: { status: attemptStatus, submittedAt: new Date() },
+          });
+        }
+        return tx.quizSubmission.create({
+          data: {
+            studentId: candidate ? null : (studentProfile ? studentProfile.id : null),
+            quizId: quiz.id,
+            score: totalScore,
+            answers: JSON.parse(JSON.stringify(input.answers)),
+            guestName: candidate ? candidate.name : (studentProfile ? null : input.guestName?.trim()),
+            isLate,
+            attemptId: attempt ? attempt.id : null,
+            classId: targetClassId,
+            candidateId: candidate?.id ?? null,
+          },
+        });
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "CANDIDATE_SUBMISSION_LIMIT") {
+        return { success: false, error: "Mã dự thi này đã dùng hết số lượt nộp được phép." };
+      }
+      throw error;
+    }
 
-    // Only record grades for logged-in students
-    if (studentProfile) {
+    // A candidate roster link is provenance only, not an authenticated student identity.
+    // Only ordinary logged-in student submissions create grade records.
+    if (studentProfile && !candidate) {
       // Find fallback teacher if quiz has no teacherId (created by Admin)
       let finalTeacherId = quiz.teacherId;
       if (!finalTeacherId) {
@@ -622,7 +1011,12 @@ export async function getQuizAnswerReview(submissionId: string, answerReviewToke
       return { success: false, error: "Không tìm thấy bài nộp." };
     }
 
-    if (submission.studentId) {
+    if (submission.candidateId) {
+      const candidateAccess = await getCandidateAccessContext(submission.quiz, { allowExhausted: true });
+      if (!candidateAccess.context || candidateAccess.context.id !== submission.candidateId) {
+        return { success: false, error: "Bạn không có quyền xem đáp án của bài nộp này." };
+      }
+    } else if (submission.studentId) {
       if (submission.studentId !== studentProfile?.id) {
         return { success: false, error: "Bạn không có quyền xem đáp án của bài nộp này." };
       }
@@ -687,10 +1081,13 @@ export async function startQuizAttempt(input: StartQuizAttemptInput) {
     if (!access.allowed) {
       return { success: false, error: access.error ?? "Bạn không có quyền làm bài thi này." };
     }
+    const candidateAccess = await getCandidateAccessContext(quiz);
+    if (candidateAccess.error) return { success: false, error: candidateAccess.error };
+    const candidate = candidateAccess.context;
 
     // Guest (chưa đăng nhập) bắt buộc nhập họ tên. User đã đăng nhập (kể cả
     // không phải STUDENT) luôn có định danh session → không cần guestName.
-    if (!session && !studentProfile && quiz.isPublic && !input.guestName?.trim()) {
+    if (!candidate && !session && !studentProfile && quiz.isPublic && !input.guestName?.trim()) {
       return { success: false, error: "Vui lòng nhập Họ tên để bắt đầu làm bài thi thử công khai." };
     }
 
@@ -746,8 +1143,9 @@ export async function startQuizAttempt(input: StartQuizAttemptInput) {
     const attempt = await db.quizAttempt.create({
       data: {
         quizId: quiz.id,
-        studentId: studentProfile ? studentProfile.id : null,
-        guestName: studentProfile ? null : input.guestName?.trim(),
+        studentId: candidate ? null : (studentProfile ? studentProfile.id : null),
+        candidateId: candidate?.id ?? null,
+        guestName: candidate ? candidate.name : (studentProfile ? null : input.guestName?.trim()),
         examCode,
         layout: layout as object,
         startsAt: now,
@@ -771,7 +1169,7 @@ export async function startQuizAttempt(input: StartQuizAttemptInput) {
   }
 }
 
-interface CreateQuizInput {
+interface CreateQuizInput extends CandidateAccessSettings {
   title: string;
   description?: string;
   duration: number;
@@ -821,6 +1219,13 @@ export async function createQuiz(input: CreateQuizInput) {
 
     const parsedDeadline = parseOptionalDate(deadline, "Deadline mặc định");
     if (parsedDeadline.error) return { success: false, error: parsedDeadline.error };
+    const candidateSettings = normalizeCandidateAccessSettings(input);
+    if (input.candidateAccessRequired && input.candidateBindingExpiryMode === "DEADLINE" && !parsedDeadline.value) {
+      return { success: false, error: "Chọn deadline cho đề trước khi dùng thời hạn khóa đến deadline." };
+    }
+    if (candidateSettings.error) return { success: false, error: candidateSettings.error };
+    const roster = candidateSettings.enabled ? await resolveRosterCandidates(session, input.candidateRoster) : { candidates: [] };
+    if (roster.error) return { success: false, error: roster.error };
 
     const normalizedAssignments = normalizeQuizAssignments(input);
     if (normalizedAssignments.error) return { success: false, error: normalizedAssignments.error };
@@ -846,6 +1251,10 @@ export async function createQuiz(input: CreateQuizInput) {
           isPublic: isPublic || false,
           answerVisibility: finalVisibility,
           shuffleQuestions: shuffleQuestions ?? true,
+          candidateAccessRequired: candidateSettings.enabled,
+          candidateMaxSubmissions: candidateSettings.maxSubmissions,
+          candidateBindingExpiryMode: candidateSettings.expiryMode,
+          candidateBindingHours: candidateSettings.bindingHours,
           teacherId,
         },
       });
@@ -859,6 +1268,10 @@ export async function createQuiz(input: CreateQuizInput) {
             startsAtOverride: assignment.startsAtOverride,
           },
         });
+      }
+
+      if (candidateSettings.enabled) {
+        await syncQuizCandidates(tx, newQuiz.id, roster.candidates);
       }
 
       for (const q of questions) {
@@ -937,6 +1350,20 @@ export async function updateQuiz(input: UpdateQuizInput) {
 
     const parsedDeadline = parseOptionalDate(deadline, "Deadline mặc định");
     if (parsedDeadline.error) return { success: false, error: parsedDeadline.error };
+    const candidateSettings = normalizeCandidateAccessSettings(input);
+    if (input.candidateAccessRequired && input.candidateBindingExpiryMode === "DEADLINE" && !parsedDeadline.value) {
+      return { success: false, error: "Chọn deadline cho đề trước khi dùng thời hạn khóa đến deadline." };
+    }
+    if (candidateSettings.error) return { success: false, error: candidateSettings.error };
+
+    const existingQuiz = await db.quiz.findUnique({
+      where: { id },
+      select: { teacherId: true, candidateAccessRequired: true },
+    });
+    if (!existingQuiz) return { success: false, error: "Đề kiểm tra không tồn tại." };
+    if (candidateSettings.enabled && !input.candidateRoster && !existingQuiz.candidateAccessRequired) {
+      return { success: false, error: "Hãy chọn lớp hoặc thêm ít nhất một thí sinh cho danh sách mã dự thi." };
+    }
 
     const normalizedAssignments = normalizeQuizAssignments(input);
     if (normalizedAssignments.error) return { success: false, error: normalizedAssignments.error };
@@ -949,8 +1376,6 @@ export async function updateQuiz(input: UpdateQuizInput) {
         where: { userId: session.userId },
         include: { subjects: true },
       });
-      const existingQuiz = await db.quiz.findUnique({ where: { id } });
-      if (!existingQuiz) return { success: false, error: "Đề kiểm tra không tồn tại." };
       if (!teacher || existingQuiz.teacherId !== teacher.id) {
         return { success: false, error: "Bạn không có quyền sửa đề kiểm tra này." };
       }
@@ -958,6 +1383,14 @@ export async function updateQuiz(input: UpdateQuizInput) {
 
     const assignmentError = await assertTeacherCanAssignClasses(session, classIds);
     if (assignmentError) return { success: false, error: assignmentError };
+
+    // Existing protected rosters are intentionally retained unless the edit
+    // includes a replacement roster. This keeps previously issued codes stable.
+    const shouldSyncCandidateRoster = candidateSettings.enabled && input.candidateRoster !== undefined;
+    const roster = shouldSyncCandidateRoster
+      ? await resolveRosterCandidates(session, input.candidateRoster)
+      : { candidates: [] };
+    if (roster.error) return { success: false, error: roster.error };
 
     const finalVisibility = normalizeAnswerVisibility(answerVisibility, isPublic, classIds);
 
@@ -978,6 +1411,10 @@ export async function updateQuiz(input: UpdateQuizInput) {
           isPublic: isPublic || false,
           answerVisibility: finalVisibility,
           shuffleQuestions: shuffleQuestions ?? true,
+          candidateAccessRequired: candidateSettings.enabled,
+          candidateMaxSubmissions: candidateSettings.maxSubmissions,
+          candidateBindingExpiryMode: candidateSettings.expiryMode,
+          candidateBindingHours: candidateSettings.bindingHours,
         },
       });
 
@@ -993,6 +1430,15 @@ export async function updateQuiz(input: UpdateQuizInput) {
             deadlineOverride: assignment.deadlineOverride,
             startsAtOverride: assignment.startsAtOverride,
           },
+        });
+      }
+
+      if (shouldSyncCandidateRoster) {
+        await syncQuizCandidates(tx, id, roster.candidates);
+      } else if (!candidateSettings.enabled) {
+        await tx.quizCandidate.updateMany({
+          where: { quizId: id, isRevoked: false },
+          data: { isRevoked: true, revokedAt: new Date() },
         });
       }
 
@@ -1025,6 +1471,91 @@ export async function updateQuiz(input: UpdateQuizInput) {
   } catch (error) {
     console.error("Error updating quiz:", error);
     return { success: false, error: "Đã xảy ra lỗi hệ thống khi cập nhật đề kiểm tra." };
+  }
+}
+
+export async function getQuizCandidates(quizId: string) {
+  try {
+    const session = await getSession();
+    if (!session) return { success: false, error: "Vui lòng đăng nhập để quản lý mã dự thi." };
+    const manager = await assertQuizManager(session, quizId);
+    if (manager.error) return { success: false, error: manager.error };
+
+    const quiz = await db.quiz.findUnique({
+      where: { id: quizId },
+      select: { id: true, title: true, candidateAccessRequired: true, candidateMaxSubmissions: true },
+    });
+    if (!quiz?.candidateAccessRequired) return { success: false, error: "Đề thi này không sử dụng mã dự thi." };
+
+    const candidates = await db.quizCandidate.findMany({
+      where: { quizId },
+      orderBy: [{ isRevoked: "asc" }, { name: "asc" }],
+      select: {
+        id: true, name: true, source: true, codeCiphertext: true, isRevoked: true,
+        revokedAt: true, submittedCount: true, bindingExpiresAt: true,
+      },
+    });
+    return {
+      success: true,
+      data: candidates.map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        source: candidate.source,
+        code: decryptCandidateCode(candidate.codeCiphertext),
+        isRevoked: candidate.isRevoked,
+        revokedAt: candidate.revokedAt?.toISOString() ?? null,
+        submittedCount: candidate.submittedCount,
+        bindingExpiresAt: candidate.bindingExpiresAt?.toISOString() ?? null,
+      })),
+      quiz: { title: quiz.title, maxSubmissions: quiz.candidateMaxSubmissions },
+    };
+  } catch (error) {
+    console.error("Error loading quiz candidates:", error);
+    return { success: false, error: "Không thể tải danh sách mã dự thi." };
+  }
+}
+
+export async function setQuizCandidateRevocation(quizId: string, candidateId: string, isRevoked: boolean) {
+  try {
+    const session = await getSession();
+    if (!session) return { success: false, error: "Vui lòng đăng nhập để quản lý mã dự thi." };
+    const manager = await assertQuizManager(session, quizId);
+    if (manager.error) return { success: false, error: manager.error };
+
+    const result = await db.quizCandidate.updateMany({
+      where: { id: candidateId, quizId },
+      data: isRevoked
+        ? { isRevoked: true, revokedAt: new Date(), bindingSecretDigest: null, bindingStartedAt: null, bindingExpiresAt: null }
+        : { isRevoked: false, revokedAt: null },
+    });
+    if (result.count !== 1) return { success: false, error: "Không tìm thấy thí sinh." };
+
+    revalidatePath("/teacher/quizzes");
+    revalidatePath("/admin/quizzes");
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating quiz candidate revocation:", error);
+    return { success: false, error: "Không thể cập nhật trạng thái mã dự thi." };
+  }
+}
+
+export async function resetQuizCandidateBinding(quizId: string, candidateId: string) {
+  try {
+    const session = await getSession();
+    if (!session) return { success: false, error: "Vui lòng đăng nhập để quản lý mã dự thi." };
+    const manager = await assertQuizManager(session, quizId);
+    if (manager.error) return { success: false, error: manager.error };
+    const result = await db.quizCandidate.updateMany({
+      where: { id: candidateId, quizId },
+      data: { bindingSecretDigest: null, bindingStartedAt: null, bindingExpiresAt: null },
+    });
+    if (result.count !== 1) return { success: false, error: "Không tìm thấy thí sinh." };
+    revalidatePath("/teacher/quizzes");
+    revalidatePath("/admin/quizzes");
+    return { success: true };
+  } catch (error) {
+    console.error("Error resetting quiz candidate binding:", error);
+    return { success: false, error: "Không thể gỡ khóa trình duyệt." };
   }
 }
 
@@ -1078,6 +1609,7 @@ export async function getQuizSubmissions(quizId: string) {
             classes: { select: { id: true, name: true } },
           },
         },
+        candidate: { select: { name: true } },
         class: { select: { id: true, name: true } },
       },
       orderBy: { submittedAt: "desc" },
@@ -1094,7 +1626,7 @@ export async function getQuizSubmissions(quizId: string) {
 
       return {
         id: s.id,
-        candidateName: s.student ? s.student.user.name : (s.guestName || "Thí sinh tự do"),
+        candidateName: s.candidate?.name ?? (s.student ? s.student.user.name : (s.guestName || "Thí sinh tự do")),
         classId: s.classId ?? null,
         classIds: candidateClassIds,
         classGroups,

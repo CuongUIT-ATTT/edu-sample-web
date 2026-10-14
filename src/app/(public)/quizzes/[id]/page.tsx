@@ -138,6 +138,7 @@ export default async function SharedQuizPage({
     subjectName: quiz.subject.name,
     isPublic: quiz.isPublic,
     answerVisibility: quiz.answerVisibility,
+    candidateAccessRequired: quiz.candidateAccessRequired,
     questions: formattedQuestions,
   };
 

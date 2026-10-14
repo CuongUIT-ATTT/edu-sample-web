@@ -14,8 +14,9 @@ import {
   ShieldCheck,
   Zap,
   HelpCircle,
+  Loader2,
 } from "lucide-react";
-import { getQuizAnswerReview, submitQuiz, startQuizAttempt } from "@/actions/quizzes";
+import { activateQuizCandidateCode, getActiveQuizCandidate, getQuizAnswerReview, submitQuiz, startQuizAttempt } from "@/actions/quizzes";
 import { cleanQuestionText } from "@/lib/quiz-shuffle";
 import MathRenderer from "@/components/MathRenderer";
 import Link from "next/link";
@@ -43,6 +44,7 @@ interface Quiz {
   startsAt?: string | null;
   subjectName: string;
   isPublic: boolean | undefined;
+  candidateAccessRequired?: boolean;
   questions: Question[];
 }
 
@@ -62,6 +64,11 @@ export default function SingleQuizPlayer({
   className,
 }: SingleQuizPlayerProps) {
   const [guestName, setGuestName] = useState(sessionUser?.name || "");
+  const [candidateCode, setCandidateCode] = useState("");
+  const [candidateName, setCandidateName] = useState<string | null>(null);
+  const [candidateRemainingSubmissions, setCandidateRemainingSubmissions] = useState<number | null>(null);
+  const [candidateBindingChecked, setCandidateBindingChecked] = useState(!quiz.candidateAccessRequired);
+  const [activatingCandidate, setActivatingCandidate] = useState(false);
   const [quizStarted, setQuizStarted] = useState(false);
   const [showRules, setShowRules] = useState(skipRules);
   const [timeLeft, setTimeLeft] = useState(quiz.duration * 60);
@@ -75,6 +82,34 @@ export default function SingleQuizPlayer({
     correctAnswers?: { id: string; correctAnswer: string; explanation: string | null }[] | null;
     answerReview?: { available: boolean; policy: string; message: string; availableAt: string | null };
   } | null>(null);
+
+  useEffect(() => {
+    if (!quiz.candidateAccessRequired) return;
+
+    let mounted = true;
+    const loadActiveCandidate = async () => {
+      try {
+        const result = await getActiveQuizCandidate(quiz.id);
+        if (mounted && result.success && result.data) {
+          setCandidateName(result.data.name);
+          setCandidateRemainingSubmissions(result.data.remainingSubmissions);
+          setGuestName(result.data.name);
+        } else if (mounted && !result.success) {
+          showToast(result.error || "Không thể kiểm tra phiên mã dự thi.", "error");
+        }
+      } catch (error) {
+        console.error("Error loading candidate binding:", error);
+        if (mounted) showToast("Không thể kiểm tra phiên mã dự thi.", "error");
+      } finally {
+        if (mounted) setCandidateBindingChecked(true);
+      }
+    };
+
+    void loadActiveCandidate();
+    return () => {
+      mounted = false;
+    };
+  }, [quiz.candidateAccessRequired, quiz.id]);
 
   // Anti-screenshot protection
   useEffect(() => {
@@ -245,17 +280,45 @@ export default function SingleQuizPlayer({
     }
   };
 
-  const handleStartQuiz = () => {
-    const currentGuestName = readGuestName();
-    if (!currentGuestName) {
-      showToast("Vui lòng nhập Họ tên để bắt đầu làm bài thi thử.", "warning");
-      return;
-    }
+  const handleStartQuiz = async () => {
     if (!agreed) {
       showToast("Vui lòng đồng ý với Nội quy phòng thi để tiếp tục.", "warning");
       return;
     }
-    setGuestName(currentGuestName);
+
+    let currentGuestName = readGuestName();
+    if (quiz.candidateAccessRequired) {
+      if (candidateName) {
+        currentGuestName = candidateName;
+      } else {
+        if (!candidateCode.trim()) {
+          showToast("Vui lòng nhập mã dự thi để bắt đầu.", "warning");
+          return;
+        }
+        setActivatingCandidate(true);
+        try {
+          const result = await activateQuizCandidateCode(quiz.id, candidateCode);
+          if (!result.success || !result.data) {
+            showToast(result.error || "Không thể xác thực mã dự thi.", "error");
+            return;
+          }
+          currentGuestName = result.data.name;
+          setCandidateName(result.data.name);
+          setCandidateRemainingSubmissions(result.data.remainingSubmissions);
+          setGuestName(result.data.name);
+        } catch (error) {
+          console.error("Error activating candidate code:", error);
+          showToast("Lỗi hệ thống khi xác thực mã dự thi.", "error");
+          return;
+        } finally {
+          setActivatingCandidate(false);
+        }
+      }
+    } else if (!currentGuestName) {
+      showToast("Vui lòng nhập Họ tên để bắt đầu làm bài thi thử.", "warning");
+      return;
+    }
+
     if (quiz.startsAt && Date.now() < new Date(quiz.startsAt).getTime()) {
       showToast("Đề thi chưa mở cho lớp của bạn.", "warning");
       return;
@@ -423,8 +486,35 @@ export default function SingleQuizPlayer({
               </ul>
             </div>
 
-            {/* Guest Name Entry if applicable */}
-            {!sessionUser || !sessionUser.name?.trim() ? (
+            {/* Candidate code replaces the untrusted free-name field in controlled mode. */}
+            {quiz.candidateAccessRequired ? (
+              <div className="flex flex-col gap-2">
+                {candidateName ? (
+                  <>
+                    <p className="text-xs font-semibold text-emerald-700">Đã xác thực trên trình duyệt này: {candidateName}</p>
+                    {candidateRemainingSubmissions === 0 ? (
+                      <p className="text-[11px] font-semibold text-amber-700">Mã dự thi này đã dùng hết lượt nộp được phép.</p>
+                    ) : (
+                      <p className="text-[11px] text-ink-muted-48">Bạn có thể vào thi lại mà không cần nhập mã, cho đến khi hết hạn liên kết hoặc giáo viên gỡ khóa.</p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <label className="text-xs font-bold text-ink">Mã dự thi *</label>
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      placeholder="Ví dụ: AB12-CD34"
+                      value={candidateCode}
+                      onChange={(e) => setCandidateCode(e.target.value.toUpperCase())}
+                      className="w-full bg-white dark:bg-slate-800 border border-hairline rounded-full px-5 py-3 text-xs sm:text-sm font-semibold tracking-widest text-ink outline-none focus:ring-2 focus:ring-primary/50"
+                      required
+                    />
+                    <p className="text-[11px] text-ink-muted-48">Mã được liên kết với trình duyệt này trong thời hạn do giáo viên thiết lập.</p>
+                  </>
+                )}
+              </div>
+            ) : !sessionUser || !sessionUser.name?.trim() ? (
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-bold text-ink">Họ và Tên Thí Sinh *</label>
                 <input
@@ -455,11 +545,11 @@ export default function SingleQuizPlayer({
             {/* Action Button */}
             <button
               onClick={handleStartQuiz}
-              disabled={!agreed || (!sessionUser && !guestName.trim())}
+              disabled={!agreed || activatingCandidate || !candidateBindingChecked || (quiz.candidateAccessRequired ? (candidateRemainingSubmissions === 0 || (!candidateName && !candidateCode.trim())) : (!sessionUser && !guestName.trim()))}
               className="w-full py-4 px-8 rounded-full bg-gradient-to-r from-primary to-blue-600 hover:from-primary-focus hover:to-blue-700 text-white font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-xl shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed apple-active-scale transition-all"
             >
-              <Play className="h-4 w-4 fill-current" />
-              <span>Vào thi ngay (Tính giờ)</span>
+              {activatingCandidate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+              <span>{!candidateBindingChecked ? "Đang kiểm tra mã..." : activatingCandidate ? "Đang xác thực mã..." : "Vào thi ngay (Tính giờ)"}</span>
             </button>
           </div>
         )}

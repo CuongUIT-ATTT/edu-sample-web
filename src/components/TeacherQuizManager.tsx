@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, useMemo } from "react";
 import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus, Image as ImageIcon, Scissors, Sparkles, Search } from "lucide-react";
-import { createQuiz, deleteQuiz, updateQuiz, getQuizSubmissions } from "@/actions/quizzes";
+import { createQuiz, deleteQuiz, updateQuiz, getQuizCandidates, getQuizSubmissions, resetQuizCandidateBinding, setQuizCandidateRevocation } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
 import { showToast } from "@/components/Toast";
 import PDFRegionSelector from "@/components/PDFRegionSelector";
@@ -28,6 +28,10 @@ interface QuizItem {
   deadline?: string | null;
   isPublic?: boolean;
   shuffleQuestions?: boolean;
+  candidateAccessRequired?: boolean;
+  candidateMaxSubmissions?: number;
+  candidateBindingExpiryMode?: "HOURS" | "DEADLINE";
+  candidateBindingHours?: number | null;
   submissions?: { score: number }[];
   answerVisibility?: string;
   creatorName?: string;
@@ -113,6 +117,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   // Share modal state
   const [shareModalQuiz, setShareModalQuiz] = useState<QuizItem | null>(null);
   const [manualShareClassId, setManualShareClassId] = useState<string>("");
+  const [candidateModalQuiz, setCandidateModalQuiz] = useState<QuizItem | null>(null);
+  const [candidateRoster, setCandidateRoster] = useState<any[]>([]);
+  const [candidateRosterInfo, setCandidateRosterInfo] = useState<{ title: string; maxSubmissions: number } | null>(null);
+  const [loadingCandidateRoster, setLoadingCandidateRoster] = useState(false);
 
   const handleViewSubmissions = async (quiz: QuizItem) => {
     setSelectedQuizTitle(quiz.title);
@@ -139,6 +147,67 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     }
   };
 
+  const handleViewCandidates = async (quiz: QuizItem) => {
+    setCandidateModalQuiz(quiz);
+    setCandidateRoster([]);
+    setCandidateRosterInfo(null);
+    setLoadingCandidateRoster(true);
+    try {
+      const result = await getQuizCandidates(quiz.id);
+      if (result.success && result.data && result.quiz) {
+        setCandidateRoster(result.data);
+        setCandidateRosterInfo(result.quiz);
+      } else {
+        showToast(result.error || "Không thể tải danh sách mã dự thi.", "error");
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("Lỗi hệ thống khi tải danh sách mã dự thi.", "error");
+    } finally {
+      setLoadingCandidateRoster(false);
+    }
+  };
+
+  const handleResetCandidateBinding = async (candidateId: string) => {
+    if (!candidateModalQuiz) return;
+    const result = await resetQuizCandidateBinding(candidateModalQuiz.id, candidateId);
+    if (!result.success) {
+      showToast(result.error || "Không thể gỡ khóa trình duyệt.", "error");
+      return;
+    }
+    setCandidateRoster((current) => current.map((candidate) => candidate.id === candidateId
+      ? { ...candidate, bindingExpiresAt: null }
+      : candidate));
+    showToast("Đã gỡ liên kết trình duyệt cho mã dự thi.", "success");
+  };
+
+  const handleSetCandidateRevocation = async (candidateId: string, isRevoked: boolean) => {
+    if (!candidateModalQuiz) return;
+    const result = await setQuizCandidateRevocation(candidateModalQuiz.id, candidateId, isRevoked);
+    if (!result.success) {
+      showToast(result.error || "Không thể cập nhật trạng thái mã dự thi.", "error");
+      return;
+    }
+    setCandidateRoster((current) => current.map((candidate) => candidate.id === candidateId
+      ? { ...candidate, isRevoked, revokedAt: isRevoked ? new Date().toISOString() : null, bindingExpiresAt: isRevoked ? null : candidate.bindingExpiresAt }
+      : candidate));
+    showToast(isRevoked ? "Đã thu hồi mã dự thi." : "Đã khôi phục mã dự thi.", "success");
+  };
+
+  const downloadCandidateCsv = () => {
+    if (!candidateRosterInfo) return;
+    const rows = ["Họ tên,Mã dự thi,Trạng thái,Số lượt đã nộp", ...candidateRoster.map((candidate) => [
+      `\"${String(candidate.name).replaceAll('\"', '\"\"')}\"`, candidate.code,
+      candidate.isRevoked ? "Đã thu hồi" : "Đang hoạt động", candidate.submittedCount,
+    ].join(","))];
+    const url = URL.createObjectURL(new Blob([`﻿${rows.join("\n")}`], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `ma-du-thi-${candidateRosterInfo.title.replaceAll(/[^\p{L}\p{N}]+/gu, "-")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Form states
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -150,6 +219,14 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [showOnList, setShowOnList] = useState(true);
   const [answerVisibility, setAnswerVisibility] = useState("IMMEDIATELY");
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
+  const [candidateAccessRequired, setCandidateAccessRequired] = useState(false);
+  const [candidateMaxSubmissions, setCandidateMaxSubmissions] = useState(1);
+  const [candidateBindingExpiryMode, setCandidateBindingExpiryMode] = useState<"HOURS" | "DEADLINE">("HOURS");
+  const [candidateBindingHours, setCandidateBindingHours] = useState(24);
+  const [candidateClassIds, setCandidateClassIds] = useState<string[]>([]);
+  const [manualCandidateNames, setManualCandidateNames] = useState("");
+  const [candidateRosterChanged, setCandidateRosterChanged] = useState(false);
+  const [candidateAccessInitiallyRequired, setCandidateAccessInitiallyRequired] = useState(false);
   const [deadline, setDeadline] = useState(""); // string cho <input type="datetime-local">
   const [modalMode, setModalMode] = useState<"CREATE" | "EDIT">("CREATE");
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
@@ -678,6 +755,14 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (candidateAccessRequired && candidateBindingExpiryMode === "DEADLINE" && !deadline) {
+      setErrorMsg("Vui lòng đặt deadline khi khóa mã dự thi đến hạn nộp đề.");
+      return;
+    }
+    if (candidateAccessRequired && (modalMode === "CREATE" || !candidateAccessInitiallyRequired || candidateRosterChanged) && candidateClassIds.length === 0 && !manualCandidateNames.trim()) {
+      setErrorMsg("Vui lòng chọn lớp hoặc thêm ít nhất một thí sinh cho danh sách mã dự thi.");
+      return;
+    }
     setSuccessMsg(null);
     setErrorMsg(null);
 
@@ -698,6 +783,16 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         isPublic,
         answerVisibility,
         shuffleQuestions,
+        candidateAccessRequired,
+        candidateMaxSubmissions,
+        candidateBindingExpiryMode,
+        candidateBindingHours: candidateBindingExpiryMode === "HOURS" ? candidateBindingHours : null,
+        ...((candidateRosterChanged || (candidateAccessRequired && !candidateAccessInitiallyRequired)) ? {
+          candidateRoster: {
+            classIds: candidateClassIds,
+            manualNames: manualCandidateNames.split(/\r?\n/),
+          },
+        } : {}),
         questions,
       });
 
@@ -722,6 +817,14 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         isPublic,
         answerVisibility,
         shuffleQuestions,
+        candidateAccessRequired,
+        candidateMaxSubmissions,
+        candidateBindingExpiryMode,
+        candidateBindingHours: candidateBindingExpiryMode === "HOURS" ? candidateBindingHours : null,
+        candidateRoster: {
+          classIds: candidateClassIds,
+          manualNames: manualCandidateNames.split(/\r?\n/),
+        },
         questions,
       });
 
@@ -748,6 +851,14 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setShowOnList(true);
     setAnswerVisibility("IMMEDIATELY");
     setShuffleQuestions(true);
+    setCandidateAccessRequired(false);
+    setCandidateMaxSubmissions(1);
+    setCandidateBindingExpiryMode("HOURS");
+    setCandidateBindingHours(24);
+    setCandidateClassIds([]);
+    setManualCandidateNames("");
+    setCandidateRosterChanged(false);
+    setCandidateAccessInitiallyRequired(false);
     setDeadline("");
     setQuestions([{ questionText: "", type: "MULTIPLE_CHOICE", options: ["", "", "", ""], correctAnswer: "0", score: 1, explanation: "", imageUrl: "" }]);
     setModalMode("CREATE");
@@ -778,6 +889,14 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setAssignments(quizAssignments);
     setIsPublic(q.isPublic || false);
     setShuffleQuestions(q.shuffleQuestions ?? true);
+    setCandidateAccessRequired(q.candidateAccessRequired ?? false);
+    setCandidateAccessInitiallyRequired(q.candidateAccessRequired ?? false);
+    setCandidateMaxSubmissions(q.candidateMaxSubmissions ?? 1);
+    setCandidateBindingExpiryMode(q.candidateBindingExpiryMode ?? "HOURS");
+    setCandidateBindingHours(q.candidateBindingHours ?? 24);
+    setCandidateClassIds([]);
+    setManualCandidateNames("");
+    setCandidateRosterChanged(false);
     setDeadline(q.deadline ? toLocalDateTimeInput(q.deadline) : "");
     setAnswerVisibility(
       q.answerVisibility === "AFTER_ALL_SUBMITTED" && quizAssignments.length > 0 && !q.isPublic
@@ -1207,6 +1326,14 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 >
                   <Share2 className="h-3.5 w-3.5" /> Chia sẻ
                 </button>
+                {q.candidateAccessRequired && (
+                  <button
+                    onClick={() => handleViewCandidates(q)}
+                    className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
+                  >
+                    <UserCheck className="h-3.5 w-3.5" /> Mã dự thi
+                  </button>
+                )}
                 <button
                   onClick={() => handleEditClick(q)}
                   className="bg-blue-50 text-primary hover:bg-blue-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
@@ -1523,6 +1650,94 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   />
                   <span className="text-[10px] text-ink-muted-48">Bỏ trống = không đóng đề. Sau deadline học sinh VẪN làm được nhưng hiển thị "Nộp muộn".</span>
                 </div>
+
+                {isPublic && (
+                  <div className="md:col-span-2 flex flex-col gap-4 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
+                    <div className="flex items-start gap-2">
+                      <input
+                        id="candidateAccessRequired"
+                        type="checkbox"
+                        checked={candidateAccessRequired}
+                        onChange={(event) => {
+                          setCandidateAccessRequired(event.target.checked);
+                          if (event.target.checked && !candidateAccessInitiallyRequired) setCandidateRosterChanged(true);
+                        }}
+                        className="mt-0.5 h-4 w-4 rounded text-primary"
+                      />
+                      <div>
+                        <label htmlFor="candidateAccessRequired" className="cursor-pointer text-sm font-bold text-ink">Yêu cầu mã dự thi</label>
+                        <p className="text-[11px] text-ink-muted-80">Mỗi thí sinh nhận một mã riêng; mã bị khóa vào trình duyệt đầu tiên cho đến khi hết hạn hoặc giáo viên gỡ khóa.</p>
+                      </div>
+                    </div>
+
+                    {candidateAccessRequired && (
+                      <>
+                        {modalMode === "EDIT" && candidateAccessInitiallyRequired && !candidateRosterChanged && (
+                          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                            Danh sách và mã đã cấp đang được giữ nguyên. Chỉnh sửa lớp, tên nhập riêng hoặc CSV bên dưới để thay thế danh sách này.
+                          </p>
+                        )}
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <label className="flex flex-col gap-1 text-xs font-semibold text-ink-muted-80">
+                            Số lượt nộp tối đa mỗi mã
+                            <input type="number" min="1" max="100" value={candidateMaxSubmissions} onChange={(event) => setCandidateMaxSubmissions(Number(event.target.value))} className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-sm text-ink outline-none" />
+                          </label>
+                          <label className="flex flex-col gap-1 text-xs font-semibold text-ink-muted-80">
+                            Hết hạn liên kết trình duyệt
+                            <select value={candidateBindingExpiryMode} onChange={(event) => setCandidateBindingExpiryMode(event.target.value as "HOURS" | "DEADLINE")} className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-sm text-ink outline-none">
+                              <option value="HOURS">Sau số giờ cấu hình</option>
+                              <option value="DEADLINE" disabled={!deadline}>Đến deadline của đề</option>
+                            </select>
+                          </label>
+                        </div>
+                        {candidateBindingExpiryMode === "HOURS" && (
+                          <label className="flex max-w-xs flex-col gap-1 text-xs font-semibold text-ink-muted-80">
+                            Số giờ khóa trình duyệt
+                            <input type="number" min="1" max="720" value={candidateBindingHours} onChange={(event) => setCandidateBindingHours(Number(event.target.value))} className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-sm text-ink outline-none" />
+                          </label>
+                        )}
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs font-bold text-ink">Lấy học sinh từ lớp hệ thống</span>
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            {classes.map((item) => (
+                              <label key={item.id} className="flex items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 py-2 text-xs font-semibold text-ink">
+                                <input type="checkbox" checked={candidateClassIds.includes(item.id)} onChange={(event) => {
+                                  setCandidateRosterChanged(true);
+                                  setCandidateClassIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id));
+                                }} />
+                                {item.name}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        <label className="flex flex-col gap-1 text-xs font-bold text-ink">
+                          Thí sinh nhập riêng (mỗi dòng một họ tên)
+                          <textarea value={manualCandidateNames} onChange={(event) => {
+                            setCandidateRosterChanged(true);
+                            setManualCandidateNames(event.target.value);
+                          }} placeholder="Nguyễn Văn A&#10;Trần Thị B" rows={5} className="resize-y rounded-lg border border-hairline bg-canvas p-3 text-sm font-normal text-ink outline-none focus:ring-2 focus:ring-primary/50" />
+                        </label>
+                        <label className="inline-flex w-fit cursor-pointer items-center gap-2 text-xs font-semibold text-primary">
+                          <Upload className="h-3.5 w-3.5" /> Nhập CSV một cột Họ tên
+                          <input type="file" accept=".csv,text/csv" className="hidden" onChange={async (event) => {
+                            const file = event.target.files?.[0];
+                            if (!file) return;
+                            const text = await file.text();
+                            const rows = text.replace(/^﻿/, "").split(/\r?\n/).map((row) => row.trim()).filter(Boolean);
+                            const withoutHeader = /^(họ\s*tên|ho\s*ten|name)$/i.test(rows[0] ?? "") ? rows.slice(1) : rows;
+                            if (withoutHeader.some((row) => row.includes(","))) {
+                              showToast("CSV chỉ được có một cột Họ tên.", "error");
+                              return;
+                            }
+                            setCandidateRosterChanged(true);
+                            setManualCandidateNames((current) => [current.trim(), ...withoutHeader].filter(Boolean).join("\n"));
+                            event.target.value = "";
+                          }} />
+                        </label>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Import Method Toggle Buttons */}
@@ -2121,6 +2336,41 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
       )}
 
       {/* Share Links Modal */}
+      {candidateModalQuiz && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="flex max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-hairline bg-canvas shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-divider p-5">
+              <div>
+                <h3 className="text-base font-bold text-ink">Mã dự thi: {candidateRosterInfo?.title ?? candidateModalQuiz.title}</h3>
+                <p className="text-xs text-ink-muted-80">Phát mã riêng tư. Gỡ khóa khi thí sinh đổi máy hoặc được phép làm lại.</p>
+              </div>
+              <button onClick={() => setCandidateModalQuiz(null)} className="rounded-full p-1.5 text-ink-muted-48 hover:bg-surface hover:text-ink"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="flex flex-wrap gap-2 border-b border-divider p-4">
+              <button type="button" onClick={downloadCandidateCsv} disabled={loadingCandidateRoster || candidateRoster.length === 0} className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">Tải CSV</button>
+              <button type="button" onClick={() => window.open(`/${isAdmin ? "admin" : "teacher"}/quizzes/${candidateModalQuiz.id}/candidates/print`, "_blank", "noopener,noreferrer")} className="rounded-full border border-hairline px-4 py-2 text-xs font-semibold text-ink hover:bg-surface">In danh sách</button>
+            </div>
+            <div className="overflow-auto p-4">
+              {loadingCandidateRoster ? <div className="py-12 text-center text-sm text-ink-muted-80">Đang tải mã dự thi...</div> : (
+                <table className="w-full min-w-[680px] text-left text-xs">
+                  <thead className="sticky top-0 bg-surface-pearl text-[10px] uppercase tracking-wider text-ink-muted-80"><tr><th className="p-3">Họ tên</th><th className="p-3">Nguồn</th><th className="p-3">Mã dự thi</th><th className="p-3">Lượt nộp</th><th className="p-3">Liên kết máy</th><th className="p-3 text-right">Thao tác</th></tr></thead>
+                  <tbody className="divide-y divide-divider-soft">
+                    {candidateRoster.map((candidate) => <tr key={candidate.id} className={candidate.isRevoked ? "opacity-50" : ""}>
+                      <td className="p-3 font-semibold text-ink">{candidate.name}{candidate.isRevoked && <span className="ml-2 text-[10px] text-red-600">Đã thu hồi</span>}</td>
+                      <td className="p-3 text-ink-muted-80">{candidate.source === "CLASS" ? "Lớp hệ thống" : "Nhập riêng"}</td>
+                      <td className="p-3 font-mono font-bold tracking-wider text-primary">{candidate.code}</td>
+                      <td className="p-3">{candidate.submittedCount}/{candidateRosterInfo?.maxSubmissions ?? "-"}</td>
+                      <td className="p-3 text-ink-muted-80">{candidate.bindingExpiresAt ? `Đến ${new Date(candidate.bindingExpiresAt).toLocaleString("vi-VN")}` : "Chưa liên kết"}</td>
+                      <td className="p-3 text-right"><div className="flex justify-end gap-2"><button type="button" disabled={!candidate.bindingExpiresAt} onClick={() => handleResetCandidateBinding(candidate.id)} className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800 disabled:opacity-50">Gỡ khóa</button><button type="button" onClick={() => handleSetCandidateRevocation(candidate.id, !candidate.isRevoked)} className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold ${candidate.isRevoked ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-red-300 bg-red-50 text-red-800"}`}>{candidate.isRevoked ? "Khôi phục" : "Thu hồi"}</button></div></td>
+                    </tr>)}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {shareModalQuiz && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-canvas border border-hairline rounded-2xl shadow-xl w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden animate-scale-up">

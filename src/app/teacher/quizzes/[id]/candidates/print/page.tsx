@@ -1,0 +1,43 @@
+import { getQuizCandidates } from "@/actions/quizzes";
+import { getSession } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
+
+export default async function PrintQuizCandidatesPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession();
+  if (!session || (session.role !== "TEACHER" && session.role !== "ADMIN")) redirect("/login");
+
+  const { id } = await params;
+  const quiz = await db.quiz.findUnique({ where: { id }, select: { teacherId: true } });
+  if (!quiz) return <main className="p-10 text-red-600">Không tìm thấy đề thi.</main>;
+  if (session.role === "TEACHER") {
+    const teacher = await db.teacherProfile.findUnique({ where: { userId: session.userId }, select: { id: true } });
+    if (!teacher || teacher.id !== quiz.teacherId) return <main className="p-10 text-red-600">Bạn không có quyền in danh sách này.</main>;
+  }
+  const result = await getQuizCandidates(id);
+  if (!result.success || !result.data || !result.quiz) {
+    return <main className="p-10 text-red-600">{result.error || "Không thể tải danh sách mã dự thi."}</main>;
+  }
+
+  return (
+    <main className="mx-auto max-w-4xl bg-white p-8 text-slate-900 print:max-w-none print:p-0">
+      <style>{"@media print { .no-print { display: none !important; } }"}</style>
+      <div className="no-print mb-6">
+        <p className="text-sm text-slate-600">Chỉ in/phát danh sách này cho thí sinh được phép dự thi. Dùng Ctrl/Cmd + P để in.</p>
+      </div>
+      <h1 className="text-2xl font-bold">Danh sách mã dự thi</h1>
+      <h2 className="mt-1 text-base text-slate-600">{result.quiz.title}</h2>
+      <p className="mt-2 text-sm">Mỗi mã có tối đa {result.quiz.maxSubmissions} lượt nộp bài.</p>
+      <table className="mt-6 w-full border-collapse text-sm">
+        <thead><tr className="bg-slate-100 text-left"><th className="border border-slate-300 p-2">STT</th><th className="border border-slate-300 p-2">Họ và tên</th><th className="border border-slate-300 p-2">Mã dự thi</th></tr></thead>
+        <tbody>
+          {result.data.filter((candidate) => !candidate.isRevoked).map((candidate, index) => (
+            <tr key={candidate.id}><td className="border border-slate-300 p-2">{index + 1}</td><td className="border border-slate-300 p-2">{candidate.name}</td><td className="border border-slate-300 p-2 font-mono font-bold tracking-wider">{candidate.code}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </main>
+  );
+}

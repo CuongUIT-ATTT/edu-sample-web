@@ -102,6 +102,7 @@ model StudentProfile {
   enrollments         Enrollment[]
   quizSubmissions     QuizSubmission[]
   quizAttempts        QuizAttempt[]
+  quizCandidates      QuizCandidate[]
   homeworkSubmissions HomeworkSubmission[]
   tuitions            Tuition[]
   tuitionPayments     TuitionPayment[]
@@ -344,6 +345,12 @@ model Quiz {
   isPublic         Boolean @default(false)
   answerVisibility String  @default("IMMEDIATELY") // IMMEDIATELY, WHEN_ENDED, AFTER_ALL_SUBMITTED
   shuffleQuestions Boolean @default(true) // Xáo trộn câu hỏi & đáp án mỗi lượt làm bài
+  // Chế độ đề public có danh sách thí sinh + mã dự thi. Mặc định false để
+  // mọi đề cũ vẫn giữ nguyên luồng khách nhập họ tên.
+  candidateAccessRequired    Boolean @default(false)
+  candidateMaxSubmissions    Int     @default(1)
+  candidateBindingExpiryMode String  @default("HOURS") // HOURS | DEADLINE
+  candidateBindingHours      Int?
 
   subjectId String
   subject   Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
@@ -356,6 +363,7 @@ model Quiz {
   questions      Question[]
   submissions    QuizSubmission[]
   attempts       QuizAttempt[]
+  candidates     QuizCandidate[]
   assignments    QuizClassAssignment[]
   schedules      Schedule[]
   scheduleSeries ScheduleSeries[]
@@ -375,6 +383,43 @@ model QuizClassAssignment {
   @@unique([quizId, classId])
   @@index([quizId])
   @@index([classId])
+}
+
+model QuizCandidate {
+  id        String @id @default(uuid())
+  quizId    String
+  quiz      Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  // Nguồn CLASS giữ liên kết học sinh để đồng bộ roster; MANUAL chỉ có tên.
+  studentId String?
+  student   StudentProfile? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  name      String
+  source    String @default("MANUAL") // CLASS | MANUAL
+
+  // Không lưu plaintext code. codeDigest được dùng để tra cứu, codeCiphertext
+  // chỉ được giải mã trong action đã xác thực của giáo viên/admin.
+  codeDigest     String
+  codeCiphertext String
+
+  isRevoked Boolean   @default(false)
+  revokedAt DateTime?
+  submittedCount Int  @default(0)
+
+  // Browser đầu tiên nhận một secret ngẫu nhiên trong cookie httpOnly.
+  // DB chỉ giữ digest, nên rò rỉ DB không thể tái sử dụng browser binding.
+  bindingSecretDigest String?
+  bindingStartedAt    DateTime?
+  bindingExpiresAt    DateTime?
+
+  attempts    QuizAttempt[]
+  submissions QuizSubmission[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([quizId, codeDigest])
+  @@unique([quizId, studentId])
+  @@index([quizId, isRevoked])
+  @@index([bindingExpiresAt])
 }
 
 model Question {
@@ -399,6 +444,8 @@ model QuizSubmission {
   quiz      Quiz            @relation(fields: [quizId], references: [id], onDelete: Cascade)
   classId   String?
   class     Class?          @relation(fields: [classId], references: [id], onDelete: SetNull)
+  candidateId String?
+  candidate   QuizCandidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
 
   score       Float
   answers     Json // Map of question ID to student's answer
@@ -408,6 +455,8 @@ model QuizSubmission {
 
   attemptId String?  @unique
   attempt   QuizAttempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+
+  @@index([candidateId])
 }
 
 // Mỗi lượt làm bài = 1 QuizAttempt (mã đề xáo trộn phía server).
@@ -420,6 +469,8 @@ model QuizAttempt {
   student   StudentProfile? @relation(fields: [studentId], references: [id], onDelete: Cascade)
   classId   String?
   class     Class?          @relation(fields: [classId], references: [id], onDelete: SetNull)
+  candidateId String?
+  candidate   QuizCandidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
   guestName String?
   examCode  String // mã đề ngắn, VD "ab12" — chống trao đổi đáp án theo "đề A/B"
   layout    Json // { questionOrder: {TYPE: [qid...]}, optionOrder: {qid: [origIdx...]} }
@@ -433,6 +484,7 @@ model QuizAttempt {
 
   @@index([quizId])
   @@index([examCode])
+  @@index([candidateId])
 }
 
 model Room {
