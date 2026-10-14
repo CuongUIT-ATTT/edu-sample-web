@@ -2469,7 +2469,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                                     () => showToast("Không thể sao chép tự động. Vui lòng sao chép thủ công.", "error")
                                   );
                                 }}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-pill font-semibold text-[11px] transition-colors self-start sm:self-auto"
+                                className="bg-primary hover:bg-primary-focus text-white px-3 py-1 rounded-pill font-semibold text-[11px] transition-colors self-start sm:self-auto"
                               >
                                 Sao chép link lớp
                               </button>
