@@ -64,6 +64,7 @@ interface TeacherQuizManagerProps {
   subjects: { id: string; name: string }[];
   classes: { id: string; name: string }[];
   isAdmin?: boolean;
+  subjectsLoadError?: boolean;
 }
 
 interface ClassTabItem {
@@ -74,7 +75,7 @@ interface ClassTabItem {
   startsAtOverride?: string | null;
 }
 
-export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin = false }: TeacherQuizManagerProps) {
+export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin = false, subjectsLoadError = false }: TeacherQuizManagerProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
@@ -755,6 +756,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!subjectId) {
+      setErrorMsg(subjectsLoadError ? "Không thể tải danh sách môn học. Vui lòng tải lại trang." : "Vui lòng chọn môn học cho đề kiểm tra.");
+      return;
+    }
     if (candidateAccessRequired && candidateBindingExpiryMode === "DEADLINE" && !deadline) {
       setErrorMsg("Vui lòng đặt deadline khi khóa mã dự thi đến hạn nộp đề.");
       return;
@@ -1146,18 +1151,18 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     <div className="flex flex-col gap-6">
       {/* Alert status */}
       {successMsg && (
-        <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 flex items-center justify-between gap-3 text-sm">
+        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-200 rounded-lg p-4 flex items-center justify-between gap-3 text-sm">
           <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-600" />
+            <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             <span>{successMsg}</span>
           </div>
           <button onClick={() => setSuccessMsg(null)}><X className="h-4 w-4" /></button>
         </div>
       )}
       {errorMsg && (
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 flex items-center justify-between gap-3 text-sm">
+        <div className="bg-red-500/10 border border-red-500/20 text-red-800 dark:text-red-200 rounded-lg p-4 flex items-center justify-between gap-3 text-sm">
           <div className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-red-600" />
+            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
             <span>{errorMsg}</span>
           </div>
           <button onClick={() => setErrorMsg(null)}><X className="h-4 w-4" /></button>
@@ -1245,7 +1250,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               <div className="flex flex-col gap-2.5">
                 <div className="flex flex-col gap-1.5">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-primary px-2.5 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
                       {q.subject.name}
                     </span>
                     {(() => {
@@ -1255,25 +1260,25 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                       return (
                         <span
                           title={classNames.join(", ")}
-                          className="text-[10px] font-bold uppercase tracking-wider bg-orange-50 text-orange-600 px-2.5 py-0.5 rounded-full"
+                          className="text-[10px] font-bold uppercase tracking-wider bg-orange-500/10 text-orange-600 dark:text-orange-400 px-2.5 py-0.5 rounded-full"
                         >
                           {classNames.length === 1 ? `Lớp ${classNames[0]}` : `${classNames.length} lớp`}
                         </span>
                       );
                     })()}
                     {q.isPublic ? (
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-green-50 text-green-700 px-2.5 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2.5 py-0.5 rounded-full">
                         Công khai
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-ink-muted-80 px-2.5 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-surface-pearl text-ink-muted-80 px-2.5 py-0.5 rounded-full border border-hairline">
                         Nội bộ
                       </span>
                     )}
                     <span className="text-xs text-ink-muted-48 font-semibold ml-auto">{q._count.questions} câu hỏi</span>
                   </div>
                   {isAdmin && q.creatorName && (
-                    <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-100 self-start">
+                    <span className="text-[10px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 self-start">
                       Người tạo: {q.creatorName}
                     </span>
                   )}
@@ -1300,11 +1305,11 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                         <Award className="h-3.5 w-3.5" />
                         Đạt: {q.passingScore}
                       </span>
-                      <span className="flex items-center gap-1 text-primary bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                      <span className="flex items-center gap-1 text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
                         <UserCheck className="h-3 w-3" />
                         {subCount}
                       </span>
-                      <span className="flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 font-semibold">
+                      <span className="flex items-center gap-1 text-amber-700 dark:text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 font-semibold">
                         <BarChart2 className="h-3 w-3" />
                         {avgScore}đ
                       </span>
@@ -1316,33 +1321,33 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               <div className="border-t border-divider-soft pt-3 flex justify-end gap-2 flex-wrap">
                 <button
                   onClick={() => handleViewSubmissions(q)}
-                  className="bg-purple-50 text-purple-700 hover:bg-purple-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
+                  className="bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
                 >
                   <Award className="h-3.5 w-3.5" /> Kết quả
                 </button>
                 <button
                   onClick={() => handleShareClick(q)}
-                  className="bg-green-50 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
+                  className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
                 >
                   <Share2 className="h-3.5 w-3.5" /> Chia sẻ
                 </button>
                 {q.candidateAccessRequired && (
                   <button
                     onClick={() => handleViewCandidates(q)}
-                    className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
+                    className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
                   >
                     <UserCheck className="h-3.5 w-3.5" /> Mã dự thi
                   </button>
                 )}
                 <button
                   onClick={() => handleEditClick(q)}
-                  className="bg-blue-50 text-primary hover:bg-blue-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
+                  className="bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
                 >
                   <Edit3 className="h-3.5 w-3.5" /> Sửa
                 </button>
                 <button
                   onClick={() => handleDelete(q.id, q.title)}
-                  className="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
+                  className="bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Xoá
                 </button>
@@ -1393,27 +1398,35 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-caption-strong text-ink-muted-80">Môn học</label>
                   <select
+                    id="quiz-subject"
+                    name="subjectId"
                     value={subjectId}
                     onChange={(e) => setSubjectId(e.target.value)}
-                    className="bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus w-full"
+                    className="quiz-subject-select bg-canvas border border-hairline rounded-pill px-4 py-2.5 h-10 text-sm text-ink outline-none focus:border-primary-focus focus:ring-2 focus:ring-primary/25 w-full disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={subjects.length === 0}
                     required
                   >
-                    <option value="">— Chọn môn —</option>
+                    <option value="">{subjects.length === 0 ? "— Chưa có môn học —" : "— Chọn môn —"}</option>
                     {subjects.map((s) => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>
+                  {subjects.length === 0 && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                      {subjectsLoadError ? "Không thể tải danh sách môn học. Vui lòng tải lại trang." : "Chưa có môn học để tạo đề. Hãy thêm môn học trước."}
+                    </p>
+                  )}
                 </div>
 
                 {/* Stitch UI: Multi-Class Quiz Assignment Interface Section */}
-                <div className="flex flex-col gap-4 md:col-span-2 border border-blue-200 rounded-xl bg-blue-50/30 p-4 shadow-sm">
-                  <div className="flex flex-col gap-1 border-b border-blue-100 pb-3">
+                <div className="flex flex-col gap-4 md:col-span-2 rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
+                  <div className="flex flex-col gap-1 border-b border-primary/15 pb-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <UserCheck className="h-5 w-5 text-primary" />
                         <h4 className="text-sm font-bold text-ink">Phân phối Lớp học & Cài đặt Lịch thi riêng</h4>
                       </div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-blue-100 px-2.5 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">
                         QuizClassAssignment
                       </span>
                     </div>
@@ -1454,7 +1467,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                         key={item.id}
                         className={`flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold cursor-pointer transition-colors ${
                           selectedClassIds.has(item.id)
-                            ? "border-primary bg-blue-50/60 text-primary"
+                            ? "border-primary bg-primary/10 text-primary"
                             : "border-hairline bg-canvas text-ink-muted-80 hover:bg-surface-pearl"
                         }`}
                       >
@@ -1486,7 +1499,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                           {assignments.map((assignment) => {
                             const hasOverride = Boolean(assignment.startsAtOverride || assignment.deadlineOverride);
                             return (
-                              <tr key={assignment.classId} className="hover:bg-slate-50 transition-colors">
+                              <tr key={assignment.classId} className="hover:bg-surface-pearl transition-colors">
                                 <td className="p-3 font-bold text-ink">
                                   <div className="flex items-center gap-2">
                                     <span className="h-2 w-2 rounded-full bg-primary" />
@@ -1511,11 +1524,11 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                                 </td>
                                 <td className="p-3 text-center">
                                   {hasOverride ? (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
                                       ✓ Lịch riêng
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-surface-pearl px-2.5 py-0.5 text-[10px] font-semibold text-ink-muted-80">
                                       Theo lịch chung
                                     </span>
                                   )}
@@ -1524,7 +1537,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                                   <button
                                     type="button"
                                     onClick={() => handleToggleClassAssignment(assignment.classId, false)}
-                                    className="p-1 text-ink-muted-48 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                    className="rounded-full p-1 text-ink-muted-48 transition-colors hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
                                     title="Gỡ lớp này"
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -1673,7 +1686,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     {candidateAccessRequired && (
                       <>
                         {modalMode === "EDIT" && candidateAccessInitiallyRequired && !candidateRosterChanged && (
-                          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                          <p className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-200">
                             Danh sách và mã đã cấp đang được giữ nguyên. Chỉnh sửa lớp, tên nhập riêng hoặc CSV bên dưới để thay thế danh sách này.
                           </p>
                         )}
@@ -1825,13 +1838,13 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
               {/* IMAGE JSON MERGE - Phase 2 */}
               {importMethod === "JSON" && questions.length > 0 && (
-                <div className="border border-dashed border-amber-300 rounded-lg p-4 bg-amber-50/50 flex flex-col gap-3">
+                <div className="flex flex-col gap-3 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/10 p-4">
                   <div className="flex items-center gap-1.5">
-                    <ImageIcon className="h-4 w-4 text-amber-600" />
+                    <ImageIcon className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                     <span className="text-xs font-bold text-ink">Bước 2: Gắn ảnh base64 vào câu hỏi</span>
                   </div>
                   <p className="text-[10px] text-ink-muted-80">
-                    Dán JSON chứa ảnh base64 và vị trí câu hỏi. Format: <code className="bg-amber-100 px-1 rounded">{"{"}"question_1": "data:image/png;base64,...", "question_7": "data:image/png;base64,..."{"}"}</code>
+                    Dán JSON chứa ảnh base64 và vị trí câu hỏi. Format: <code className="rounded bg-amber-500/15 px-1 text-amber-900 dark:text-amber-100">{"{"}"question_1": "data:image/png;base64,...", "question_7": "data:image/png;base64,..."{"}"}</code>
                   </p>
                   <textarea
                     rows={4}
@@ -1854,8 +1867,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               {importMethod === "PDF" && (
                 <div className="flex flex-col gap-3">
                   {!pdfFile ? (
-                    <div className="border border-dashed border-purple-300 rounded-lg p-6 bg-purple-50/30 flex flex-col items-center gap-3">
-                      <Scissors className="h-8 w-8 text-purple-500" />
+                    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-purple-500/30 bg-purple-500/10 p-6">
+                      <Scissors className="h-8 w-8 text-purple-600 dark:text-purple-400" />
                       <div className="text-center flex flex-col gap-1">
                         <span className="text-sm font-bold text-ink">Chọn tài liệu PDF để khoanh vùng ảnh</span>
                         <span className="text-[10px] text-ink-muted-48">
@@ -1902,9 +1915,9 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               )}
 
               {/* AI GENERATE PANEL */}
-              <div className="flex flex-col gap-3 border border-amber-300 rounded-lg p-4 bg-amber-50/50">
+              <div className="flex flex-col gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
                 <div className="flex items-center gap-1.5">
-                  <Sparkles className="h-4 w-4 text-amber-600" />
+                  <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   <span className="text-xs font-bold text-ink">Tạo đề thi bằng AI</span>
                 </div>
                 <p className="text-[11px] text-ink-muted-80">
@@ -1913,13 +1926,13 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               </div>
 
               {/* Formula & formatting instructions */}
-              <div className="bg-blue-50 border border-blue-200 rounded p-4 text-[11px] text-ink-muted-80 font-body leading-relaxed flex flex-col gap-2">
-                <span className="font-semibold text-ink block">💡 Hướng dẫn định dạng câu hỏi:</span>
-                <span>• <strong>Ảnh minh họa:</strong> đặt base64 data URL (<code className="bg-blue-100 px-1 rounded">"data:image/png;base64,..."</code>) hoặc link ảnh bên ngoài vào trường <code className="bg-blue-100 px-1 rounded">imageUrl</code>. Hệ thống tự động upload lên Cloudinary khi import.</span>
-                <span>• <strong>Công thức Toán học:</strong> nhập trong cặp dấu <code className="bg-blue-100 px-1 rounded">$...$</code> — ví dụ: <code className="bg-blue-100 px-1 rounded">$x^2 + 1$</code></span>
-                <span>• <strong>Câu hỏi nhiều bước / dài:</strong> dùng <code className="bg-blue-100 px-1 rounded">\n</code> trong chuỗi JSON để xuống dòng. Hệ thống sẽ tự nhận diện và định dạng đẹp:<br />
-                  — <code className="bg-blue-100 px-1 rounded">- Bước 1: ...</code> → hiển thị như bước có mũi tên<br />
-                  — <code className="bg-blue-100 px-1 rounded">(a) ...</code>, <code className="bg-blue-100 px-1 rounded">(b) ...</code> → indent thụt vào như phát biểu con
+              <div className="flex flex-col gap-2 rounded border border-primary/20 bg-primary/5 p-4 text-[11px] font-body leading-relaxed text-ink-muted-80">
+                <span className="block font-semibold text-ink">💡 Hướng dẫn định dạng câu hỏi:</span>
+                <span>• <strong>Ảnh minh họa:</strong> đặt base64 data URL (<code className="rounded bg-primary/10 px-1 text-primary">"data:image/png;base64,..."</code>) hoặc link ảnh bên ngoài vào trường <code className="rounded bg-primary/10 px-1 text-primary">imageUrl</code>. Hệ thống tự động upload lên Cloudinary khi import.</span>
+                <span>• <strong>Công thức Toán học:</strong> nhập trong cặp dấu <code className="rounded bg-primary/10 px-1 text-primary">$...$</code> — ví dụ: <code className="rounded bg-primary/10 px-1 text-primary">$x^2 + 1$</code></span>
+                <span>• <strong>Câu hỏi nhiều bước / dài:</strong> dùng <code className="rounded bg-primary/10 px-1 text-primary">\n</code> trong chuỗi JSON để xuống dòng. Hệ thống sẽ tự nhận diện và định dạng đẹp:<br />
+                  — <code className="rounded bg-primary/10 px-1 text-primary">- Bước 1: ...</code> → hiển thị như bước có mũi tên<br />
+                  — <code className="rounded bg-primary/10 px-1 text-primary">(a) ...</code>, <code className="rounded bg-primary/10 px-1 text-primary">(b) ...</code> → indent thụt vào như phát biểu con
                 </span>
                 <span>• <strong>Tip:</strong> Tải file JSON mẫu ở trên để xem ví dụ câu nhiều bước đã được định dạng sẵn.</span>
               </div>
@@ -1932,10 +1945,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 {(() => {
                   const part1Questions = questions.map((q, idx) => ({ q, idx })).filter(item => item.q.type === "MULTIPLE_CHOICE");
                   return (
-                    <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
-                      <div className="flex justify-between items-center border-b border-divider pb-2 mb-2">
+                    <div className="flex flex-col gap-4 rounded-xl border border-divider-soft bg-surface-pearl p-4">
+                      <div className="mb-2 flex items-center justify-between border-b border-divider pb-2">
                         <div className="flex flex-col text-left">
-                          <span className="text-xs font-bold text-slate-800">PHẦN I. Câu hỏi trắc nghiệm nhiều phương án lựa chọn</span>
+                          <span className="text-xs font-bold text-ink">PHẦN I. Câu hỏi trắc nghiệm nhiều phương án lựa chọn</span>
                           <span className="text-[10px] text-ink-muted-48">Mỗi câu hỏi thí sinh chỉ chọn một phương án. Thí sinh trả lời từ câu 1 đến câu {part1Questions.length}.</span>
                         </div>
                         <button
@@ -1962,10 +1975,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 {(() => {
                   const part2Questions = questions.map((q, idx) => ({ q, idx })).filter(item => item.q.type === "TRUE_FALSE");
                   return (
-                    <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
-                      <div className="flex justify-between items-center border-b border-divider pb-2 mb-2">
+                    <div className="flex flex-col gap-4 rounded-xl border border-divider-soft bg-surface-pearl p-4">
+                      <div className="mb-2 flex items-center justify-between border-b border-divider pb-2">
                         <div className="flex flex-col text-left">
-                          <span className="text-xs font-bold text-slate-800">PHẦN II. Câu hỏi trắc nghiệm Đúng/Sai</span>
+                          <span className="text-xs font-bold text-ink">PHẦN II. Câu hỏi trắc nghiệm Đúng/Sai</span>
                           <span className="text-[10px] text-ink-muted-48">Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai. Thí sinh trả lời từ câu 1 đến câu {part2Questions.length}.</span>
                         </div>
                         <button
@@ -1992,10 +2005,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 {(() => {
                   const part3Questions = questions.map((q, idx) => ({ q, idx })).filter(item => item.q.type === "SHORT_ANSWER");
                   return (
-                    <div className="flex flex-col gap-4 border border-divider-soft rounded-xl p-4 bg-slate-50/50">
-                      <div className="flex justify-between items-center border-b border-divider pb-2 mb-2">
+                    <div className="flex flex-col gap-4 rounded-xl border border-divider-soft bg-surface-pearl p-4">
+                      <div className="mb-2 flex items-center justify-between border-b border-divider pb-2">
                         <div className="flex flex-col text-left">
-                          <span className="text-xs font-bold text-slate-800">PHẦN III. Câu hỏi trắc nghiệm trả lời ngắn</span>
+                          <span className="text-xs font-bold text-ink">PHẦN III. Câu hỏi trắc nghiệm trả lời ngắn</span>
                           <span className="text-[10px] text-ink-muted-48">Thí sinh trả lời đáp số ngắn vào ô trống. Thí sinh trả lời từ câu 1 đến câu {part3Questions.length}.</span>
                         </div>
                         <button
@@ -2134,28 +2147,28 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     <div className="flex flex-col gap-6">
                       {/* Top Metric Cards */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-4 flex flex-col gap-1">
+                        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col gap-1">
                           <span className="text-[11px] font-semibold text-primary uppercase tracking-wider">Tổng lượt nộp</span>
                           <span className="text-2xl font-bold text-ink">{totalSubmissions}</span>
                           <span className="text-[10px] text-ink-muted-48">Đã hoàn thành bài làm</span>
                         </div>
 
-                        <div className="bg-purple-50/60 border border-purple-200 rounded-xl p-4 flex flex-col gap-1">
-                          <span className="text-[11px] font-semibold text-purple-700 uppercase tracking-wider">ĐTB Khối / Lớp</span>
-                          <span className="text-2xl font-bold text-purple-900">{avgScoreStr} <span className="text-xs text-purple-600 font-normal">/ 10</span></span>
-                          <span className="text-[10px] text-purple-700/70">Điểm trung bình tích luỹ</span>
+                        <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4 flex flex-col gap-1">
+                          <span className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wider">ĐTB Khối / Lớp</span>
+                          <span className="text-2xl font-bold text-ink">{avgScoreStr} <span className="text-xs text-purple-600 dark:text-purple-400 font-normal">/ 10</span></span>
+                          <span className="text-[10px] text-purple-700/70 dark:text-purple-300/70">Điểm trung bình tích luỹ</span>
                         </div>
 
-                        <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 flex flex-col gap-1">
-                          <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">Tỷ lệ đạt (≥ {passingScore})</span>
-                          <span className="text-2xl font-bold text-emerald-900">{passPercentage}%</span>
-                          <span className="text-[10px] text-emerald-700/70">{passedCount}/{totalSubmissions} thí sinh</span>
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex flex-col gap-1">
+                          <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">Tỷ lệ đạt (≥ {passingScore})</span>
+                          <span className="text-2xl font-bold text-ink">{passPercentage}%</span>
+                          <span className="text-[10px] text-emerald-700/70 dark:text-emerald-300/70">{passedCount}/{totalSubmissions} thí sinh</span>
                         </div>
 
-                        <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-4 flex flex-col gap-1">
-                          <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Điểm Cao / Thấp</span>
-                          <span className="text-xl font-bold text-amber-900">{maxScoreStr} <span className="text-xs font-normal text-amber-700">|</span> {minScoreStr}</span>
-                          <span className="text-[10px] text-amber-700/70">Chênh lệch điểm thi</span>
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex flex-col gap-1">
+                          <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wider">Điểm Cao / Thấp</span>
+                          <span className="text-xl font-bold text-ink">{maxScoreStr} <span className="text-xs font-normal text-amber-700 dark:text-amber-300">|</span> {minScoreStr}</span>
+                          <span className="text-[10px] text-amber-700/70 dark:text-amber-300/70">Chênh lệch điểm thi</span>
                         </div>
                       </div>
 
@@ -2170,7 +2183,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                               className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
                                 selectedClassTab === "ALL"
                                   ? "bg-primary text-white shadow-sm"
-                                  : "bg-surface-pearl text-ink-muted-80 hover:bg-slate-200 border border-hairline"
+                                  : "bg-surface-pearl text-ink-muted-80 hover:bg-primary/10 border border-hairline"
                               }`}
                             >
                               Tất cả các lớp ({assignmentsList.length})
@@ -2191,7 +2204,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                                   className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
                                     selectedClassTab === a.classId
                                       ? "bg-primary text-white shadow-sm"
-                                      : "bg-surface-pearl text-ink-muted-80 hover:bg-slate-200 border border-hairline"
+                                      : "bg-surface-pearl text-ink-muted-80 hover:bg-primary/10 border border-hairline"
                                   }`}
                                 >
                                   Lớp {a.className}
@@ -2211,7 +2224,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                                   className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
                                     selectedClassTab === "UNASSIGNED"
                                       ? "bg-amber-600 text-white shadow-sm"
-                                      : "bg-surface-pearl text-ink-muted-80 hover:bg-slate-200 border border-hairline"
+                                      : "bg-surface-pearl text-ink-muted-80 hover:bg-primary/10 border border-hairline"
                                   }`}
                                 >
                                   🌐 Tự do (Thi thử)
@@ -2237,21 +2250,21 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                       <div className="bg-surface-pearl border border-hairline rounded-xl p-4 flex flex-col gap-3">
                         <span className="text-xs font-bold text-ink">Phân bố phổ điểm:</span>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                          <div className="flex flex-col gap-1 p-2.5 rounded-lg bg-emerald-50 border border-emerald-100">
-                            <span className="font-semibold text-emerald-800">Giỏi (≥ 8.0)</span>
-                            <span className="text-lg font-bold text-emerald-900">{gioicount} HS ({totalSubmissions > 0 ? ((gioicount / totalSubmissions) * 100).toFixed(0) : 0}%)</span>
+                          <div className="flex flex-col gap-1 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                            <span className="font-semibold text-emerald-800 dark:text-emerald-300">Giỏi (≥ 8.0)</span>
+                            <span className="text-lg font-bold text-ink">{gioicount} HS ({totalSubmissions > 0 ? ((gioicount / totalSubmissions) * 100).toFixed(0) : 0}%)</span>
                           </div>
-                          <div className="flex flex-col gap-1 p-2.5 rounded-lg bg-blue-50 border border-blue-100">
-                            <span className="font-semibold text-blue-800">Khá (6.5 - 7.9)</span>
-                            <span className="text-lg font-bold text-blue-900">{khaCount} HS ({totalSubmissions > 0 ? ((khaCount / totalSubmissions) * 100).toFixed(0) : 0}%)</span>
+                          <div className="flex flex-col gap-1 p-2.5 rounded-lg bg-primary/5 border border-primary/20">
+                            <span className="font-semibold text-primary">Khá (6.5 - 7.9)</span>
+                            <span className="text-lg font-bold text-ink">{khaCount} HS ({totalSubmissions > 0 ? ((khaCount / totalSubmissions) * 100).toFixed(0) : 0}%)</span>
                           </div>
-                          <div className="flex flex-col gap-1 p-2.5 rounded-lg bg-amber-50 border border-amber-100">
-                            <span className="font-semibold text-amber-800">Trung bình (5.0 - 6.4)</span>
-                            <span className="text-lg font-bold text-amber-900">{tbCount} HS ({totalSubmissions > 0 ? ((tbCount / totalSubmissions) * 100).toFixed(0) : 0}%)</span>
+                          <div className="flex flex-col gap-1 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                            <span className="font-semibold text-amber-800 dark:text-amber-300">Trung bình (5.0 - 6.4)</span>
+                            <span className="text-lg font-bold text-ink">{tbCount} HS ({totalSubmissions > 0 ? ((tbCount / totalSubmissions) * 100).toFixed(0) : 0}%)</span>
                           </div>
-                          <div className="flex flex-col gap-1 p-2.5 rounded-lg bg-red-50 border border-red-100">
-                            <span className="font-semibold text-red-800">Yếu (&lt; 5.0)</span>
-                            <span className="text-lg font-bold text-red-900">{yeuCount} HS ({totalSubmissions > 0 ? ((yeuCount / totalSubmissions) * 100).toFixed(0) : 0}%)</span>
+                          <div className="flex flex-col gap-1 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20">
+                            <span className="font-semibold text-red-800 dark:text-red-300">Yếu (&lt; 5.0)</span>
+                            <span className="text-lg font-bold text-ink">{yeuCount} HS ({totalSubmissions > 0 ? ((yeuCount / totalSubmissions) * 100).toFixed(0) : 0}%)</span>
                           </div>
                         </div>
                       </div>
@@ -2276,15 +2289,15 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                               {filteredSubmissions.map((s) => {
                                 const isPassed = Number(s.score) >= passingScore;
                                 return (
-                                  <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                                  <tr key={s.id} className="hover:bg-surface-pearl transition-colors">
                                     <td className="p-3 font-bold text-ink">{s.candidateName}</td>
                                     <td className="p-3 text-ink-muted-80 font-medium">{s.classes}</td>
                                     <td className="p-3 text-center">
                                       <span
                                         className={`font-bold px-2.5 py-1 rounded text-xs inline-block ${
                                           isPassed
-                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                            : "bg-red-50 text-red-700 border border-red-200"
+                                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+                                            : "bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20"
                                         }`}
                                       >
                                         {Number(s.score).toFixed(1)} / 10.0
@@ -2292,11 +2305,11 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                                     </td>
                                     <td className="p-3 text-center">
                                       {isPassed ? (
-                                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                                           ĐẠT
                                         </span>
                                       ) : (
-                                        <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+                                        <span className="text-[10px] font-bold text-red-600 dark:text-red-300 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
                                           CHƯA ĐẠT
                                         </span>
                                       )}
@@ -2445,7 +2458,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                       {targetClasses.map((c) => {
                         const classUrl = typeof window !== "undefined" ? `${window.location.origin}/quizzes/${shareModalQuiz.id}?classId=${c.classId}` : "";
                         return (
-                          <div key={c.classId} className="bg-blue-50/50 border border-blue-200/60 rounded-xl p-3 flex flex-col gap-2">
+                          <div key={c.classId} className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex flex-col gap-2">
                             <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
                               <span className="font-semibold text-primary break-words">Lớp {c.className}</span>
                               <button
@@ -2482,7 +2495,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   setManualShareClassId("");
                   setShareModalQuiz(null);
                 }}
-                className="bg-surface-pearl hover:bg-slate-200 text-ink px-5 py-2 rounded-full font-semibold text-xs border border-hairline transition-colors"
+                className="bg-surface-pearl hover:bg-primary/10 text-ink px-5 py-2 rounded-full font-semibold text-xs border border-hairline transition-colors"
               >
                 Đóng
               </button>

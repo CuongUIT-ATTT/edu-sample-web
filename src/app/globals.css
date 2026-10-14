@@ -343,6 +343,23 @@ html {
   border-color: var(--color-hairline) !important;
 }
 
+/* Native select/option dark mode support */
+.dark select,
+.dark select option {
+  color-scheme: dark;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+.dark .hover\:bg-slate-200:hover {
+  background-color: rgba(31, 41, 55, 0.6) !important;
+}
+
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-100:hover {
+  background-color: rgba(17, 24, 39, 0.5) !important;
+}
+
 /* Precision Apple Typography Utilities matching design.md scales */
 @utility font-hero-display {
   font-family: var(--font-display);
@@ -471,3 +488,11 @@ html {
   line-height: 1.0;
   letter-spacing: -0.01em;
 }
+
+.dark select,
+.dark option {
+  color-scheme: dark;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+}
+
