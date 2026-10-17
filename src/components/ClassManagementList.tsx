@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { BookOpen, Users, Plus, Trash2, Edit3, GraduationCap, X, ChevronDown, ChevronUp, UserPlus, CheckCircle, AlertCircle } from "lucide-react";
+import { BookOpen, Users, Plus, Trash2, Edit3, GraduationCap, X, ChevronDown, ChevronUp, UserPlus, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { updateClass, deleteClass, removeStudentFromClass, addStudentToClass } from "@/actions/classes";
 
 interface FormTeacher {
@@ -57,6 +57,7 @@ export default function ClassManagementList({
 
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [deletingClassId, setDeletingClassId] = useState<string | null>(null);
 
   // Form states for class editing
   const [name, setName] = useState("");
@@ -68,16 +69,30 @@ export default function ClassManagementList({
   };
 
   const handleClassDelete = async (id: string, className: string) => {
-    if (!confirm(`Bạn có chắc chắn muốn xoá lớp ${className} không?`)) return;
+    if (deletingClassId) return;
+
+    const confirmed = confirm(
+      `Bạn có chắc chắn muốn xoá lớp ${className} không?\n\n` +
+      "Thao tác này không thể hoàn tác: lịch học, ngoại lệ lịch, bài nộp bài tập và điểm gắn với các bài nộp của lớp sẽ bị xoá vĩnh viễn. Tài khoản học viên vẫn được giữ lại."
+    );
+    if (!confirmed) return;
+
     setSuccessMsg(null);
     setErrorMsg(null);
+    setDeletingClassId(id);
 
-    const res = await deleteClass(id);
-    if (res.success) {
-      setSuccessMsg(res.message || "Xoá lớp thành công.");
-      window.location.reload();
-    } else {
-      setErrorMsg(res.error || "Xoá lớp thất bại.");
+    try {
+      const res = await deleteClass(id);
+      if (res.success) {
+        setSuccessMsg(res.message || "Xoá lớp thành công.");
+        window.location.reload();
+      } else {
+        setErrorMsg(res.error || "Xoá lớp thất bại.");
+      }
+    } catch {
+      setErrorMsg("Không thể xoá lớp lúc này. Vui lòng thử lại.");
+    } finally {
+      setDeletingClassId(null);
     }
   };
 
@@ -222,14 +237,17 @@ export default function ClassManagementList({
                       </button>
 
                       <button
+                        type="button"
+                        disabled={deletingClassId === c.id}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleClassDelete(c.id, c.name);
                         }}
-                        className="text-red-500 hover:bg-red-50 p-2 rounded-full"
-                        title="Xoá lớp"
+                        className="text-red-500 hover:bg-red-50 p-2 rounded-full disabled:cursor-wait disabled:opacity-50"
+                        title={deletingClassId === c.id ? "Đang xoá lớp" : "Xoá lớp"}
+                        aria-label={deletingClassId === c.id ? `Đang xoá lớp ${c.name}` : `Xoá lớp ${c.name}`}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {deletingClassId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                       </button>
 
                       {isExpanded ? <ChevronUp className="h-4 w-4 text-ink-muted-48" /> : <ChevronDown className="h-4 w-4 text-ink-muted-48" />}

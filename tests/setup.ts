@@ -45,6 +45,7 @@ export const mockDb = {
     findFirst: vi.fn(),
     findMany: vi.fn(),
     count: vi.fn(),
+    deleteMany: vi.fn(),
     upsert: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
@@ -98,8 +99,11 @@ export const mockDb = {
     upsert: vi.fn(),
   },
   class: {
+    findFirst: vi.fn(),
     findUnique: vi.fn(),
     findMany: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
   },
   paymentLink: {
     findUnique: vi.fn(),

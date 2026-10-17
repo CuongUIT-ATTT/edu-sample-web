@@ -69,13 +69,29 @@ export async function deleteClass(classId: string) {
       return { success: false, error: "Bạn không được xoá lớp không phụ trách." };
     }
 
-    await db.class.delete({
-      where: { id: classId },
+    const deletedHomeworkSubmissions = await db.$transaction(async (tx) => {
+      // HomeworkSubmission → ScheduleSeries uses RESTRICT intentionally. Delete
+      // submissions first so this explicitly confirmed class deletion can cascade
+      // its schedules without leaving orphaned student work.
+      const submissions = await tx.homeworkSubmission.deleteMany({
+        where: { series: { classId } },
+      });
+
+      await tx.class.delete({
+        where: { id: classId },
+      });
+
+      return submissions.count;
     });
 
     revalidatePath("/admin/classes");
     revalidatePath("/teacher");
-    return { success: true, message: "Xoá lớp luyện thi thành công." };
+    return {
+      success: true,
+      message: deletedHomeworkSubmissions > 0
+        ? `Đã xoá lớp luyện thi và ${deletedHomeworkSubmissions} bài nộp bài tập liên quan.`
+        : "Xoá lớp luyện thi thành công.",
+    };
   } catch (error) {
     console.error("Error deleting class:", error);
     return { success: false, error: "Đã xảy ra lỗi hệ thống khi xoá lớp học." };
