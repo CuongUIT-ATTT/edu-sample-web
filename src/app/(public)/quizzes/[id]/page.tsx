@@ -2,7 +2,7 @@
 import React from "react";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import SingleQuizPlayer from "./SingleQuizPlayer";
 
 export const dynamic = "force-dynamic";
@@ -52,68 +52,20 @@ export default async function SharedQuizPage({
     }
   }
 
-  // Auth/Authorization check for private quizzes
-  if (!quiz.isPublic) {
-    if (!session) {
-      const callback = classId ? `/quizzes/${id}?classId=${classId}` : `/quizzes/${id}`;
-      redirect(`/login?callbackUrl=${encodeURIComponent(callback)}`);
-    }
-
-    if (session.role === "STUDENT") {
-      const studentProfile = await db.studentProfile.findUnique({
-        where: { userId: session.userId },
-        include: { classes: true },
-      });
-
-      if (!studentProfile) {
-        return (
-          <div className="bg-canvas border border-hairline rounded-lg p-16 text-center max-w-xl mx-auto shadow-sm mt-10">
-            <p className="font-body text-red-600 font-semibold">Tài khoản của bạn chưa được liên kết hồ sơ Học sinh.</p>
-          </div>
-        );
-      }
-
-      const studentClassIds = studentProfile.classes.map((c) => c.id);
-      if (classId && !studentClassIds.includes(classId)) {
-        return (
-          <div className="bg-canvas border border-hairline rounded-lg p-16 text-center max-w-xl mx-auto shadow-sm mt-10">
-            <p className="font-body text-red-600 font-semibold">Bài thi này dành riêng cho một lớp học cụ thể mà bạn không tham gia.</p>
-          </div>
-        );
-      }
-
-      if (!effectiveAssignment) {
-        const matchingAssignments = quiz.assignments.filter((assignment) => studentClassIds.includes(assignment.classId));
-        effectiveAssignment = [...matchingAssignments].sort((a, b) => {
-          const aDeadline = a.deadlineOverride?.getTime() ?? Number.POSITIVE_INFINITY;
-          const bDeadline = b.deadlineOverride?.getTime() ?? Number.POSITIVE_INFINITY;
-          if (aDeadline !== bDeadline) return aDeadline - bDeadline;
-          return a.classId.localeCompare(b.classId);
-        })[0] ?? null;
-
-        if (effectiveAssignment) {
-          assignedClassName = effectiveAssignment.class.name;
-        }
-      }
-
-      if (quiz.assignments.length > 0 && !effectiveAssignment) {
-        return (
-          <div className="bg-canvas border border-hairline rounded-lg p-16 text-center max-w-xl mx-auto shadow-sm mt-10">
-            <p className="font-body text-red-600 font-semibold">Bài thi này dành riêng cho một lớp học cụ thể mà bạn không tham gia.</p>
-          </div>
-        );
-      }
-
-      if (quiz.assignments.length === 0 && quiz.classId) {
-        const isEnrolled = studentProfile.classes.some((c) => c.id === quiz.classId);
-        if (!isEnrolled) {
-          return (
-            <div className="bg-canvas border border-hairline rounded-lg p-16 text-center max-w-xl mx-auto shadow-sm mt-10">
-              <p className="font-body text-red-600 font-semibold">Bài thi này dành riêng cho một lớp học cụ thể mà bạn không tham gia.</p>
-            </div>
-          );
-        }
-      }
+  // Server actions enforce every access decision. The page remains available
+  // to anonymous or mismatched sessions so a rostered student can use their
+  // issued candidate code instead of an account.
+  if (!quiz.isPublic && session?.role === "STUDENT") {
+    const studentProfile = await db.studentProfile.findUnique({
+      where: { userId: session.userId },
+      include: { classes: true },
+    });
+    const studentClassIds = studentProfile?.classes.map((item) => item.id) ?? [];
+    if (!effectiveAssignment) {
+      effectiveAssignment = quiz.assignments
+        .filter((assignment) => studentClassIds.includes(assignment.classId))
+        .sort((a, b) => a.classId.localeCompare(b.classId))[0] ?? null;
+      if (effectiveAssignment) assignedClassName = effectiveAssignment.class.name;
     }
   }
 
@@ -138,7 +90,8 @@ export default async function SharedQuizPage({
     subjectName: quiz.subject.name,
     isPublic: quiz.isPublic,
     answerVisibility: quiz.answerVisibility,
-    candidateAccessRequired: quiz.candidateAccessRequired,
+    candidateAccessRequired: !quiz.isPublic && quiz.candidateAccessRequired,
+    assignedClasses: quiz.assignments.map((assignment) => ({ id: assignment.classId, name: assignment.class.name })),
     questions: formattedQuestions,
   };
 

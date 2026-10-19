@@ -17,7 +17,6 @@ import {
   getBindingExpiresAt,
   getCandidateCookieName,
   isBindingActive,
-  parseCandidateNames,
   type CandidateBindingExpiryMode,
 } from "@/lib/quiz-candidate-access";
 
@@ -64,13 +63,15 @@ type QuizWithAssignments = {
 type CandidateAccessContext = {
   id: string;
   name: string;
+  classId: string | null;
   studentId: string | null;
   submittedCount: number;
 };
 
 type CandidateRosterInput = {
+  // Internal rosters are generated from the classes assigned to the quiz.
+  // Kept optional on input so existing callers can update ordinary quizzes.
   classIds?: string[];
-  manualNames?: string[];
 };
 
 type CandidateAccessSettings = {
@@ -102,6 +103,8 @@ type AnswerReviewState = {
   availableAt: string | null;
 };
 
+type QuizAccessMode = "ACCOUNT" | "CANDIDATE" | "PUBLIC_GUEST";
+
 interface SubmitQuizInput {
   quizId: string;
   answers: Record<string, string>; // Map of question ID to answer index string
@@ -109,6 +112,7 @@ interface SubmitQuizInput {
   timeExpired?: boolean;
   attemptId?: string; // mã đề (QuizAttempt) — chấm theo layout khi có
   classId?: string;
+  accessMode?: QuizAccessMode;
 }
 
 async function getStudentProfileForSession(session: Session | null): Promise<StudentWithClasses | null> {
@@ -399,7 +403,7 @@ function buildLayoutCorrectAnswers(
   return gradeWithLayout(questionsById, layout, answers).correctAnswers;
 }
 
-function normalizeCandidateAccessSettings(input: CandidateAccessSettings & { isPublic?: boolean; deadline?: string | null }): {
+function normalizeCandidateAccessSettings(input: CandidateAccessSettings & { isPublic?: boolean; deadline?: string | null }, assignmentCount: number): {
   enabled: boolean;
   maxSubmissions: number;
   expiryMode: CandidateBindingExpiryMode;
@@ -414,7 +418,8 @@ function normalizeCandidateAccessSettings(input: CandidateAccessSettings & { isP
     : Number(input.candidateBindingHours);
 
   if (!enabled) return { enabled, maxSubmissions: 1, expiryMode: "HOURS", bindingHours: null };
-  if (!input.isPublic) return { enabled, maxSubmissions, expiryMode, bindingHours, error: "Mã dự thi chỉ áp dụng cho đề công khai." };
+  if (input.isPublic) return { enabled, maxSubmissions, expiryMode, bindingHours, error: "Đề công khai không sử dụng mã dự thi." };
+  if (assignmentCount === 0) return { enabled, maxSubmissions, expiryMode, bindingHours, error: "Chọn ít nhất một lớp được giao đề trước khi cấp mã dự thi." };
   if (!Number.isInteger(maxSubmissions) || maxSubmissions < 1 || maxSubmissions > 100) {
     return { enabled, maxSubmissions, expiryMode, bindingHours, error: "Số lượt nộp tối đa phải từ 1 đến 100." };
   }
@@ -439,65 +444,44 @@ async function assertQuizManager(session: Session, quizId: string): Promise<{ er
   return { quiz };
 }
 
-async function resolveRosterCandidates(session: Session, roster: CandidateRosterInput | undefined): Promise<{
-  candidates: { studentId: string | null; name: string; source: "CLASS" | "MANUAL" }[];
+async function resolveRosterCandidates(session: Session, classIds: string[]): Promise<{
+  candidates: { classId: string; studentId: string; name: string; source: "CLASS" }[];
   error?: string;
 }> {
-  const rawClassIds = roster?.classIds ?? [];
-  if (!Array.isArray(rawClassIds) || rawClassIds.some((id) => typeof id !== "string")) {
-    return { candidates: [], error: "Danh sách lớp không hợp lệ." };
-  }
-  const uniqueClassIds = [...new Set(rawClassIds.map((id) => id.trim()).filter(Boolean))];
+  const uniqueClassIds = [...new Set(classIds.map((id) => id.trim()).filter(Boolean))];
   const classAccessError = await assertTeacherCanAssignClasses(session, uniqueClassIds);
   if (classAccessError) return { candidates: [], error: classAccessError };
+  if (uniqueClassIds.length === 0) return { candidates: [], error: "Chọn ít nhất một lớp để cấp mã dự thi." };
 
-  const manualResult = parseCandidateNames(roster?.manualNames ?? []);
-  if (!manualResult.success) return { candidates: [], error: manualResult.error };
-  if (uniqueClassIds.length === 0 && manualResult.names.length === 0) {
-    return { candidates: [], error: "Hãy chọn lớp hoặc thêm ít nhất một thí sinh cho danh sách mã dự thi." };
-  }
+  const classes = await db.class.findMany({
+    where: { id: { in: uniqueClassIds } },
+    include: { students: { include: { user: { select: { name: true } } } } },
+  });
+  if (classes.length !== uniqueClassIds.length) return { candidates: [], error: "Có lớp học không tồn tại." };
 
-  const seenStudents = new Set<string>();
-  const candidates: { studentId: string | null; name: string; source: "CLASS" | "MANUAL" }[] = [];
-  if (uniqueClassIds.length > 0) {
-    const classes = await db.class.findMany({
-      where: { id: { in: uniqueClassIds } },
-      include: { students: { include: { user: { select: { name: true } } } } },
-    });
-    if (classes.length !== uniqueClassIds.length) return { candidates: [], error: "Có lớp học không tồn tại." };
-    for (const classInfo of classes) {
-      for (const student of classInfo.students) {
-        if (seenStudents.has(student.id)) continue;
-        seenStudents.add(student.id);
-        candidates.push({ studentId: student.id, name: student.user.name, source: "CLASS" });
-      }
-    }
-  }
-
-  for (const name of manualResult.names) candidates.push({ studentId: null, name, source: "MANUAL" });
-  if (candidates.length > 1_000) return { candidates: [], error: "Danh sách chỉ được tối đa 1000 thí sinh." };
+  const candidates = classes.flatMap((classInfo) => classInfo.students.map((student) => ({
+    classId: classInfo.id,
+    studentId: student.id,
+    name: student.user.name,
+    source: "CLASS" as const,
+  })));
+  if (candidates.length > 1_000) return { candidates: [], error: "Danh sách chỉ được tối đa 1000 mã dự thi." };
   return { candidates };
 }
 
 async function syncQuizCandidates(
   tx: Pick<Prisma.TransactionClient, "quizCandidate">,
   quizId: string,
-  candidates: { studentId: string | null; name: string; source: "CLASS" | "MANUAL" }[],
+  candidates: { classId: string; studentId: string; name: string; source: "CLASS" }[],
 ): Promise<void> {
   const existing = await tx.quizCandidate.findMany({ where: { quizId } });
-  const existingByStudent = new Map(existing.filter((item) => item.studentId).map((item) => [item.studentId!, item]));
-  const manualByName = new Map<string, typeof existing>();
-  for (const candidate of existing.filter((item) => !item.studentId)) {
-    const key = candidate.name.trim().toLocaleLowerCase("vi");
-    manualByName.set(key, [...(manualByName.get(key) ?? []), candidate]);
-  }
+  const existingByClassStudent = new Map(
+    existing.filter((item) => item.classId && item.studentId).map((item) => [`${item.classId}:${item.studentId}`, item]),
+  );
   const retainedIds = new Set<string>();
 
   for (const candidate of candidates) {
-    const key = candidate.name.trim().toLocaleLowerCase("vi");
-    const matched = candidate.studentId
-      ? existingByStudent.get(candidate.studentId)
-      : manualByName.get(key)?.shift();
+    const matched = existingByClassStudent.get(`${candidate.classId}:${candidate.studentId}`);
     if (matched) {
       retainedIds.add(matched.id);
       await tx.quizCandidate.update({
@@ -523,6 +507,7 @@ async function syncQuizCandidates(
     const created = await tx.quizCandidate.create({
       data: {
         quizId,
+        classId: candidate.classId,
         studentId: candidate.studentId,
         name: candidate.name,
         source: candidate.source,
@@ -536,15 +521,23 @@ async function syncQuizCandidates(
 
   await tx.quizCandidate.updateMany({
     where: { quizId, id: { notIn: [...retainedIds] }, isRevoked: false },
-    data: { isRevoked: true, revokedAt: new Date() },
+    data: {
+      isRevoked: true,
+      revokedAt: new Date(),
+      bindingSecretDigest: null,
+      bindingStartedAt: null,
+      bindingExpiresAt: null,
+    },
   });
 }
 
 async function getCandidateAccessContext(
-  quiz: Pick<QuizWithAssignments, "id" | "candidateAccessRequired" | "candidateMaxSubmissions">,
+  quiz: Pick<QuizWithAssignments, "id" | "isPublic" | "candidateAccessRequired" | "candidateMaxSubmissions">,
   options: { allowExhausted?: boolean } = {},
 ): Promise<{ context?: CandidateAccessContext; error?: string }> {
-  if (!quiz.candidateAccessRequired) return {};
+  // Legacy public candidate settings are deliberately ignored: public quizzes
+  // are now open to guests and never require an exam code.
+  if (quiz.isPublic || !quiz.candidateAccessRequired) return {};
   const cookieStore = await cookies();
   const raw = cookieStore.get(getCandidateCookieName(quiz.id))?.value;
   const [candidateId, bindingSecret, extraPart] = raw?.split(".") ?? [];
@@ -554,7 +547,7 @@ async function getCandidateAccessContext(
 
   const candidate = await db.quizCandidate.findFirst({
     where: { id: candidateId, quizId: quiz.id, isRevoked: false },
-    select: { id: true, name: true, studentId: true, submittedCount: true, bindingSecretDigest: true, bindingExpiresAt: true },
+    select: { id: true, name: true, classId: true, studentId: true, submittedCount: true, bindingSecretDigest: true, bindingExpiresAt: true },
   });
   if (!candidate || !candidate.bindingSecretDigest || !isBindingActive(candidate.bindingExpiresAt)) {
     cookieStore.delete(getCandidateCookieName(quiz.id));
@@ -578,11 +571,12 @@ export async function getActiveQuizCandidate(quizId: string) {
       where: { id: quizId },
       select: {
         id: true,
+        isPublic: true,
         candidateAccessRequired: true,
         candidateMaxSubmissions: true,
       },
     });
-    if (!quiz?.candidateAccessRequired) return { success: true, data: null };
+    if (!quiz?.candidateAccessRequired || quiz.isPublic) return { success: true, data: null };
 
     const access = await getCandidateAccessContext(quiz, { allowExhausted: true });
     if (!access.context) return { success: true, data: null };
@@ -609,11 +603,14 @@ function normalizeAnswerVisibility(input: string | undefined, isPublic: boolean 
   return "IMMEDIATELY";
 }
 
-export async function activateQuizCandidateCode(quizId: string, code: string) {
+export async function activateQuizCandidateCode(quizId: string, code: string, classId: string, confirmedName: string) {
   try {
-    if (typeof quizId !== "string" || typeof code !== "string") {
+    if (typeof quizId !== "string" || typeof code !== "string" || typeof classId !== "string" || typeof confirmedName !== "string") {
       return { success: false, error: "Mã dự thi không hợp lệ." };
     }
+    const normalizedClassId = classId.trim();
+    const normalizedName = confirmedName.trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
+    if (!normalizedClassId || !normalizedName) return { success: false, error: "Vui lòng xác nhận đầy đủ lớp và họ tên." };
     const normalizedDigest = digestCandidateCode(code);
     if (!normalizedDigest || !code.trim()) return { success: false, error: "Vui lòng nhập mã dự thi." };
 
@@ -622,6 +619,7 @@ export async function activateQuizCandidateCode(quizId: string, code: string) {
       select: {
         id: true,
         isPublic: true,
+        assignments: { select: { classId: true } },
         deadline: true,
         candidateAccessRequired: true,
         candidateMaxSubmissions: true,
@@ -629,8 +627,8 @@ export async function activateQuizCandidateCode(quizId: string, code: string) {
         candidateBindingHours: true,
       },
     });
-    if (!quiz || !quiz.isPublic || !quiz.candidateAccessRequired) {
-      return { success: false, error: "Đề thi này không sử dụng mã dự thi." };
+    if (!quiz || quiz.isPublic || !quiz.candidateAccessRequired || !quiz.assignments.some((assignment) => assignment.classId === normalizedClassId)) {
+      return { success: false, error: "Đề thi này không sử dụng mã dự thi cho lớp đã chọn." };
     }
 
     const cookieStore = await cookies();
@@ -655,10 +653,13 @@ export async function activateQuizCandidateCode(quizId: string, code: string) {
     }
 
     const candidate = await db.quizCandidate.findFirst({
-      where: { quizId, codeDigest: normalizedDigest, isRevoked: false },
-      select: { id: true, name: true, submittedCount: true, bindingSecretDigest: true, bindingExpiresAt: true },
+      where: { quizId, classId: normalizedClassId, codeDigest: normalizedDigest, isRevoked: false },
+      select: { id: true, name: true, studentId: true, submittedCount: true, bindingSecretDigest: true, bindingExpiresAt: true },
     });
-    if (!candidate) return { success: false, error: "Mã dự thi không đúng hoặc đã bị thu hồi." };
+    if (!candidate) return { success: false, error: "Mã dự thi không đúng, sai lớp hoặc đã bị thu hồi." };
+    if (!candidate.studentId || candidate.name.trim().replace(/\s+/g, " ").toLocaleLowerCase("vi") !== normalizedName) {
+      return { success: false, error: "Họ tên xác nhận không khớp với mã dự thi của lớp này." };
+    }
     if (activeBrowserCandidateId && activeBrowserCandidateId !== candidate.id) {
       return { success: false, error: "Trình duyệt này đang được liên kết với một mã dự thi khác. Hãy liên hệ giáo viên để gỡ khóa." };
     }
@@ -733,16 +734,27 @@ export async function submitQuiz(input: SubmitQuizInput) {
     }
 
     const studentProfile = await getStudentProfileForSession(session);
-    const access = resolveQuizAssignmentForStudent(quiz, studentProfile);
+    const requestedMode: QuizAccessMode = input.accessMode ?? (quiz.isPublic ? "PUBLIC_GUEST" : "ACCOUNT");
+    const access = requestedMode === "CANDIDATE"
+      ? { allowed: true, assignment: null, classId: null }
+      : resolveQuizAssignmentForStudent(quiz, studentProfile);
     if (!access.allowed) {
       return { success: false, error: access.error ?? "Bạn không có quyền làm bài thi này." };
     }
     // Allow a prior successful submission to remain idempotent even after it
     // consumed the candidate's final allowed submission; the transaction below
     // remains the authoritative cap enforcement for new submissions.
-    const candidateAccess = await getCandidateAccessContext(quiz, { allowExhausted: true });
+    const candidateAccess = requestedMode === "CANDIDATE"
+      ? await getCandidateAccessContext(quiz, { allowExhausted: true })
+      : {};
     if (candidateAccess.error) return { success: false, error: candidateAccess.error };
     const candidate = candidateAccess.context;
+    if (requestedMode === "CANDIDATE" && (!candidate?.studentId || !candidate?.classId)) {
+      return { success: false, error: "Mã dự thi chưa được xác thực cho học sinh và lớp hợp lệ." };
+    }
+    if (requestedMode === "ACCOUNT" && !studentProfile && !quiz.isPublic) {
+      return { success: false, error: "Vui lòng đăng nhập bằng tài khoản học sinh để làm đề nội bộ." };
+    }
 
     // Guest name validation for public quizzes
     // Guest (chưa đăng nhập) bắt buộc nhập họ tên. User đã đăng nhập (kể cả
@@ -772,11 +784,11 @@ export async function submitQuiz(input: SubmitQuizInput) {
       if (attempt.quizId !== quiz.id) {
         return { success: false, error: "Mã đề này không khớp với đề kiểm tra." };
       }
-      if (attempt.studentId !== (candidate ? null : (studentProfile ? studentProfile.id : null))) {
+      if (attempt.studentId !== (candidate ? candidate.studentId : (studentProfile ? studentProfile.id : null))) {
         return { success: false, error: "Mã đề này không thuộc về bạn." };
       }
       if ((attempt.candidateId ?? null) !== (candidate?.id ?? null)) {
-        return { success: false, error: "Mã đề này không thuộc về mã dự thi hiện tại." };
+        return { success: false, error: "Mã đề này không thuộc về phương thức truy cập hiện tại." };
       }
 
       const layout = attempt.layout as { questionOrder: Record<string, string[]>; optionOrder: Record<string, number[]> };
@@ -831,6 +843,8 @@ export async function submitQuiz(input: SubmitQuizInput) {
     let targetClassId: string | null = null;
     if (attempt?.classId) {
       targetClassId = attempt.classId;
+    } else if (candidate?.classId) {
+      targetClassId = candidate.classId;
     } else if (input.classId?.trim()) {
       const requestedClassId = input.classId.trim();
       if (studentProfile) {
@@ -914,11 +928,11 @@ export async function submitQuiz(input: SubmitQuizInput) {
         }
         return tx.quizSubmission.create({
           data: {
-            studentId: candidate ? null : (studentProfile ? studentProfile.id : null),
+            studentId: candidate ? candidate.studentId : (studentProfile ? studentProfile.id : null),
             quizId: quiz.id,
             score: totalScore,
             answers: JSON.parse(JSON.stringify(input.answers)),
-            guestName: candidate ? candidate.name : (studentProfile ? null : input.guestName?.trim()),
+            guestName: candidate ? null : (studentProfile ? null : input.guestName?.trim()),
             isLate,
             attemptId: attempt ? attempt.id : null,
             classId: targetClassId,
@@ -933,9 +947,10 @@ export async function submitQuiz(input: SubmitQuizInput) {
       throw error;
     }
 
-    // A candidate roster link is provenance only, not an authenticated student identity.
-    // Only ordinary logged-in student submissions create grade records.
-    if (studentProfile && !candidate) {
+    // An internal candidate code is bound to a rostered StudentProfile, so it
+    // has the same academic identity as an authenticated student submission.
+    const gradeStudentId = candidate?.studentId ?? studentProfile?.id ?? null;
+    if (gradeStudentId) {
       // Find fallback teacher if quiz has no teacherId (created by Admin)
       let finalTeacherId = quiz.teacherId;
       if (!finalTeacherId) {
@@ -945,7 +960,7 @@ export async function submitQuiz(input: SubmitQuizInput) {
 
       await db.grade.create({
         data: {
-          studentId: studentProfile.id,
+          studentId: gradeStudentId,
           subjectId: quiz.subjectId,
           teacherId: finalTeacherId || "",
           type: "QUIZ",
@@ -1057,6 +1072,7 @@ interface StartQuizAttemptInput {
   quizId: string;
   guestName?: string;
   classId?: string;
+  accessMode?: QuizAccessMode;
 }
 
 /**
@@ -1077,22 +1093,32 @@ export async function startQuizAttempt(input: StartQuizAttemptInput) {
     }
 
     const studentProfile = await getStudentProfileForSession(session);
-    const access = resolveQuizAssignmentForStudent(quiz, studentProfile);
+    const requestedMode: QuizAccessMode = input.accessMode ?? (quiz.isPublic ? "PUBLIC_GUEST" : "ACCOUNT");
+    const access = requestedMode === "CANDIDATE"
+      ? { allowed: true, assignment: null, classId: null }
+      : resolveQuizAssignmentForStudent(quiz, studentProfile);
     if (!access.allowed) {
       return { success: false, error: access.error ?? "Bạn không có quyền làm bài thi này." };
     }
-    const candidateAccess = await getCandidateAccessContext(quiz);
+    const candidateAccess = requestedMode === "CANDIDATE" ? await getCandidateAccessContext(quiz) : {};
     if (candidateAccess.error) return { success: false, error: candidateAccess.error };
     const candidate = candidateAccess.context;
+    if (requestedMode === "CANDIDATE" && (!candidate?.studentId || !candidate.classId)) {
+      return { success: false, error: "Mã dự thi chưa được xác thực cho học sinh và lớp hợp lệ." };
+    }
+    if (requestedMode === "ACCOUNT" && !studentProfile && !quiz.isPublic) {
+      return { success: false, error: "Vui lòng đăng nhập bằng tài khoản học sinh để làm đề nội bộ." };
+    }
 
-    // Guest (chưa đăng nhập) bắt buộc nhập họ tên. User đã đăng nhập (kể cả
-    // không phải STUDENT) luôn có định danh session → không cần guestName.
-    if (!candidate && !session && !studentProfile && quiz.isPublic && !input.guestName?.trim()) {
+    // Guests must identify themselves only for public quizzes.
+    if (requestedMode === "PUBLIC_GUEST" && !session && !studentProfile && !input.guestName?.trim()) {
       return { success: false, error: "Vui lòng nhập Họ tên để bắt đầu làm bài thi thử công khai." };
     }
 
     let targetClassId: string | null = null;
-    if (input.classId?.trim()) {
+    if (candidate?.classId) {
+      targetClassId = candidate.classId;
+    } else if (input.classId?.trim()) {
       const requestedClassId = input.classId.trim();
       if (studentProfile) {
         const isEnrolled = studentProfile.classes.some((c) => c.id === requestedClassId);
@@ -1143,9 +1169,9 @@ export async function startQuizAttempt(input: StartQuizAttemptInput) {
     const attempt = await db.quizAttempt.create({
       data: {
         quizId: quiz.id,
-        studentId: candidate ? null : (studentProfile ? studentProfile.id : null),
+        studentId: candidate ? candidate.studentId : (studentProfile ? studentProfile.id : null),
         candidateId: candidate?.id ?? null,
-        guestName: candidate ? candidate.name : (studentProfile ? null : input.guestName?.trim()),
+        guestName: candidate ? null : (studentProfile ? null : input.guestName?.trim()),
         examCode,
         layout: layout as object,
         startsAt: now,
@@ -1219,16 +1245,16 @@ export async function createQuiz(input: CreateQuizInput) {
 
     const parsedDeadline = parseOptionalDate(deadline, "Deadline mặc định");
     if (parsedDeadline.error) return { success: false, error: parsedDeadline.error };
-    const candidateSettings = normalizeCandidateAccessSettings(input);
+    const normalizedAssignments = normalizeQuizAssignments(input);
+    if (normalizedAssignments.error) return { success: false, error: normalizedAssignments.error };
+    const candidateSettings = normalizeCandidateAccessSettings(input, normalizedAssignments.assignments.length);
     if (input.candidateAccessRequired && input.candidateBindingExpiryMode === "DEADLINE" && !parsedDeadline.value) {
       return { success: false, error: "Chọn deadline cho đề trước khi dùng thời hạn khóa đến deadline." };
     }
     if (candidateSettings.error) return { success: false, error: candidateSettings.error };
-    const roster = candidateSettings.enabled ? await resolveRosterCandidates(session, input.candidateRoster) : { candidates: [] };
+    const roster = candidateSettings.enabled ? await resolveRosterCandidates(session, normalizedAssignments.assignments.map((assignment) => assignment.classId)) : { candidates: [] };
     if (roster.error) return { success: false, error: roster.error };
 
-    const normalizedAssignments = normalizeQuizAssignments(input);
-    if (normalizedAssignments.error) return { success: false, error: normalizedAssignments.error };
 
     const classIds = normalizedAssignments.assignments.map((assignment) => assignment.classId);
     const assignmentError = await assertTeacherCanAssignClasses(session, classIds);
@@ -1350,7 +1376,9 @@ export async function updateQuiz(input: UpdateQuizInput) {
 
     const parsedDeadline = parseOptionalDate(deadline, "Deadline mặc định");
     if (parsedDeadline.error) return { success: false, error: parsedDeadline.error };
-    const candidateSettings = normalizeCandidateAccessSettings(input);
+    const normalizedAssignments = normalizeQuizAssignments(input);
+    if (normalizedAssignments.error) return { success: false, error: normalizedAssignments.error };
+    const candidateSettings = normalizeCandidateAccessSettings(input, normalizedAssignments.assignments.length);
     if (input.candidateAccessRequired && input.candidateBindingExpiryMode === "DEADLINE" && !parsedDeadline.value) {
       return { success: false, error: "Chọn deadline cho đề trước khi dùng thời hạn khóa đến deadline." };
     }
@@ -1361,12 +1389,6 @@ export async function updateQuiz(input: UpdateQuizInput) {
       select: { teacherId: true, candidateAccessRequired: true },
     });
     if (!existingQuiz) return { success: false, error: "Đề kiểm tra không tồn tại." };
-    if (candidateSettings.enabled && !input.candidateRoster && !existingQuiz.candidateAccessRequired) {
-      return { success: false, error: "Hãy chọn lớp hoặc thêm ít nhất một thí sinh cho danh sách mã dự thi." };
-    }
-
-    const normalizedAssignments = normalizeQuizAssignments(input);
-    if (normalizedAssignments.error) return { success: false, error: normalizedAssignments.error };
 
     const classIds = normalizedAssignments.assignments.map((assignment) => assignment.classId);
 
@@ -1384,11 +1406,11 @@ export async function updateQuiz(input: UpdateQuizInput) {
     const assignmentError = await assertTeacherCanAssignClasses(session, classIds);
     if (assignmentError) return { success: false, error: assignmentError };
 
-    // Existing protected rosters are intentionally retained unless the edit
-    // includes a replacement roster. This keeps previously issued codes stable.
-    const shouldSyncCandidateRoster = candidateSettings.enabled && input.candidateRoster !== undefined;
+    // Rebuild from the current assigned classes whenever protected access is
+    // enabled. syncQuizCandidates preserves codes for unchanged class/student pairs.
+    const shouldSyncCandidateRoster = candidateSettings.enabled;
     const roster = shouldSyncCandidateRoster
-      ? await resolveRosterCandidates(session, input.candidateRoster)
+      ? await resolveRosterCandidates(session, classIds)
       : { candidates: [] };
     if (roster.error) return { success: false, error: roster.error };
 
@@ -1483,31 +1505,47 @@ export async function getQuizCandidates(quizId: string) {
 
     const quiz = await db.quiz.findUnique({
       where: { id: quizId },
-      select: { id: true, title: true, candidateAccessRequired: true, candidateMaxSubmissions: true },
+      select: {
+        id: true,
+        title: true,
+        isPublic: true,
+        candidateAccessRequired: true,
+        candidateMaxSubmissions: true,
+        assignments: { select: { classId: true, class: { select: { name: true } } }, orderBy: { class: { name: "asc" } } },
+      },
     });
-    if (!quiz?.candidateAccessRequired) return { success: false, error: "Đề thi này không sử dụng mã dự thi." };
+    if (!quiz?.candidateAccessRequired || quiz.isPublic) return { success: false, error: "Đề thi này không sử dụng mã dự thi nội bộ." };
 
     const candidates = await db.quizCandidate.findMany({
       where: { quizId },
       orderBy: [{ isRevoked: "asc" }, { name: "asc" }],
       select: {
-        id: true, name: true, source: true, codeCiphertext: true, isRevoked: true,
+        id: true, classId: true, name: true, source: true, codeCiphertext: true, isRevoked: true,
         revokedAt: true, submittedCount: true, bindingExpiresAt: true,
       },
     });
+    const data = candidates.map((candidate) => ({
+      id: candidate.id,
+      classId: candidate.classId,
+      name: candidate.name,
+      source: candidate.source,
+      code: decryptCandidateCode(candidate.codeCiphertext),
+      isRevoked: candidate.isRevoked,
+      revokedAt: candidate.revokedAt?.toISOString() ?? null,
+      submittedCount: candidate.submittedCount,
+      bindingExpiresAt: candidate.bindingExpiresAt?.toISOString() ?? null,
+    }));
     return {
       success: true,
-      data: candidates.map((candidate) => ({
-        id: candidate.id,
-        name: candidate.name,
-        source: candidate.source,
-        code: decryptCandidateCode(candidate.codeCiphertext),
-        isRevoked: candidate.isRevoked,
-        revokedAt: candidate.revokedAt?.toISOString() ?? null,
-        submittedCount: candidate.submittedCount,
-        bindingExpiresAt: candidate.bindingExpiresAt?.toISOString() ?? null,
-      })),
-      quiz: { title: quiz.title, maxSubmissions: quiz.candidateMaxSubmissions },
+      data,
+      quiz: {
+        title: quiz.title,
+        maxSubmissions: quiz.candidateMaxSubmissions,
+        classes: quiz.assignments.map((assignment) => ({
+          classId: assignment.classId,
+          className: assignment.class.name,
+        })),
+      },
     };
   } catch (error) {
     console.error("Error loading quiz candidates:", error);

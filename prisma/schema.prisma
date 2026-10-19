@@ -130,6 +130,7 @@ model Class {
   scheduleSeries     ScheduleSeries[]
   quizzes            Quiz[]
   quizAssignments    QuizClassAssignment[]
+  quizCandidates     QuizCandidate[]
   submissions        QuizSubmission[]
   attempts           QuizAttempt[]
   documentVisibility DocumentClassVisibility[]
@@ -345,8 +346,8 @@ model Quiz {
   isPublic         Boolean @default(false)
   answerVisibility String  @default("IMMEDIATELY") // IMMEDIATELY, WHEN_ENDED, AFTER_ALL_SUBMITTED
   shuffleQuestions Boolean @default(true) // Xáo trộn câu hỏi & đáp án mỗi lượt làm bài
-  // Chế độ đề public có danh sách thí sinh + mã dự thi. Mặc định false để
-  // mọi đề cũ vẫn giữ nguyên luồng khách nhập họ tên.
+  // Chế độ đề nội bộ có danh sách học sinh theo lớp + mã dự thi. Mặc định
+  // false để đề cũ vẫn giữ nguyên luồng public/guest hiện có.
   candidateAccessRequired    Boolean @default(false)
   candidateMaxSubmissions    Int     @default(1)
   candidateBindingExpiryMode String  @default("HOURS") // HOURS | DEADLINE
@@ -390,11 +391,14 @@ model QuizCandidate {
   quizId    String
   quiz      Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
-  // Nguồn CLASS giữ liên kết học sinh để đồng bộ roster; MANUAL chỉ có tên.
+  // Mã nội bộ luôn thuộc một lớp được giao đề và một học sinh có hồ sơ.
+  // classId nullable chỉ để tương thích dữ liệu mã đề public cũ.
+  classId   String?
+  class     Class?          @relation(fields: [classId], references: [id], onDelete: SetNull)
   studentId String?
   student   StudentProfile? @relation(fields: [studentId], references: [id], onDelete: SetNull)
   name      String
-  source    String @default("MANUAL") // CLASS | MANUAL
+  source    String @default("CLASS") // CLASS | MANUAL (legacy)
 
   // Không lưu plaintext code. codeDigest được dùng để tra cứu, codeCiphertext
   // chỉ được giải mã trong action đã xác thực của giáo viên/admin.
@@ -417,7 +421,8 @@ model QuizCandidate {
   updatedAt   DateTime @updatedAt
 
   @@unique([quizId, codeDigest])
-  @@unique([quizId, studentId])
+  @@unique([quizId, classId, studentId])
+  @@index([quizId, classId])
   @@index([quizId, isRevoked])
   @@index([bindingExpiresAt])
 }
