@@ -20,6 +20,7 @@ import { activateQuizCandidateCode, getActiveQuizCandidate, getQuizAnswerReview,
 import { cleanQuestionText } from "@/lib/quiz-shuffle";
 import MathRenderer from "@/components/MathRenderer";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { showToast } from "@/components/Toast";
 import StitchIconBadge from "@/components/ui/stitch/StitchIconBadge";
 
@@ -45,6 +46,7 @@ interface Quiz {
   subjectName: string;
   isPublic: boolean | undefined;
   candidateAccessRequired?: boolean;
+  assignedClasses?: { id: string; name: string }[];
   questions: Question[];
 }
 
@@ -63,7 +65,11 @@ export default function SingleQuizPlayer({
   classId,
   className,
 }: SingleQuizPlayerProps) {
+  const router = useRouter();
   const [guestName, setGuestName] = useState(sessionUser?.name || "");
+  const [accessMode, setAccessMode] = useState<"ACCOUNT" | "CANDIDATE" | "PUBLIC_GUEST">(quiz.isPublic ? "PUBLIC_GUEST" : quiz.candidateAccessRequired && !sessionUser ? "CANDIDATE" : "ACCOUNT");
+  const [candidateClassId, setCandidateClassId] = useState(classId || "");
+  const [candidateConfirmedName, setCandidateConfirmedName] = useState("");
   const [candidateCode, setCandidateCode] = useState("");
   const [candidateName, setCandidateName] = useState<string | null>(null);
   const [candidateRemainingSubmissions, setCandidateRemainingSubmissions] = useState<number | null>(null);
@@ -248,7 +254,8 @@ export default function SingleQuizPlayer({
       const res = await startQuizAttempt({
         quizId: quiz.id,
         guestName: resolvedGuestName,
-        classId: classId || undefined,
+        classId: accessMode === "CANDIDATE" ? candidateClassId || undefined : classId || undefined,
+        accessMode,
       });
       if (res.success && res.data) {
         setPaper(
@@ -287,17 +294,24 @@ export default function SingleQuizPlayer({
     }
 
     let currentGuestName = readGuestName();
-    if (quiz.candidateAccessRequired) {
+    if (!quiz.isPublic && accessMode === "ACCOUNT") {
+      if (!sessionUser || sessionUser.role !== "STUDENT") {
+        const callback = `${window.location.pathname}${window.location.search}`;
+        router.push(`/login?callbackUrl=${encodeURIComponent(callback)}`);
+        return;
+      }
+      currentGuestName = sessionUser.name;
+    } else if (!quiz.isPublic && accessMode === "CANDIDATE") {
       if (candidateName) {
         currentGuestName = candidateName;
       } else {
-        if (!candidateCode.trim()) {
-          showToast("Vui lòng nhập mã dự thi để bắt đầu.", "warning");
+        if (!candidateCode.trim() || !candidateClassId || !candidateConfirmedName.trim()) {
+          showToast("Vui lòng chọn lớp, xác nhận họ tên và nhập mã dự thi.", "warning");
           return;
         }
         setActivatingCandidate(true);
         try {
-          const result = await activateQuizCandidateCode(quiz.id, candidateCode);
+          const result = await activateQuizCandidateCode(quiz.id, candidateCode, candidateClassId, candidateConfirmedName);
           if (!result.success || !result.data) {
             showToast(result.error || "Không thể xác thực mã dự thi.", "error");
             return;
@@ -364,7 +378,8 @@ export default function SingleQuizPlayer({
         guestName: sessionUser ? sessionUser.name : guestName,
         timeExpired: timeLeft === 0,
         attemptId: attemptId || undefined,
-        classId: classId || undefined,
+        classId: accessMode === "CANDIDATE" ? candidateClassId || undefined : classId || undefined,
+        accessMode,
       });
 
       if (response.success && response.data) {
@@ -486,46 +501,37 @@ export default function SingleQuizPlayer({
               </ul>
             </div>
 
-            {/* Candidate code replaces the untrusted free-name field in controlled mode. */}
-            {quiz.candidateAccessRequired ? (
-              <div className="flex flex-col gap-2">
-                {candidateName ? (
-                  <>
-                    <p className="text-xs font-semibold text-emerald-700">Đã xác thực trên trình duyệt này: {candidateName}</p>
-                    {candidateRemainingSubmissions === 0 ? (
-                      <p className="text-[11px] font-semibold text-amber-700">Mã dự thi này đã dùng hết lượt nộp được phép.</p>
-                    ) : (
-                      <p className="text-[11px] text-ink-muted-48">Bạn có thể vào thi lại mà không cần nhập mã, cho đến khi hết hạn liên kết hoặc giáo viên gỡ khóa.</p>
-                    )}
-                  </>
+            {!quiz.isPublic ? (
+              <div className="flex flex-col gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setAccessMode("ACCOUNT")} className={`rounded-full px-4 py-2 text-xs font-bold ${accessMode === "ACCOUNT" ? "bg-primary text-white" : "border border-hairline text-ink"}`}>Dùng tài khoản</button>
+                  <button type="button" onClick={() => setAccessMode("CANDIDATE")} className={`rounded-full px-4 py-2 text-xs font-bold ${accessMode === "CANDIDATE" ? "bg-primary text-white" : "border border-hairline text-ink"}`}>Dùng mã dự thi</button>
+                </div>
+                {accessMode === "ACCOUNT" ? (
+                  <p className="text-xs text-ink-muted-80">{sessionUser?.role === "STUDENT" ? `Bạn sẽ làm bài bằng tài khoản: ${sessionUser.name}.` : "Đăng nhập bằng tài khoản học sinh thuộc lớp được giao đề để tiếp tục."}</p>
+                ) : candidateName ? (
+                  <div>
+                    <p className="text-xs font-semibold text-emerald-700">Đã xác thực: {candidateName}</p>
+                    <p className="text-[11px] text-ink-muted-48">Mã chỉ dùng trên trình duyệt này trong thời hạn giáo viên cấu hình.</p>
+                  </div>
                 ) : (
-                  <>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-bold text-ink">Lớp trên phiếu mã *</label>
+                    <select value={candidateClassId} onChange={(event) => setCandidateClassId(event.target.value)} className="w-full rounded-full border border-hairline bg-canvas px-4 py-3 text-xs font-semibold text-ink outline-none focus:ring-2 focus:ring-primary/50">
+                      <option value="">Chọn lớp</option>
+                      {(quiz.assignedClasses ?? []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    </select>
+                    <label className="text-xs font-bold text-ink">Xác nhận họ và tên *</label>
+                    <input type="text" autoComplete="name" placeholder="Đúng như phiếu mã dự thi" value={candidateConfirmedName} onChange={(event) => setCandidateConfirmedName(event.target.value)} className="w-full rounded-full border border-hairline bg-canvas px-5 py-3 text-xs font-semibold text-ink outline-none focus:ring-2 focus:ring-primary/50" />
                     <label className="text-xs font-bold text-ink">Mã dự thi *</label>
-                    <input
-                      type="text"
-                      autoComplete="off"
-                      placeholder="Ví dụ: AB12-CD34"
-                      value={candidateCode}
-                      onChange={(e) => setCandidateCode(e.target.value.toUpperCase())}
-                      className="w-full bg-white dark:bg-slate-800 border border-hairline rounded-full px-5 py-3 text-xs sm:text-sm font-semibold tracking-widest text-ink outline-none focus:ring-2 focus:ring-primary/50"
-                      required
-                    />
-                    <p className="text-[11px] text-ink-muted-48">Mã được liên kết với trình duyệt này trong thời hạn do giáo viên thiết lập.</p>
-                  </>
+                    <input type="text" autoComplete="off" placeholder="Ví dụ: AB12-CD34" value={candidateCode} onChange={(event) => setCandidateCode(event.target.value.toUpperCase())} className="w-full rounded-full border border-hairline bg-canvas px-5 py-3 text-xs font-semibold tracking-widest text-ink outline-none focus:ring-2 focus:ring-primary/50" />
+                  </div>
                 )}
               </div>
             ) : !sessionUser || !sessionUser.name?.trim() ? (
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-bold text-ink">Họ và Tên Thí Sinh *</label>
-                <input
-                  ref={guestNameInputRef}
-                  type="text"
-                  placeholder="Ví dụ: Nguyễn Văn A..."
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-800 border border-hairline rounded-full px-5 py-3 text-xs sm:text-sm font-semibold text-ink outline-none focus:ring-2 focus:ring-primary/50"
-                  required
-                />
+                <input ref={guestNameInputRef} type="text" placeholder="Ví dụ: Nguyễn Văn A..." value={guestName} onChange={(e) => setGuestName(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-hairline rounded-full px-5 py-3 text-xs sm:text-sm font-semibold text-ink outline-none focus:ring-2 focus:ring-primary/50" required />
               </div>
             ) : null}
 
@@ -545,7 +551,7 @@ export default function SingleQuizPlayer({
             {/* Action Button */}
             <button
               onClick={handleStartQuiz}
-              disabled={!agreed || activatingCandidate || !candidateBindingChecked || (quiz.candidateAccessRequired ? (candidateRemainingSubmissions === 0 || (!candidateName && !candidateCode.trim())) : (!sessionUser && !guestName.trim()))}
+              disabled={!agreed || activatingCandidate || (!quiz.isPublic && accessMode === "CANDIDATE" && (!candidateBindingChecked || candidateRemainingSubmissions === 0 || (!candidateName && (!candidateCode.trim() || !candidateClassId || !candidateConfirmedName.trim())))) || (quiz.isPublic && !sessionUser && !guestName.trim())}
               className="w-full py-4 px-8 rounded-full bg-gradient-to-r from-primary to-blue-600 hover:from-primary-focus hover:to-blue-700 text-white font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-xl shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed apple-active-scale transition-all"
             >
               {activatingCandidate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}

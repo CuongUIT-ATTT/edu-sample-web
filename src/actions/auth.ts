@@ -16,6 +16,7 @@ export async function login(_: LoginResponse, formData: FormData): Promise<Login
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const requestedRole = formData.get("role") as string; // "admin" | "teacher" | "student" | "parent"
+  const callbackUrl = formData.get("callbackUrl") as string | null;
 
   if (!email || !password || !requestedRole) {
     return { success: false, error: "Vui lòng nhập đầy đủ thông tin đăng nhập." };
@@ -66,7 +67,10 @@ export async function login(_: LoginResponse, formData: FormData): Promise<Login
       path: "/",
     });
 
-    redirectPath = `/${user.role.toLowerCase()}`;
+    // Only accept a local absolute path to prevent open-redirects after login.
+    redirectPath = callbackUrl && callbackUrl.startsWith("/") && !callbackUrl.startsWith("//")
+      ? callbackUrl
+      : `/${user.role.toLowerCase()}`;
   } catch (error) {
     console.error("Error logging in:", error);
     return { success: false, error: "Đã xảy ra lỗi hệ thống khi đăng nhập." };

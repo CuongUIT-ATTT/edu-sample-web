@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useActionState, useEffect, useState, useRef } from "react";
+import React, { Suspense, useActionState, useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AlertCircle, RefreshCw, Eye, EyeOff, ArrowRight, Lock } from "lucide-react";
 import { login, type LoginResponse } from "@/actions/auth";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -30,7 +31,9 @@ const INITIAL_STATE: LoginResponse = {
 };
 
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") ?? "";
   const [homeHref, setHomeHref] = useState("/");
   const [showPassword, setShowPassword] = useState(false);
   const [emailInput, setEmailInput] = useState("");
@@ -76,6 +79,7 @@ export default function LoginPage() {
           )}
 
           <form action={formAction} className="w-full flex flex-col gap-4">
+            <input type="hidden" name="callbackUrl" value={callbackUrl} />
             {/* Email Input */}
             <div className="flex flex-col gap-1.5">
               <label className="font-caption-strong text-ink text-xs font-bold select-none">
@@ -173,5 +177,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-canvas" />}>
+      <LoginForm />
+    </Suspense>
   );
 }
