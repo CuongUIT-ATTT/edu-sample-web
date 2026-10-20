@@ -400,13 +400,17 @@ export default function UserManagementTable({
     if (parsedPreview.length === 0) return;
     
     // Map parsed data fields to expected server inputs
-    const mapped = parsedPreview.map((row) => ({
-      name: row.name || row.ten || "",
-      email: row.email || "",
-      password: row.password || row.matkhau || "Password@2026",
-      role: (row.role || row.vaitro || "STUDENT").toUpperCase() as any,
-      classId: row.class || row.lop || undefined, // Class Name here, backend transaction will search id
-    }));
+    const mapped = parsedPreview.map((row) => {
+      const className = row.class || row.lop;
+
+      return {
+        name: row.name || row.ten || "",
+        email: row.email || "",
+        password: row.password || row.matkhau || "Password@2026",
+        role: (row.role || row.vaitro || "STUDENT").toUpperCase() as any,
+        classIds: className ? [className] : undefined,
+      };
+    });
 
     const res = await importUsers(mapped);
     if (res.success) {
