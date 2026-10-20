@@ -425,10 +425,10 @@ export default function DocumentManager({ initialDocs, classes = [] }: DocumentM
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-xl shadow-product w-full max-w-lg flex flex-col overflow-hidden max-h-[90vh]">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-canvas border border-hairline rounded-xl shadow-product w-full max-w-3xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden">
             {/* Modal header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-divider-soft">
+            <div className="flex shrink-0 items-center justify-between px-6 py-4 border-b border-divider-soft">
               <h2 className="font-tagline text-sm font-bold text-ink">
                 {editing ? "Chỉnh sửa tài liệu" : "Thêm tài liệu mới"}
               </h2>
@@ -441,7 +441,7 @@ export default function DocumentManager({ initialDocs, classes = [] }: DocumentM
             </div>
 
             {/* Modal body */}
-            <div className="flex flex-col gap-5 p-6 overflow-y-auto">
+            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
               
               {/* URL and File Upload Row */}
               <div className="flex flex-col gap-1.5">
@@ -583,7 +583,7 @@ export default function DocumentManager({ initialDocs, classes = [] }: DocumentM
             </div>
 
             {/* Modal footer */}
-            <div className="flex gap-3 justify-end px-6 py-4 border-t border-divider-soft bg-surface-pearl">
+            <div className="flex shrink-0 gap-3 justify-end px-4 py-4 sm:px-6 border-t border-divider-soft bg-surface-pearl">
               <button
                 onClick={() => setShowModal(false)}
                 className="border border-divider-soft hover:bg-canvas text-ink-muted-80 text-xs px-4 py-2.5 rounded-pill font-semibold transition-colors"

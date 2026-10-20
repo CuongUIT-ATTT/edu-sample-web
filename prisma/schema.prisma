@@ -408,6 +408,8 @@ model QuizCandidate {
   isRevoked Boolean   @default(false)
   revokedAt DateTime?
   submittedCount Int  @default(0)
+  // null = kế thừa candidateMaxSubmissions của Quiz; 0–100 = giới hạn riêng cho mã này.
+  maxSubmissionsOverride Int?
 
   // Browser đầu tiên nhận một secret ngẫu nhiên trong cookie httpOnly.
   // DB chỉ giữ digest, nên rò rỉ DB không thể tái sử dụng browser binding.

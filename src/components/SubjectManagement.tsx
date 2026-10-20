@@ -207,9 +207,9 @@ export default function SubjectManagement({ subjects }: SubjectManagementProps) 
 
       {/* Edit Subject Modal */}
       {isEditOpen && editingSubject && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-lg w-full sm:max-w-lg shadow-product flex flex-col overflow-hidden animate-fade-in">
-            <div className="px-6 py-4 border-b border-divider flex items-center justify-between bg-surface-pearl">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-canvas border border-hairline rounded-lg w-full max-w-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] shadow-product flex flex-col overflow-hidden animate-fade-in">
+            <div className="px-6 py-4 border-b border-divider flex shrink-0 items-center justify-between bg-surface-pearl">
               <h3 className="font-tagline text-base font-semibold text-ink flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-primary" />
                 Chỉnh sửa môn học
@@ -225,7 +225,7 @@ export default function SubjectManagement({ subjects }: SubjectManagementProps) 
               </button>
             </div>
 
-            <form onSubmit={handleEditSubmit} className="p-6 flex flex-col gap-4">
+            <form onSubmit={handleEditSubmit} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 sm:p-6">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-caption-strong text-ink-muted-80">Tên môn học</label>
                 <input

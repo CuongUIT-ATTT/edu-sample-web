@@ -351,9 +351,9 @@ export default function ClassManagementList({
 
       {/* CLASS EDIT MODAL WITH FIXED SIZE */}
       {isEditOpen && editingClass && (
-        <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-lg w-full sm:max-w-lg shadow-product flex flex-col overflow-hidden animate-fade-in">
-            <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
+        <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-canvas border border-hairline rounded-lg w-full max-w-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] shadow-product flex flex-col overflow-hidden animate-fade-in">
+            <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex shrink-0 items-center justify-between">
               <h3 className="font-tagline text-base font-semibold text-ink">
                 Sửa lớp luyện thi: {editingClass.name}
               </h3>
@@ -368,7 +368,7 @@ export default function ClassManagementList({
               </button>
             </div>
 
-            <form onSubmit={handleEditSubmit} className="p-6 flex flex-col gap-4">
+            <form onSubmit={handleEditSubmit} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 sm:p-6">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-caption-strong text-ink-muted-80">Tên lớp</label>
                 <input
@@ -422,9 +422,9 @@ export default function ClassManagementList({
 
       {/* DETAILED STUDENTS MODAL WITH FIXED SIZE & STUDENT ASSIGNMENT */}
       {selectedClass && (
-        <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-lg w-full sm:max-w-lg shadow-product flex flex-col overflow-hidden animate-fade-in">
-            <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
+        <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-canvas border border-hairline rounded-lg w-full max-w-4xl max-h-[90dvh] shadow-product flex flex-col overflow-hidden animate-fade-in">
+            <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between flex-shrink-0">
               <h3 className="font-tagline text-base font-semibold text-ink flex items-center gap-2">
                 <Users className="h-5 w-5 text-primary" />
                 Học viên lớp {selectedClass.name}
@@ -440,7 +440,7 @@ export default function ClassManagementList({
               </button>
             </div>
 
-            <div className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[60vh]">
+            <div className="p-4 sm:p-6 flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto">
               {/* Add Student Trigger / Form */}
               {!isAddStudentOpen ? (
                 <button
@@ -505,7 +505,7 @@ export default function ClassManagementList({
                     )}
 
                     {/* List of Checkboxes with Scrollbar */}
-                    <div className="max-h-[160px] overflow-y-auto flex flex-col gap-1.5 pr-1 border border-divider-soft p-2 rounded bg-canvas">
+                    <div className="max-h-[42dvh] overflow-y-auto flex flex-col gap-1.5 pr-1 border border-divider-soft p-2 rounded bg-canvas">
                       {availableStudents.filter(
                         (s) =>
                           s.user.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||

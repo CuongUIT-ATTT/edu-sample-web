@@ -4,6 +4,7 @@ import fontkit from "@pdf-lib/fontkit";
 export type CandidatePdfRow = {
   name: string;
   code: string;
+  effectiveMaxSubmissions: number;
 };
 
 type CandidatePdfInput = {
@@ -56,23 +57,25 @@ export async function createQuizCandidatePdf(input: CandidatePdfInput): Promise<
     }
     page.drawText(`Lớp: ${input.className}`, { x: PAGE.margin, y, size: 10, font: bold, color: rgb(0.16, 0.23, 0.34) });
     y -= 17;
-    page.drawText(`Mỗi mã có tối đa ${input.maxSubmissions} lượt nộp. Chỉ phát cho đúng học sinh; không chia sẻ mã.`, { x: PAGE.margin, y, size: 8.5, font: regular, color: rgb(0.35, 0.16, 0.04) });
+    page.drawText(`Giới hạn mặc định: ${input.maxSubmissions} lượt nộp. Chỉ phát cho đúng học sinh; không chia sẻ mã.`, { x: PAGE.margin, y, size: 8.5, font: regular, color: rgb(0.35, 0.16, 0.04) });
     y -= 19;
 
-    const col = { no: PAGE.margin, name: PAGE.margin + 38, code: PAGE.margin + 340 };
+    const col = { no: PAGE.margin, name: PAGE.margin + 38, code: PAGE.margin + 310, limit: PAGE.margin + 425 };
     const headerBottom = y - 22;
     page.drawRectangle({ x: PAGE.margin, y: headerBottom, width: contentWidth, height: 22, color: rgb(0.91, 0.94, 0.98) });
     page.drawText("STT", { x: col.no + 7, y: y - 14, size: 8.5, font: bold });
     page.drawText("Họ và tên", { x: col.name, y: y - 14, size: 8.5, font: bold });
     page.drawText("Mã dự thi", { x: col.code, y: y - 14, size: 8.5, font: bold });
+    page.drawText("Lượt", { x: col.limit, y: y - 14, size: 8.5, font: bold });
     y = headerBottom;
 
     for (const [index, candidate] of rows.entries()) {
       const bottom = y - 23;
       page.drawRectangle({ x: PAGE.margin, y: bottom, width: contentWidth, height: 23, borderWidth: 0.5, borderColor: rgb(0.72, 0.77, 0.84) });
       page.drawText(String(start + index + 1), { x: col.no + 9, y: bottom + 7, size: 8.5, font: regular });
-      page.drawText(candidate.name, { x: col.name, y: bottom + 7, size: 8.5, font: regular, maxWidth: 280 });
+      page.drawText(candidate.name, { x: col.name, y: bottom + 7, size: 8.5, font: regular, maxWidth: 245 });
       page.drawText(candidate.code, { x: col.code, y: bottom + 7, size: 10, font: bold, color: rgb(0.02, 0.25, 0.56) });
+      page.drawText(String(candidate.effectiveMaxSubmissions), { x: col.limit + 7, y: bottom + 7, size: 8.5, font: bold });
       y = bottom;
     }
 

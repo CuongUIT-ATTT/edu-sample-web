@@ -262,10 +262,11 @@ export default function ScheduleModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[85vh] overflow-auto">
+      <div className="relative flex w-full max-w-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-xl bg-white shadow-xl">
+        <div className="min-h-0 flex-1 overflow-y-auto">
         {warningMsg && (
           <div className="m-4 p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2">
             <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
@@ -472,8 +473,9 @@ export default function ScheduleModal({
             </>
           )}
         </div>
+        </div>
 
-        <div className="flex items-center justify-end gap-2 p-4 border-t border-hairline">
+        <div className="flex shrink-0 items-center justify-end gap-2 p-4 border-t border-hairline">
           {warningMsg && (
             <button onClick={() => { setIgnoreWarning(true); setWarningMsg(null); }}
               className="px-4 py-1.5 text-sm rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors">

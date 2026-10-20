@@ -1,6 +1,6 @@
 "use server";
 
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -66,6 +66,7 @@ type CandidateAccessContext = {
   classId: string | null;
   studentId: string | null;
   submittedCount: number;
+  maxSubmissionsOverride: number | null;
 };
 
 type CandidateRosterInput = {
@@ -403,6 +404,21 @@ function buildLayoutCorrectAnswers(
   return gradeWithLayout(questionsById, layout, answers).correctAnswers;
 }
 
+function getEffectiveCandidateMaxSubmissions(
+  candidate: Pick<CandidateAccessContext, "maxSubmissionsOverride">,
+  quizMaxSubmissions: number,
+): number {
+  return candidate.maxSubmissionsOverride ?? quizMaxSubmissions;
+}
+
+function normalizeCandidateMaxSubmissionsOverride(value: unknown): { value: number | null; error?: string } {
+  if (value === null) return { value: null };
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 100) {
+    return { value: null, error: "Giới hạn lượt nộp riêng phải là số nguyên từ 0 đến 100." };
+  }
+  return { value };
+}
+
 function normalizeCandidateAccessSettings(input: CandidateAccessSettings & { isPublic?: boolean; deadline?: string | null }, assignmentCount: number): {
   enabled: boolean;
   maxSubmissions: number;
@@ -547,7 +563,7 @@ async function getCandidateAccessContext(
 
   const candidate = await db.quizCandidate.findFirst({
     where: { id: candidateId, quizId: quiz.id, isRevoked: false },
-    select: { id: true, name: true, classId: true, studentId: true, submittedCount: true, bindingSecretDigest: true, bindingExpiresAt: true },
+    select: { id: true, name: true, classId: true, studentId: true, submittedCount: true, maxSubmissionsOverride: true, bindingSecretDigest: true, bindingExpiresAt: true },
   });
   if (!candidate || !candidate.bindingSecretDigest || !isBindingActive(candidate.bindingExpiresAt)) {
     cookieStore.delete(getCandidateCookieName(quiz.id));
@@ -557,7 +573,8 @@ async function getCandidateAccessContext(
     cookieStore.delete(getCandidateCookieName(quiz.id));
     return { error: "Phiên mã dự thi không hợp lệ. Vui lòng liên hệ giáo viên để được gỡ khóa." };
   }
-  if (!options.allowExhausted && candidate.submittedCount >= (quiz.candidateMaxSubmissions ?? 1)) {
+  const maxSubmissions = getEffectiveCandidateMaxSubmissions(candidate, quiz.candidateMaxSubmissions ?? 1);
+  if (!options.allowExhausted && candidate.submittedCount >= maxSubmissions) {
     return { error: "Mã dự thi này đã dùng hết số lượt nộp được phép." };
   }
 
@@ -585,7 +602,10 @@ export async function getActiveQuizCandidate(quizId: string) {
       success: true,
       data: {
         name: access.context.name,
-        remainingSubmissions: Math.max(0, quiz.candidateMaxSubmissions - access.context.submittedCount),
+        remainingSubmissions: Math.max(
+          0,
+          getEffectiveCandidateMaxSubmissions(access.context, quiz.candidateMaxSubmissions) - access.context.submittedCount,
+        ),
       },
     };
   } catch (error) {
@@ -654,7 +674,7 @@ export async function activateQuizCandidateCode(quizId: string, code: string, cl
 
     const candidate = await db.quizCandidate.findFirst({
       where: { quizId, classId: normalizedClassId, codeDigest: normalizedDigest, isRevoked: false },
-      select: { id: true, name: true, studentId: true, submittedCount: true, bindingSecretDigest: true, bindingExpiresAt: true },
+      select: { id: true, name: true, studentId: true, submittedCount: true, maxSubmissionsOverride: true, bindingSecretDigest: true, bindingExpiresAt: true },
     });
     if (!candidate) return { success: false, error: "Mã dự thi không đúng, sai lớp hoặc đã bị thu hồi." };
     if (!candidate.studentId || candidate.name.trim().replace(/\s+/g, " ").toLocaleLowerCase("vi") !== normalizedName) {
@@ -663,7 +683,8 @@ export async function activateQuizCandidateCode(quizId: string, code: string, cl
     if (activeBrowserCandidateId && activeBrowserCandidateId !== candidate.id) {
       return { success: false, error: "Trình duyệt này đang được liên kết với một mã dự thi khác. Hãy liên hệ giáo viên để gỡ khóa." };
     }
-    if (candidate.submittedCount >= quiz.candidateMaxSubmissions) {
+    const maxSubmissions = getEffectiveCandidateMaxSubmissions(candidate, quiz.candidateMaxSubmissions);
+    if (candidate.submittedCount >= maxSubmissions) {
       return { success: false, error: "Mã dự thi này đã dùng hết số lượt nộp được phép." };
     }
 
@@ -679,7 +700,7 @@ export async function activateQuizCandidateCode(quizId: string, code: string, cl
         expires: candidate.bindingExpiresAt!,
         path: "/",
       });
-      return { success: true, data: { name: candidate.name, remainingSubmissions: quiz.candidateMaxSubmissions - candidate.submittedCount } };
+      return { success: true, data: { name: candidate.name, remainingSubmissions: maxSubmissions - candidate.submittedCount } };
     }
 
     const bindingExpiresAt = getBindingExpiresAt({
@@ -713,7 +734,7 @@ export async function activateQuizCandidateCode(quizId: string, code: string, cl
       expires: bindingExpiresAt,
       path: "/",
     });
-    return { success: true, data: { name: candidate.name, remainingSubmissions: quiz.candidateMaxSubmissions - candidate.submittedCount } };
+    return { success: true, data: { name: candidate.name, remainingSubmissions: maxSubmissions - candidate.submittedCount } };
   } catch (error) {
     console.error("Error activating quiz candidate code:", error);
     return { success: false, error: "Không thể xác thực mã dự thi lúc này." };
@@ -907,16 +928,18 @@ export async function submitQuiz(input: SubmitQuizInput) {
     try {
       submission = await db.$transaction(async (tx) => {
         if (candidate) {
-          const incremented = await tx.quizCandidate.updateMany({
-            where: {
-              id: candidate.id,
-              quizId: quiz.id,
-              isRevoked: false,
-              submittedCount: { lt: quiz.candidateMaxSubmissions },
-            },
-            data: { submittedCount: { increment: 1 } },
-          });
-          if (incremented.count !== 1) {
+          const incremented = await tx.$executeRaw(
+            Prisma.sql`
+              UPDATE "QuizCandidate"
+              SET "submittedCount" = "submittedCount" + 1,
+                  "updatedAt" = CURRENT_TIMESTAMP
+              WHERE "id" = ${candidate.id}
+                AND "quizId" = ${quiz.id}
+                AND "isRevoked" = false
+                AND "submittedCount" < COALESCE("maxSubmissionsOverride", ${quiz.candidateMaxSubmissions})
+            `,
+          );
+          if (incremented !== 1) {
             throw new Error("CANDIDATE_SUBMISSION_LIMIT");
           }
         }
@@ -1521,20 +1544,25 @@ export async function getQuizCandidates(quizId: string) {
       orderBy: [{ isRevoked: "asc" }, { name: "asc" }],
       select: {
         id: true, classId: true, name: true, source: true, codeCiphertext: true, isRevoked: true,
-        revokedAt: true, submittedCount: true, bindingExpiresAt: true,
+        revokedAt: true, submittedCount: true, maxSubmissionsOverride: true, bindingExpiresAt: true,
       },
     });
-    const data = candidates.map((candidate) => ({
-      id: candidate.id,
-      classId: candidate.classId,
-      name: candidate.name,
-      source: candidate.source,
-      code: decryptCandidateCode(candidate.codeCiphertext),
-      isRevoked: candidate.isRevoked,
-      revokedAt: candidate.revokedAt?.toISOString() ?? null,
-      submittedCount: candidate.submittedCount,
-      bindingExpiresAt: candidate.bindingExpiresAt?.toISOString() ?? null,
-    }));
+    const data = candidates.map((candidate) => {
+      const effectiveMaxSubmissions = getEffectiveCandidateMaxSubmissions(candidate, quiz.candidateMaxSubmissions);
+      return {
+        id: candidate.id,
+        classId: candidate.classId,
+        name: candidate.name,
+        source: candidate.source,
+        code: decryptCandidateCode(candidate.codeCiphertext),
+        isRevoked: candidate.isRevoked,
+        revokedAt: candidate.revokedAt?.toISOString() ?? null,
+        submittedCount: candidate.submittedCount,
+        maxSubmissionsOverride: candidate.maxSubmissionsOverride,
+        effectiveMaxSubmissions,
+        bindingExpiresAt: candidate.bindingExpiresAt?.toISOString() ?? null,
+      };
+    });
     return {
       success: true,
       data,
@@ -1574,6 +1602,76 @@ export async function setQuizCandidateRevocation(quizId: string, candidateId: st
   } catch (error) {
     console.error("Error updating quiz candidate revocation:", error);
     return { success: false, error: "Không thể cập nhật trạng thái mã dự thi." };
+  }
+}
+
+export async function resetQuizCandidateSubmissions(quizId: string, candidateId: string) {
+  try {
+    const session = await getSession();
+    if (!session) return { success: false, error: "Vui lòng đăng nhập để quản lý mã dự thi." };
+    const manager = await assertQuizManager(session, quizId);
+    if (manager.error) return { success: false, error: manager.error };
+
+    const result = await db.quizCandidate.updateMany({
+      where: { id: candidateId, quizId },
+      data: { submittedCount: 0 },
+    });
+    if (result.count !== 1) return { success: false, error: "Không tìm thấy thí sinh." };
+
+    revalidatePath("/teacher/quizzes");
+    revalidatePath("/admin/quizzes");
+    return { success: true, data: { submittedCount: 0 } };
+  } catch (error) {
+    console.error("Error resetting quiz candidate submissions:", error);
+    return { success: false, error: "Không thể đặt lại lượt nộp của mã dự thi." };
+  }
+}
+
+export async function setQuizCandidateMaxSubmissions(
+  quizId: string,
+  candidateId: string,
+  maxSubmissionsOverride: number | null,
+) {
+  try {
+    const session = await getSession();
+    if (!session) return { success: false, error: "Vui lòng đăng nhập để quản lý mã dự thi." };
+    const manager = await assertQuizManager(session, quizId);
+    if (manager.error) return { success: false, error: manager.error };
+
+    const normalized = normalizeCandidateMaxSubmissionsOverride(maxSubmissionsOverride);
+    if (normalized.error) return { success: false, error: normalized.error };
+
+    const quiz = await db.quiz.findUnique({
+      where: { id: quizId },
+      select: { candidateMaxSubmissions: true },
+    });
+    if (!quiz) return { success: false, error: "Đề kiểm tra không tồn tại." };
+
+    const candidate = await db.quizCandidate.updateMany({
+      where: { id: candidateId, quizId },
+      data: { maxSubmissionsOverride: normalized.value },
+    });
+    if (candidate.count !== 1) return { success: false, error: "Không tìm thấy thí sinh." };
+
+    const updated = await db.quizCandidate.findFirst({
+      where: { id: candidateId, quizId },
+      select: { submittedCount: true, maxSubmissionsOverride: true },
+    });
+    if (!updated) return { success: false, error: "Không tìm thấy thí sinh." };
+
+    revalidatePath("/teacher/quizzes");
+    revalidatePath("/admin/quizzes");
+    return {
+      success: true,
+      data: {
+        submittedCount: updated.submittedCount,
+        maxSubmissionsOverride: updated.maxSubmissionsOverride,
+        effectiveMaxSubmissions: getEffectiveCandidateMaxSubmissions(updated, quiz.candidateMaxSubmissions),
+      },
+    };
+  } catch (error) {
+    console.error("Error updating quiz candidate submission limit:", error);
+    return { success: false, error: "Không thể cập nhật giới hạn lượt nộp của mã dự thi." };
   }
 }
 

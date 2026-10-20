@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, useMemo } from "react";
 import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus, Image as ImageIcon, Scissors, Sparkles, Search } from "lucide-react";
-import { createQuiz, deleteQuiz, updateQuiz, getQuizCandidates, getQuizSubmissions, resetQuizCandidateBinding, setQuizCandidateRevocation } from "@/actions/quizzes";
+import { createQuiz, deleteQuiz, updateQuiz, getQuizCandidates, getQuizSubmissions, resetQuizCandidateBinding, resetQuizCandidateSubmissions, setQuizCandidateMaxSubmissions, setQuizCandidateRevocation } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
 import { showToast } from "@/components/Toast";
 import PDFRegionSelector from "@/components/PDFRegionSelector";
@@ -123,6 +123,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [candidateRosterInfo, setCandidateRosterInfo] = useState<{ title: string; maxSubmissions: number; classes: { classId: string; className: string }[] } | null>(null);
   const [selectedCandidateClassId, setSelectedCandidateClassId] = useState<string>("ALL");
   const [loadingCandidateRoster, setLoadingCandidateRoster] = useState(false);
+  const [candidateMutationKey, setCandidateMutationKey] = useState<string | null>(null);
+  const [candidateLimitInputs, setCandidateLimitInputs] = useState<Record<string, string>>({});
 
   const handleViewSubmissions = async (quiz: QuizItem) => {
     setSelectedQuizTitle(quiz.title);
@@ -160,6 +162,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
       if (result.success && result.data && result.quiz) {
         setCandidateRoster(result.data);
         setCandidateRosterInfo(result.quiz);
+        setCandidateLimitInputs(Object.fromEntries(result.data.map((candidate) => [candidate.id, String(candidate.effectiveMaxSubmissions)])));
       } else {
         showToast(result.error || "Không thể tải danh sách mã dự thi.", "error");
       }
@@ -173,28 +176,75 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
   const handleResetCandidateBinding = async (candidateId: string) => {
     if (!candidateModalQuiz) return;
-    const result = await resetQuizCandidateBinding(candidateModalQuiz.id, candidateId);
-    if (!result.success) {
-      showToast(result.error || "Không thể gỡ khóa trình duyệt.", "error");
-      return;
+    setCandidateMutationKey(`binding:${candidateId}`);
+    try {
+      const result = await resetQuizCandidateBinding(candidateModalQuiz.id, candidateId);
+      if (!result.success) {
+        showToast(result.error || "Không thể gỡ khóa trình duyệt.", "error");
+        return;
+      }
+      setCandidateRoster((current) => current.map((candidate) => candidate.id === candidateId
+        ? { ...candidate, bindingExpiresAt: null }
+        : candidate));
+      showToast("Đã gỡ liên kết trình duyệt cho mã dự thi.", "success");
+    } finally {
+      setCandidateMutationKey(null);
     }
-    setCandidateRoster((current) => current.map((candidate) => candidate.id === candidateId
-      ? { ...candidate, bindingExpiresAt: null }
-      : candidate));
-    showToast("Đã gỡ liên kết trình duyệt cho mã dự thi.", "success");
+  };
+
+  const handleResetCandidateSubmissions = async (candidateId: string) => {
+    if (!candidateModalQuiz || !window.confirm("Đặt số lượt đã nộp của mã này về 0? Thao tác không xóa bài nộp, điểm hay giới hạn lượt thi.")) return;
+    setCandidateMutationKey(`submissions:${candidateId}`);
+    try {
+      const result = await resetQuizCandidateSubmissions(candidateModalQuiz.id, candidateId);
+      if (!result.success) {
+        showToast(result.error || "Không thể đặt lại lượt nộp.", "error");
+        return;
+      }
+      setCandidateRoster((current) => current.map((candidate) => candidate.id === candidateId
+        ? { ...candidate, submittedCount: result.data?.submittedCount ?? 0 }
+        : candidate));
+      showToast("Đã đặt lại số lượt nộp của mã dự thi.", "success");
+    } finally {
+      setCandidateMutationKey(null);
+    }
+  };
+
+  const handleSetCandidateMaxSubmissions = async (candidateId: string, override: number | null) => {
+    if (!candidateModalQuiz) return;
+    setCandidateMutationKey(`limit:${candidateId}`);
+    try {
+      const result = await setQuizCandidateMaxSubmissions(candidateModalQuiz.id, candidateId, override);
+      if (!result.success || !result.data) {
+        showToast(result.error || "Không thể cập nhật giới hạn lượt nộp.", "error");
+        return;
+      }
+      setCandidateRoster((current) => current.map((candidate) => candidate.id === candidateId
+        ? { ...candidate, ...result.data }
+        : candidate));
+      setCandidateLimitInputs((current) => ({ ...current, [candidateId]: String(result.data.effectiveMaxSubmissions) }));
+      showToast(override === null ? "Mã dự thi đã dùng giới hạn mặc định của đề." : "Đã cập nhật giới hạn lượt nộp riêng.", "success");
+    } finally {
+      setCandidateMutationKey(null);
+    }
   };
 
   const handleSetCandidateRevocation = async (candidateId: string, isRevoked: boolean) => {
     if (!candidateModalQuiz) return;
-    const result = await setQuizCandidateRevocation(candidateModalQuiz.id, candidateId, isRevoked);
-    if (!result.success) {
-      showToast(result.error || "Không thể cập nhật trạng thái mã dự thi.", "error");
-      return;
+    setCandidateMutationKey(`revocation:${candidateId}`);
+    try {
+      const result = await setQuizCandidateRevocation(candidateModalQuiz.id, candidateId, isRevoked);
+      if (!result.success) {
+        showToast(result.error || "Không thể cập nhật trạng thái mã dự thi.", "error");
+        return;
+      }
+      setCandidateRoster((current) => current.map((candidate) => candidate.id === candidateId
+        ? { ...candidate, isRevoked, revokedAt: isRevoked ? new Date().toISOString() : null, bindingExpiresAt: isRevoked ? null : candidate.bindingExpiresAt }
+        : candidate));
+      showToast(isRevoked ? "Đã thu hồi mã dự thi." : "Đã khôi phục mã dự thi.", "success");
+    } finally {
+      setCandidateMutationKey(null);
     }
-    setCandidateRoster((current) => current.map((candidate) => candidate.id === candidateId
-      ? { ...candidate, isRevoked, revokedAt: isRevoked ? new Date().toISOString() : null, bindingExpiresAt: isRevoked ? null : candidate.bindingExpiresAt }
-      : candidate));
-    showToast(isRevoked ? "Đã thu hồi mã dự thi." : "Đã khôi phục mã dự thi.", "success");
   };
 
   const downloadCandidateCsv = () => {
@@ -202,9 +252,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     const visibleCandidates = selectedCandidateClassId === "ALL"
       ? candidateRoster
       : candidateRoster.filter((candidate) => candidate.classId === selectedCandidateClassId);
-    const rows = ["Họ tên,Mã dự thi,Trạng thái,Số lượt đã nộp", ...visibleCandidates.map((candidate) => [
+    const rows = ["Họ tên,Mã dự thi,Trạng thái,Số lượt đã nộp,Giới hạn lượt,Thiết lập", ...visibleCandidates.map((candidate) => [
       `\"${String(candidate.name).replaceAll('\"', '\"\"')}\"`, candidate.code,
       candidate.isRevoked ? "Đã thu hồi" : "Đang hoạt động", candidate.submittedCount,
+      candidate.effectiveMaxSubmissions, candidate.maxSubmissionsOverride == null ? "Mặc định đề" : "Riêng",
     ].join(","))];
     const url = URL.createObjectURL(new Blob([`﻿${rows.join("\n")}`], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
@@ -1342,9 +1393,9 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
       {/* CREATE QUIZ MODAL */}
       {isCreateOpen && (
-        <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-lg w-[650px] max-w-full shadow-product flex flex-col overflow-hidden animate-fade-in">
-            <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex items-center justify-between">
+        <div className="fixed inset-0 bg-ink-muted-48 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-canvas border border-hairline rounded-lg w-full max-w-4xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] shadow-product flex flex-col overflow-hidden animate-fade-in">
+            <div className="px-6 py-4 border-b border-hairline bg-surface-pearl flex shrink-0 items-center justify-between">
               <h3 className="font-tagline text-base font-semibold text-ink flex items-center gap-2">
                 <PlusCircle className="h-5 w-5 text-primary" />
                 {modalMode === "EDIT" ? "Chỉnh sửa đề trắc nghiệm" : "Tạo đề trắc nghiệm mới THPT 2026"}
@@ -1354,7 +1405,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-6 overflow-y-auto max-h-[75vh]">
+            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-4 sm:p-6">
               {errorMsg && (
                 <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 flex items-center justify-between gap-3 text-sm animate-fade-in">
                   <div className="flex items-center gap-2">
@@ -1996,10 +2047,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
       {/* Submissions Results & Multi-Class Analytics View Modal (Stitch Screen 61a756a6) */}
       {isSubmissionsOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-xl w-[880px] max-w-full shadow-2xl flex flex-col overflow-hidden animate-fade-in max-h-[90vh]">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-canvas border border-hairline rounded-xl w-full max-w-5xl shadow-2xl flex flex-col overflow-hidden animate-fade-in max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)]">
             {/* Modal Header */}
-            <div className="border-b border-divider p-5 bg-surface-pearl flex items-center justify-between">
+            <div className="border-b border-divider p-5 bg-surface-pearl flex shrink-0 items-center justify-between">
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-2">
                   <BarChart2 className="h-5 w-5 text-primary" />
@@ -2017,7 +2068,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-6">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-6">
               {loadingSubmissions ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
                   <Loader2 className="h-8 w-8 text-primary animate-spin" />
@@ -2287,7 +2338,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               )}
             </div>
 
-            <div className="border-t border-divider p-4 bg-surface-pearl flex justify-end">
+            <div className="border-t border-divider p-4 bg-surface-pearl flex shrink-0 justify-end">
               <button
                 onClick={() => setIsSubmissionsOpen(false)}
                 className="bg-primary hover:bg-primary-focus text-white px-6 py-2 rounded-full text-xs font-semibold shadow-sm"
@@ -2301,16 +2352,16 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
       {/* Share Links Modal */}
       {candidateModalQuiz && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-hairline bg-canvas shadow-2xl">
-            <div className="flex items-center justify-between gap-3 border-b border-divider p-5">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-2 sm:p-4">
+          <div className="flex max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-hairline bg-canvas shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-divider p-4 sm:p-5">
               <div>
                 <h3 className="text-base font-bold text-ink">Mã dự thi: {candidateRosterInfo?.title ?? candidateModalQuiz.title}</h3>
-                <p className="text-xs text-ink-muted-80">Phát mã riêng tư. Gỡ khóa khi thí sinh đổi máy hoặc được phép làm lại.</p>
+                <p className="text-xs text-ink-muted-80">Quản lý giới hạn từng mã, đặt lại lượt nộp khi cần cấp lại quyền thi, hoặc gỡ khóa khi thí sinh đổi máy.</p>
               </div>
               <button onClick={() => setCandidateModalQuiz(null)} className="rounded-full p-1.5 text-ink-muted-48 hover:bg-surface hover:text-ink"><X className="h-5 w-5" /></button>
             </div>
-            <div className="flex flex-wrap gap-2 border-b border-divider p-4">
+            <div className="flex shrink-0 flex-wrap gap-2 border-b border-divider p-4">
               <button type="button" onClick={downloadCandidateCsv} disabled={loadingCandidateRoster || candidateRoster.length === 0} className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">Tải CSV</button>
               {selectedCandidateClassId !== "ALL" && (
                 <a href={`/api/quizzes/${candidateModalQuiz.id}/candidates/pdf?classId=${encodeURIComponent(selectedCandidateClassId)}`} className="rounded-full border border-primary/30 bg-primary/5 px-4 py-2 text-xs font-semibold text-primary hover:bg-primary/10">Tải PDF lớp này</a>
@@ -2318,24 +2369,32 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               <button type="button" onClick={() => window.open(`/${isAdmin ? "admin" : "teacher"}/quizzes/${candidateModalQuiz.id}/candidates/print`, "_blank", "noopener,noreferrer")} className="rounded-full border border-hairline px-4 py-2 text-xs font-semibold text-ink hover:bg-surface">In danh sách</button>
             </div>
             {candidateRosterInfo && candidateRosterInfo.classes.length > 0 && (
-              <div className="flex flex-wrap gap-2 border-b border-divider px-4 py-3">
+              <div className="flex shrink-0 flex-wrap gap-2 border-b border-divider px-4 py-3">
                 <button type="button" onClick={() => setSelectedCandidateClassId("ALL")} className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${selectedCandidateClassId === "ALL" ? "bg-primary text-white" : "border border-hairline text-ink"}`}>Tất cả</button>
                 {candidateRosterInfo.classes.map((item) => <button type="button" key={item.classId} onClick={() => setSelectedCandidateClassId(item.classId)} className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${selectedCandidateClassId === item.classId ? "bg-primary text-white" : "border border-hairline text-ink"}`}>{item.className}</button>)}
               </div>
             )}
-            <div className="overflow-auto p-4">
+            <div className="min-h-0 flex-1 overflow-auto p-4">
               {loadingCandidateRoster ? <div className="py-12 text-center text-sm text-ink-muted-80">Đang tải mã dự thi...</div> : (
-                <table className="w-full min-w-[680px] text-left text-xs">
-                  <thead className="sticky top-0 bg-surface-pearl text-[10px] uppercase tracking-wider text-ink-muted-80"><tr><th className="p-3">Họ tên</th><th className="p-3">Nguồn</th><th className="p-3">Mã dự thi</th><th className="p-3">Lượt nộp</th><th className="p-3">Liên kết máy</th><th className="p-3 text-right">Thao tác</th></tr></thead>
+                <table className="w-full min-w-[980px] text-left text-xs">
+                  <thead className="sticky top-0 bg-surface-pearl text-[10px] uppercase tracking-wider text-ink-muted-80"><tr><th className="p-3">Họ tên</th><th className="p-3">Nguồn</th><th className="p-3">Mã dự thi</th><th className="p-3">Lượt nộp</th><th className="p-3">Giới hạn lượt</th><th className="p-3">Liên kết máy</th><th className="p-3 text-right">Thao tác</th></tr></thead>
                   <tbody className="divide-y divide-divider-soft">
-                    {candidateRoster.filter((candidate) => selectedCandidateClassId === "ALL" || candidate.classId === selectedCandidateClassId).map((candidate) => <tr key={candidate.id} className={candidate.isRevoked ? "opacity-50" : ""}>
-                      <td className="p-3 font-semibold text-ink">{candidate.name}{candidate.isRevoked && <span className="ml-2 text-[10px] text-red-600">Đã thu hồi</span>}</td>
-                      <td className="p-3 text-ink-muted-80">{candidate.source === "CLASS" ? "Lớp hệ thống" : "Dữ liệu cũ"}</td>
-                      <td className="p-3 font-mono font-bold tracking-wider text-primary">{candidate.code}</td>
-                      <td className="p-3">{candidate.submittedCount}/{candidateRosterInfo?.maxSubmissions ?? "-"}</td>
-                      <td className="p-3 text-ink-muted-80">{candidate.bindingExpiresAt ? `Đến ${new Date(candidate.bindingExpiresAt).toLocaleString("vi-VN")}` : "Chưa liên kết"}</td>
-                      <td className="p-3 text-right"><div className="flex justify-end gap-2"><button type="button" disabled={!candidate.bindingExpiresAt} onClick={() => handleResetCandidateBinding(candidate.id)} className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800 disabled:opacity-50">Gỡ khóa</button><button type="button" onClick={() => handleSetCandidateRevocation(candidate.id, !candidate.isRevoked)} className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold ${candidate.isRevoked ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-red-300 bg-red-50 text-red-800"}`}>{candidate.isRevoked ? "Khôi phục" : "Thu hồi"}</button></div></td>
-                    </tr>)}
+                    {candidateRoster.filter((candidate) => selectedCandidateClassId === "ALL" || candidate.classId === selectedCandidateClassId).map((candidate) => {
+                      const isMutating = candidateMutationKey?.endsWith(`:${candidate.id}`) ?? false;
+                      const inputValue = candidateLimitInputs[candidate.id] ?? String(candidate.effectiveMaxSubmissions);
+                      const parsedLimit = Number(inputValue);
+                      const savedLimit = candidate.maxSubmissionsOverride ?? candidate.effectiveMaxSubmissions;
+                      const canSaveLimit = Number.isInteger(parsedLimit) && parsedLimit >= 0 && parsedLimit <= 100 && parsedLimit !== savedLimit;
+                      return <tr key={candidate.id} className={candidate.isRevoked ? "opacity-50" : ""}>
+                        <td className="p-3 font-semibold text-ink">{candidate.name}{candidate.isRevoked && <span className="ml-2 text-[10px] text-red-600">Đã thu hồi</span>}</td>
+                        <td className="p-3 text-ink-muted-80">{candidate.source === "CLASS" ? "Lớp hệ thống" : "Dữ liệu cũ"}</td>
+                        <td className="p-3 font-mono font-bold tracking-wider text-primary">{candidate.code}</td>
+                        <td className="p-3">{candidate.submittedCount}/{candidate.effectiveMaxSubmissions}</td>
+                        <td className="p-3"><div className="flex min-w-[190px] flex-wrap items-center gap-1.5"><input aria-label={`Giới hạn lượt của ${candidate.name}`} type="number" min="0" max="100" value={inputValue} disabled={isMutating} onChange={(event) => setCandidateLimitInputs((current) => ({ ...current, [candidate.id]: event.target.value }))} className="w-14 rounded border border-hairline bg-canvas px-2 py-1 text-xs disabled:opacity-50" /><button type="button" disabled={isMutating || !canSaveLimit} onClick={() => handleSetCandidateMaxSubmissions(candidate.id, parsedLimit)} className="rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold text-primary disabled:opacity-50">Lưu</button>{candidate.maxSubmissionsOverride == null ? <span className="text-[10px] text-ink-muted-80">Mặc định đề</span> : <button type="button" disabled={isMutating} onClick={() => handleSetCandidateMaxSubmissions(candidate.id, null)} className="text-[10px] font-semibold text-ink-muted-80 underline disabled:opacity-50">Dùng mặc định</button>}</div></td>
+                        <td className="p-3 text-ink-muted-80">{candidate.bindingExpiresAt ? `Đến ${new Date(candidate.bindingExpiresAt).toLocaleString("vi-VN")}` : "Chưa liên kết"}</td>
+                        <td className="p-3 text-right"><div className="flex justify-end gap-2"><button type="button" disabled={isMutating || candidate.submittedCount === 0} onClick={() => handleResetCandidateSubmissions(candidate.id)} className="rounded-full border border-sky-300 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-800 disabled:opacity-50">Đặt lại lượt</button><button type="button" disabled={isMutating || !candidate.bindingExpiresAt} onClick={() => handleResetCandidateBinding(candidate.id)} className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800 disabled:opacity-50">Gỡ khóa</button><button type="button" disabled={isMutating} onClick={() => handleSetCandidateRevocation(candidate.id, !candidate.isRevoked)} className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold disabled:opacity-50 ${candidate.isRevoked ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-red-300 bg-red-50 text-red-800"}`}>{candidate.isRevoked ? "Khôi phục" : "Thu hồi"}</button></div></td>
+                      </tr>;
+                    })}
                   </tbody>
                 </table>
               )}
@@ -2346,7 +2405,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
       {shareModalQuiz && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-canvas border border-hairline rounded-2xl shadow-xl w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden animate-scale-up">
+          <div className="bg-canvas border border-hairline rounded-2xl shadow-xl w-full max-w-3xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden animate-scale-up">
             <div className="flex justify-between items-start gap-3 border-b border-divider p-4 sm:p-5 flex-shrink-0">
               <h3 className="font-tagline text-base sm:text-lg font-bold text-ink flex items-center gap-2 min-w-0">
                 <Share2 className="h-5 w-5 text-primary flex-shrink-0" />

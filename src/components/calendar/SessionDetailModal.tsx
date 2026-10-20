@@ -270,11 +270,11 @@ export default function SessionDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[85vh] overflow-auto">
+      <div className="relative flex w-full max-w-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-xl bg-white shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-hairline">
+        <div className="flex shrink-0 items-center justify-between p-4 border-b border-hairline">
           <div>
             <h3 className="text-base font-semibold text-ink">{meta.subjectName}</h3>
             <p className="text-xs text-ink-muted-48 mt-0.5">
@@ -320,7 +320,7 @@ export default function SessionDetailModal({
         </div>
           </div>
 
-        <div className="p-4 space-y-4">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
           <div className="flex items-center gap-2 text-xs text-ink-muted-48">
             <span>Lớp: <strong className="text-ink">{meta.className}</strong></span>
             <span>|</span>
@@ -552,8 +552,8 @@ export default function SessionDetailModal({
 
         {/* Delete confirmation dialog */}
         {showDeleteConfirm && (
-          <div className="absolute inset-0 bg-white/95 flex items-center justify-center z-50 rounded-xl">
-            <div className="p-6 text-center max-w-sm">
+          <div className="absolute inset-0 z-50 flex items-center justify-center overflow-y-auto rounded-xl bg-white/95 p-4">
+            <div className="w-full max-w-sm p-6 text-center">
               <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center">
                 <Trash2 className="w-6 h-6 text-red-500" />
               </div>

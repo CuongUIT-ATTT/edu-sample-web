@@ -1025,10 +1025,10 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
 
       {/* Rules & Name Glass Modal */}
       {showRules && tempSelectedQuiz && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="backdrop-blur-2xl bg-white/90 dark:bg-slate-900/90 border border-white/60 dark:border-white/15 rounded-3xl w-[560px] max-w-full max-h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-modal-pop">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="backdrop-blur-2xl bg-white/90 dark:bg-slate-900/90 border border-white/60 dark:border-white/15 rounded-3xl w-full max-w-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] shadow-2xl flex flex-col overflow-hidden animate-modal-pop">
             {/* Modal Header */}
-            <div className="px-6 py-5 border-b border-hairline flex flex-col gap-1">
+            <div className="px-6 py-5 border-b border-hairline flex shrink-0 flex-col gap-1">
               <span className="text-[11px] font-bold text-primary uppercase tracking-wider">Xác nhận dự thi</span>
               <h3 className="font-tagline text-lg font-extrabold text-ink">Quy Chế Phòng Thi & Nhập Họ Tên</h3>
               <p className="text-xs text-ink-muted-48">
@@ -1037,7 +1037,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
             </div>
 
             {/* Modal Content */}
-            <div className="flex flex-col gap-5 p-6 overflow-y-auto flex-1 text-xs sm:text-sm text-ink font-body leading-relaxed">
+            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6 text-xs sm:text-sm text-ink font-body leading-relaxed">
               <div className="flex flex-col gap-2 bg-canvas/60 dark:bg-slate-800/60 p-4 rounded-2xl border border-hairline">
                 <h4 className="font-bold text-primary flex items-center gap-1.5">⏰ Thời gian & Chống gian lận</h4>
                 <ul className="list-disc list-inside space-y-1 text-ink-muted-80 text-xs">
@@ -1076,7 +1076,7 @@ export default function PublicQuizzesClient({ initialQuizzes }: { initialQuizzes
             </div>
 
             {/* Modal Footer */}
-            <div className="flex gap-3 justify-end px-6 py-4 border-t border-hairline bg-canvas/40">
+            <div className="flex shrink-0 gap-3 justify-end px-4 py-4 sm:px-6 border-t border-hairline bg-canvas/40">
               <button
                 onClick={() => {
                   setShowRules(false);

@@ -33,10 +33,10 @@ export default function DisclaimerModal() {
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-modal-backdrop">
-      <div className="bg-canvas border border-hairline rounded-xl shadow-product max-w-xl w-full flex flex-col overflow-hidden animate-modal-pop">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-slate-900/70 backdrop-blur-md animate-modal-backdrop">
+      <div className="bg-canvas border border-hairline rounded-xl shadow-product max-w-2xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden animate-modal-pop">
         {/* Header */}
-        <div className="bg-gradient-to-r from-primary to-blue-700 px-6 py-5 flex items-start gap-4">
+        <div className="bg-gradient-to-r from-primary to-blue-700 px-6 py-5 flex shrink-0 items-start gap-4">
           <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 mt-0.5">
             <ShieldCheck className="h-5 w-5 text-white" />
           </div>
@@ -51,7 +51,7 @@ export default function DisclaimerModal() {
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5 flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
+        <div className="px-4 py-5 sm:px-6 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
           <div className="flex gap-3 items-start">
             <div className="h-7 w-7 rounded-md bg-blue-50 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
               <ShieldCheck className="h-4 w-4" />
@@ -94,7 +94,7 @@ export default function DisclaimerModal() {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-divider-soft bg-surface-pearl flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div className="px-4 py-4 sm:px-6 border-t border-divider-soft bg-surface-pearl flex shrink-0 flex-col sm:flex-row gap-3 items-center justify-between">
           <p className="text-[10px] text-ink-muted-48 text-center sm:text-left">
             Thông báo này chỉ hiển thị một lần trên thiết bị này.
           </p>

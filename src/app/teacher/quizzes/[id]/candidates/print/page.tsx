@@ -29,12 +29,12 @@ export default async function PrintQuizCandidatesPage({ params }: { params: Prom
       </div>
       <h1 className="text-2xl font-bold">Danh sách mã dự thi</h1>
       <h2 className="mt-1 text-base text-slate-600">{result.quiz.title}</h2>
-      <p className="mt-2 text-sm">Mỗi mã có tối đa {result.quiz.maxSubmissions} lượt nộp bài.</p>
+      <p className="mt-2 text-sm">Giới hạn mặc định của đề: {result.quiz.maxSubmissions} lượt nộp bài. Mỗi mã có thể có giới hạn riêng.</p>
       <table className="mt-6 w-full border-collapse text-sm">
-        <thead><tr className="bg-slate-100 text-left"><th className="border border-slate-300 p-2">STT</th><th className="border border-slate-300 p-2">Họ và tên</th><th className="border border-slate-300 p-2">Mã dự thi</th></tr></thead>
+        <thead><tr className="bg-slate-100 text-left"><th className="border border-slate-300 p-2">STT</th><th className="border border-slate-300 p-2">Họ và tên</th><th className="border border-slate-300 p-2">Mã dự thi</th><th className="border border-slate-300 p-2">Lượt được nộp</th></tr></thead>
         <tbody>
           {result.data.filter((candidate) => !candidate.isRevoked).map((candidate, index) => (
-            <tr key={candidate.id}><td className="border border-slate-300 p-2">{index + 1}</td><td className="border border-slate-300 p-2">{candidate.name}</td><td className="border border-slate-300 p-2 font-mono font-bold tracking-wider">{candidate.code}</td></tr>
+            <tr key={candidate.id}><td className="border border-slate-300 p-2">{index + 1}</td><td className="border border-slate-300 p-2">{candidate.name}</td><td className="border border-slate-300 p-2 font-mono font-bold tracking-wider">{candidate.code}</td><td className="border border-slate-300 p-2">{candidate.effectiveMaxSubmissions}</td></tr>
           ))}
         </tbody>
       </table>

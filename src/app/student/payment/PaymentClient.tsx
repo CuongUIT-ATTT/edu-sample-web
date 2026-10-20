@@ -285,15 +285,15 @@ export default function PaymentClient({
 
       {/* Modal chi tiết học phí theo từng buổi */}
       {detail && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-canvas border border-hairline rounded-xl shadow-product w-full max-w-2xl flex flex-col max-h-[80vh]">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-divider-soft">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-canvas border border-hairline rounded-xl shadow-product w-full max-w-3xl flex flex-col max-h-[calc(100dvh-1rem)] sm:max-h-[80dvh] overflow-hidden">
+            <div className="flex shrink-0 items-center justify-between px-5 py-4 border-b border-divider-soft">
               <h3 className="text-sm font-bold text-ink">Chi tiết buổi học — {detail.label}</h3>
               <button onClick={() => setDetail(null)} aria-label="Đóng" className="p-1.5 rounded-full hover:bg-surface-pearl transition-colors">
                 <X className="h-4 w-4 text-ink-muted-48" />
               </button>
             </div>
-            <div className="p-5 overflow-y-auto flex flex-col gap-3">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5 flex flex-col gap-3">
               {/* Tóm tắt */}
               <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs bg-surface-pearl border border-hairline rounded-lg px-4 py-3">
                 <span className="text-ink-muted-80">
@@ -307,7 +307,8 @@ export default function PaymentClient({
                 </span>
               </div>
 
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-xs">
                 <thead>
                   <tr className="text-ink-muted-48 border-b border-divider-soft">
                     <th className="text-left py-2 font-semibold">Ngày</th>
@@ -358,6 +359,7 @@ export default function PaymentClient({
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         </div>

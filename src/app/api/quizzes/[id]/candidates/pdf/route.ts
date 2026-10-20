@@ -31,7 +31,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const candidates = result.data
     .filter((candidate) => candidate.classId === classId && !candidate.isRevoked)
-    .map((candidate) => ({ name: candidate.name, code: candidate.code }));
+    .map((candidate) => ({
+      name: candidate.name,
+      code: candidate.code,
+      effectiveMaxSubmissions: candidate.effectiveMaxSubmissions,
+    }));
 
   const [regularFont, boldFont] = await Promise.all([
     readFile(path.join(process.cwd(), "public", "DejaVuSans.ttf")),
