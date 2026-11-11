@@ -15,9 +15,9 @@ test.describe("Quiz Demo Tests", () => {
     const guestNameInput = page.locator('input[placeholder="Ví dụ: Nguyễn Văn A..."]')
     const rulesHeading = page.getByRole('heading', { name: /quy chế phòng thi/i })
     const agreementCheckbox = page.getByRole('checkbox', {
-      name: 'Tôi xác nhận đã đọc kỹ nội quy phòng thi và cam kết làm bài tự lực, trung thực.',
+      name: 'Tôi cam kết làm bài tự lực, trung thực và tuân thủ mọi quy chế phòng thi EduWeb.',
     })
-    const startButton = page.getByRole('button', { name: 'Vào làm bài (Tính giờ)', exact: true })
+    const startButton = page.getByRole('button', { name: 'Vào thi ngay (Tính giờ)', exact: true })
     const submitButton = page.getByRole('button', { name: 'Nộp bài thi', exact: true }).first()
     const firstAnswerButton = page.getByRole('button', { name: 'A', exact: true }).first()
     const toast = page.locator('div.fixed.top-4.right-4 > div').last()
@@ -31,6 +31,11 @@ test.describe("Quiz Demo Tests", () => {
     await expect(rulesGuestNameInput).toHaveValue(guestName)
     await agreementCheckbox.check()
     await expect(agreementCheckbox).toBeChecked()
+    await expect(startButton).toBeVisible()
+
+    if ((page.viewportSize()?.width ?? 0) < 640) {
+      await expect(startButton).toBeInViewport()
+    }
 
     await startButton.click()
 

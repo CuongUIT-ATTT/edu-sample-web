@@ -437,8 +437,22 @@ export default function SingleQuizPlayer({
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const startButtonDisabled = !agreed
+    || activatingCandidate
+    || (!quiz.isPublic && accessMode === "CANDIDATE" && (
+      !candidateBindingChecked
+      || candidateRemainingSubmissions === 0
+      || (!candidateName && (!candidateCode.trim() || !candidateClassId || !candidateConfirmedName.trim()))
+    ))
+    || (quiz.isPublic && !sessionUser && !guestName.trim());
+  const startButtonLabel = !candidateBindingChecked
+    ? "Đang kiểm tra mã..."
+    : activatingCandidate
+      ? "Đang xác thực mã..."
+      : "Vào thi ngay (Tính giờ)";
+
   return (
-    <div className="relative min-h-screen bg-canvas text-ink px-3 py-6 sm:px-6 sm:py-10 overflow-hidden transition-colors duration-300">
+    <div className="relative min-h-screen bg-canvas text-ink px-3 pt-6 pb-28 sm:px-6 sm:py-10 overflow-hidden transition-colors duration-300">
       {/* Radiant Background Blur */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(0,102,204,0.12),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(168,85,247,0.1),transparent_50%)]" />
 
@@ -548,14 +562,28 @@ export default function SingleQuizPlayer({
               </span>
             </label>
 
-            {/* Action Button */}
+            {/* Desktop action */}
             <button
               onClick={handleStartQuiz}
-              disabled={!agreed || activatingCandidate || (!quiz.isPublic && accessMode === "CANDIDATE" && (!candidateBindingChecked || candidateRemainingSubmissions === 0 || (!candidateName && (!candidateCode.trim() || !candidateClassId || !candidateConfirmedName.trim())))) || (quiz.isPublic && !sessionUser && !guestName.trim())}
-              className="w-full py-4 px-8 rounded-full bg-gradient-to-r from-primary to-blue-600 hover:from-primary-focus hover:to-blue-700 text-white font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-xl shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed apple-active-scale transition-all"
+              disabled={startButtonDisabled}
+              className="hidden w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-primary to-blue-600 px-8 py-4 text-sm font-extrabold text-white shadow-xl shadow-primary/25 transition-all hover:from-primary-focus hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex sm:text-base apple-active-scale"
             >
               {activatingCandidate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
-              <span>{!candidateBindingChecked ? "Đang kiểm tra mã..." : activatingCandidate ? "Đang xác thực mã..." : "Vào thi ngay (Tính giờ)"}</span>
+              <span>{startButtonLabel}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Mobile action stays visible after the candidate accepts the rules. */}
+        {!quizStarted && !quizResult && (
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-white/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-10px_30px_rgba(0,0,0,0.12)] backdrop-blur-xl dark:bg-slate-950/95 sm:hidden">
+            <button
+              onClick={handleStartQuiz}
+              disabled={startButtonDisabled}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-primary to-blue-600 px-6 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-primary/25 transition-all hover:from-primary-focus hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50 apple-active-scale"
+            >
+              {activatingCandidate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+              <span>{startButtonLabel}</span>
             </button>
           </div>
         )}

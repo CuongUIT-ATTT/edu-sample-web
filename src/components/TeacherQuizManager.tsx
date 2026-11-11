@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useMemo } from "react";
-import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus, Image as ImageIcon, Scissors, Sparkles, Search } from "lucide-react";
+import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus, Image as ImageIcon, Scissors, Sparkles, Search, Download } from "lucide-react";
 import { createQuiz, deleteQuiz, updateQuiz, getQuizCandidates, getQuizSubmissions, resetQuizCandidateBinding, resetQuizCandidateSubmissions, setQuizCandidateMaxSubmissions, setQuizCandidateRevocation } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
 import { showToast } from "@/components/Toast";
@@ -2116,6 +2116,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     : shareClassTabs;
 
                   const freeSubmissions = submissionsList.filter((s) => !s.classId && (!s.classIds || s.classIds.length === 0));
+                  const exportClass = quizAssignments.find((assignment) => assignment.classId === selectedClassTab) ?? null;
+                  const exportUrl = exportClass && submissionsQuizInfo
+                    ? `/api/quizzes/${submissionsQuizInfo.id}/results/export?classId=${encodeURIComponent(exportClass.classId)}`
+                    : null;
 
                   // Calculate filtered submissions by class tab
                   const filteredSubmissions = selectedClassTab === "ALL"
@@ -2245,6 +2249,31 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                           <Award className="h-12 w-12 text-ink-muted-48 mb-1" />
                           <span className="text-sm font-bold text-ink">Chưa có lượt nộp bài nào</span>
                           <span className="text-xs text-ink-muted-48">Học sinh chưa thực hiện bài kiểm tra này, nhưng các tab lớp đã được hiển thị theo phân công đề.</span>
+                        </div>
+                      )}
+
+                      {exportUrl && (
+                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                          <div>
+                            <p className="text-xs font-bold text-ink">Xuất kết quả lớp {exportClass?.className}</p>
+                            <p className="text-[11px] text-ink-muted-80">Tệp gồm mọi lượt nộp thuộc lớp đang chọn.</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <a
+                              href={`${exportUrl}&format=csv`}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-canvas px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10"
+                              aria-label={`Xuất CSV kết quả lớp ${exportClass?.className}`}
+                            >
+                              <Download className="h-3.5 w-3.5" /> Xuất CSV
+                            </a>
+                            <a
+                              href={`${exportUrl}&format=xlsx`}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-focus"
+                              aria-label={`Xuất Excel kết quả lớp ${exportClass?.className}`}
+                            >
+                              <Download className="h-3.5 w-3.5" /> Xuất Excel
+                            </a>
+                          </div>
                         </div>
                       )}
 

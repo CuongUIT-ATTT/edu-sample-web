@@ -36,6 +36,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
+    "exceljs": "^4.4.0",
     "jose": "^6.2.3",
     "katex": "^0.17.0",
     "lucide-react": "^1.23.0",

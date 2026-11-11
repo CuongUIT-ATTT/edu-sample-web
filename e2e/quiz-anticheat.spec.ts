@@ -54,17 +54,16 @@ test.describe('Quiz anti-cheating and scoring tests', () => {
 
     const guestNameInput = page.locator('input[placeholder="Ví dụ: Nguyễn Văn A..."]')
     const agreementCheckbox = page.getByRole('checkbox', {
-      name: 'Tôi xác nhận đã đọc kỹ nội quy phòng thi và cam kết làm bài tự lực, trung thực.',
+      name: 'Tôi cam kết làm bài tự lực, trung thực và tuân thủ mọi quy chế phòng thi EduWeb.',
     })
-    const guestNameLabel = page.getByText('Họ Tên Thí Sinh:')
+    const guestNameLabel = page.getByText('Họ và Tên Thí Sinh *', { exact: true })
     const rulesHeading = page.getByRole('heading', { name: /Quy Chế Phòng Thi & Chống Gian Lận/ })
-    const startButton = page.getByRole('button', { name: 'Vào làm bài (Tính giờ)', exact: true })
+    const startButton = page.getByRole('button', { name: 'Vào thi ngay (Tính giờ)', exact: true })
     const submitButton = page.getByRole('button', { name: 'Nộp bài thi', exact: true }).first()
     const firstTrueButton = page.getByRole('button', { name: 'Đ', exact: true }).first()
     const toast = page.locator('div.fixed.top-4.right-4 > div').last()
 
     await expect(page.getByRole('heading', { name: quizTitle, exact: true })).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText('Vui lòng xem kỹ trước khi bắt đầu tính giờ làm bài.')).toBeVisible({ timeout: 10000 })
     await expect(guestNameLabel).toBeVisible({ timeout: 10000 })
     await expect(guestNameInput.first()).toBeVisible({ timeout: 10000 })
     await guestNameInput.first().fill(guestName)
@@ -227,7 +226,7 @@ test.describe('Quiz anti-cheating and scoring tests', () => {
     await expect(page.getByRole('heading', { name: /Quy Chế Phòng Thi & Chống Gian Lận/ })).toBeVisible()
     await expect(page.locator('input[placeholder="Ví dụ: Nguyễn Văn A..."]')).toBeVisible()
     await expect(page.getByRole('checkbox')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Vào làm bài (Tính giờ)', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Vào thi ngay (Tính giờ)', exact: true })).toBeVisible()
   })
 
   test.afterAll(async () => {
