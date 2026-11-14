@@ -17,7 +17,10 @@ function getEncryptionKey(): Buffer {
     return createHash("sha256").update(configured).digest();
   }
 
-  const secretFallback = process.env.JWT_SECRET || "edu-web-production-quiz-candidate-key-fallback";
+  const secretFallback = process.env.JWT_SECRET;
+  if (!secretFallback || Buffer.byteLength(secretFallback) < 32 || secretFallback.trim() !== secretFallback) {
+    throw new Error("Configure QUIZ_CANDIDATE_ENCRYPTION_KEY or a valid JWT_SECRET");
+  }
   return createHash("sha256").update(secretFallback).digest();
 }
 

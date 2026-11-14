@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
+import { getQuizFileManagerList } from "@/actions/quizzes";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { teacherClassIds } from "@/lib/teacher-classes";
@@ -8,17 +9,27 @@ import TeacherQuizManager from "@/components/TeacherQuizManager";
 
 export const dynamic = "force-dynamic";
 
-export default async function TeacherQuizzesPage() {
+export default async function TeacherQuizzesPage({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
+  const { edit } = await searchParams;
   const session = await getSession();
   if (!session || session.role !== "TEACHER") {
     redirect("/login");
   }
 
+  const result = await getQuizFileManagerList();
+  let loadError = !result.success;
+  let candidateQuizIds: string[] = [];
   let quizzes: any[] = [];
   let subjects: any[] = [];
   let classes: any[] = [];
 
   try {
+    const candidateQuizzes = await db.quiz.findMany({
+      where: { id: { in: (result.data ?? []).map(q => q.id) }, candidateAccessRequired: true },
+      select: { id: true },
+    });
+    candidateQuizIds = candidateQuizzes.map(q => q.id);
+
     const teacher = await db.teacherProfile.findUnique({
       where: { userId: session.userId },
       include: { subjects: true },
@@ -26,8 +37,8 @@ export default async function TeacherQuizzesPage() {
 
     if (teacher) {
       // Fetch quizzes created by this teacher
-      quizzes = await db.quiz.findMany({
-        where: { teacherId: teacher.id },
+      quizzes = edit ? await db.quiz.findMany({
+        where: { teacherId: teacher.id, id: edit },
         include: {
           subject: true,
           class: true,
@@ -41,7 +52,7 @@ export default async function TeacherQuizzesPage() {
           },
         },
         orderBy: { id: "desc" },
-      });
+      }) : [];
 
       // GV được chọn tất cả môn học trong hệ thống
       subjects = await db.subject.findMany({
@@ -55,7 +66,9 @@ export default async function TeacherQuizzesPage() {
         orderBy: { name: "asc" },
       });
     }
+    if (edit && quizzes.length === 0) loadError = true;
   } catch (error) {
+    loadError = true;
     console.error("Prisma error in TeacherQuizzesPage:", error);
   }
 
@@ -68,7 +81,7 @@ export default async function TeacherQuizzesPage() {
         </p>
       </div>
 
-      <TeacherQuizManager quizzes={quizzes as any} subjects={subjects} classes={classes} />
+      <TeacherQuizManager candidateQuizIds={candidateQuizIds} key={edit ?? "list"} editQuiz={quizzes[0] ? JSON.parse(JSON.stringify(quizzes[0])) : undefined} listLoadError={loadError} subjectsLoadError={loadError} quizzes={(result.data ?? []) as any} subjects={subjects} classes={classes} />
     </div>
   );
 }

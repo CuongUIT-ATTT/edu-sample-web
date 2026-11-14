@@ -1,16 +1,54 @@
-import { vi } from 'vitest'
+import { vi } from "vitest";
+
+// Provide test secrets so utilities relying on secure configuration work in unit tests
+process.env.JWT_SECRET = process.env.JWT_SECRET || "test-jwt-secret-at-least-32-chars-long-for-vitest-suite";
+process.env.QUIZ_CANDIDATE_ENCRYPTION_KEY = process.env.QUIZ_CANDIDATE_ENCRYPTION_KEY || "test-candidate-encryption-key-32-bytes";
+process.env.IMGBB_API_KEY = process.env.IMGBB_API_KEY || "test-imgbb-api-key";
 
 // Mock getSession and revalidatePath globally for Vitest tests
-vi.mock('@/lib/auth', () => ({
+vi.mock("@/lib/auth", () => ({
   getSession: vi.fn(),
-}))
+}));
 
-vi.mock('next/cache', () => ({
+vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
-}))
+}));
 
 // Mock the global db instance to prevent Vitest from hitting the actual DB
 export const mockDb = {
+  user: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+  calendar: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+  event: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+  attendance: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    count: vi.fn(),
+  },
   room: {
     findFirst: vi.fn(),
   },
@@ -93,6 +131,8 @@ export const mockDb = {
   },
   studentProfile: {
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
   },
   grade: {
     create: vi.fn(),
@@ -126,16 +166,16 @@ export const mockDb = {
     findUnique: vi.fn(),
   },
   $transaction: vi.fn(async (arg) => {
-    if (typeof arg === 'function') {
-      const tx = { ...mockDb, $executeRaw: vi.fn(), $queryRaw: vi.fn() }
-      return arg(tx)
+    if (typeof arg === "function") {
+      const tx = { ...mockDb, $executeRaw: vi.fn(), $queryRaw: vi.fn() };
+      return arg(tx);
     }
-    return Promise.all(arg)
+    return Promise.all(arg);
   }),
-}
+};
 
-vi.mock('@/lib/db', () => {
+vi.mock("@/lib/db", () => {
   return {
     db: mockDb,
-  }
-})
+  };
+});

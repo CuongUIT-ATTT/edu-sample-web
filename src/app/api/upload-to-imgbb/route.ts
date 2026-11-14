@@ -1,3 +1,4 @@
+import { authorizeUpload, decodeImage } from "@/lib/upload-validation";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -7,6 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
  * Uses FormData multipart (same as working /api/upload-image route).
  */
 export async function POST(req: NextRequest) {
+  const denied = await authorizeUpload();
+  if (denied) return denied;
   try {
     const { image } = await req.json();
     if (!image || typeof image !== "string") {
@@ -18,21 +21,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "IMGBB_API_KEY chưa cấu hình" }, { status: 500 });
     }
 
-    // Convert base64 string to binary Buffer (same as working upload-image route)
-    let rawBase64: string;
-    if (image.startsWith("data:image/")) {
-      const parts = image.split(",");
-      rawBase64 = parts[1];
-    } else {
-      rawBase64 = image;
-    }
-
-    const imgBuffer = Buffer.from(rawBase64, "base64");
+    const imgBuffer = decodeImage(image);
+    if (!imgBuffer) return NextResponse.json({ error: "Invalid image" }, { status: 400 });
 
     // Use FormData with Blob (binary) — same as working upload-image route
     const imgbbForm = new FormData();
     imgbbForm.append("key", apiKey);
-    imgbbForm.append("image", new Blob([imgBuffer]), "upload.png");
+    imgbbForm.append("image", new Blob([new Uint8Array(imgBuffer)]), "upload.png");
 
     const imgbbRes = await fetch("https://api.imgbb.com/1/upload", {
       method: "POST",
@@ -46,10 +41,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ url: json.data.url });
     }
 
-    console.error("ImgBB error:", json.error);
-    return NextResponse.json({ error: json.error?.message || "ImgBB upload failed" }, { status: 502 });
+
+    return NextResponse.json({ error: "ImgBB upload failed" }, { status: 502 });
   } catch (err) {
-    console.error("ImgBB proxy error:", err);
+    console.error("Image upload failed");
     return NextResponse.json({ error: "Upload error" }, { status: 500 });
   }
 }

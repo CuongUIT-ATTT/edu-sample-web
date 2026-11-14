@@ -13,25 +13,32 @@ export interface JWTPayload {
   [key: string]: unknown;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-that-needs-to-be-at-least-32-chars-long";
-const key = new TextEncoder().encode(JWT_SECRET);
+// Read lazily so importing an action during build does not require runtime secrets.
+export function getJWTKey(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.trim() !== secret || new TextEncoder().encode(secret).length < 32) {
+    throw new Error("JWT_SECRET must contain at least 32 bytes without surrounding whitespace");
+  }
+  return new TextEncoder().encode(secret);
+}
 
 export async function signJWT(payload: JWTPayload): Promise<string> {
   return await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("24h")
-    .sign(key);
+    .sign(getJWTKey());
 }
 
 export async function verifyJWT(token: string): Promise<JWTPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, key, {
+    const { payload } = await jwtVerify(token, getJWTKey(), {
       algorithms: ["HS256"],
     });
+    if (typeof payload.userId !== "string" || !payload.userId ||
+        !["ADMIN", "TEACHER", "STUDENT", "PARENT"].includes(String(payload.role))) return null;
     return payload as unknown as JWTPayload;
-  } catch (error) {
-    console.error("JWT Verification failed:", error);
+  } catch {
     return null;
   }
 }

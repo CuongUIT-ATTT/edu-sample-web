@@ -63,6 +63,8 @@ model User {
   studentProfile StudentProfile?
   parentProfile  ParentProfile?
 
+  createdQuizzes Quiz[] @relation("QuizCreatedBy")
+
   calendars           Calendar[]
   ownedEvents         Event[]
   eventParticipations EventParticipant[]
@@ -283,6 +285,8 @@ model Grade {
   teacher              TeacherProfile      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   homeworkSubmissionId String?             @unique
   homeworkSubmission   HomeworkSubmission? @relation(fields: [homeworkSubmissionId], references: [id], onDelete: Cascade)
+  quizSubmissionId     String?             @unique
+  quizSubmission       QuizSubmission?     @relation(fields: [quizSubmissionId], references: [id], onDelete: Cascade)
 
   type      String // e.g., "QUIZ", "MIDTERM", "FINAL"
   score     Float // numeric score
@@ -337,21 +341,27 @@ model Enrollment {
 }
 
 model Quiz {
-  id               String  @id @default(uuid())
-  title            String
-  description      String?
-  duration         Int // in minutes
-  passingScore     Float
-  deadline         DateTime? // null = không đóng đề; sau deadline vẫn làm được nhưng đánh dấu nộp muộn
-  isPublic         Boolean @default(false)
-  answerVisibility String  @default("IMMEDIATELY") // IMMEDIATELY, WHEN_ENDED, AFTER_ALL_SUBMITTED
-  shuffleQuestions Boolean @default(true) // Xáo trộn câu hỏi & đáp án mỗi lượt làm bài
+  id                         String    @id @default(uuid())
+  title                      String
+  description                String?
+  duration                   Int // in minutes
+  passingScore               Float
+  deadline                   DateTime? // null = không đóng đề; sau deadline vẫn làm được nhưng đánh dấu nộp muộn
+  isPublic                   Boolean   @default(false)
+  answerVisibility           String    @default("IMMEDIATELY") // IMMEDIATELY, WHEN_ENDED, AFTER_ALL_SUBMITTED
+  shuffleQuestions           Boolean   @default(true) // Xáo trộn câu hỏi & đáp án mỗi lượt làm bài
   // Chế độ đề nội bộ có danh sách học sinh theo lớp + mã dự thi. Mặc định
   // false để đề cũ vẫn giữ nguyên luồng public/guest hiện có.
-  candidateAccessRequired    Boolean @default(false)
-  candidateMaxSubmissions    Int     @default(1)
-  candidateBindingExpiryMode String  @default("HOURS") // HOURS | DEADLINE
+  candidateAccessRequired    Boolean   @default(false)
+  candidateMaxSubmissions    Int       @default(1)
+  candidateBindingExpiryMode String    @default("HOURS") // HOURS | DEADLINE
   candidateBindingHours      Int?
+
+  // Legacy rows remain NULL; defaults apply only to newly created quizzes.
+  createdAt   DateTime? @default(now())
+  updatedAt   DateTime? @default(now()) @updatedAt
+  createdById String?
+  createdBy   User?     @relation("QuizCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   subjectId String
   subject   Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
@@ -368,6 +378,11 @@ model Quiz {
   assignments    QuizClassAssignment[]
   schedules      Schedule[]
   scheduleSeries ScheduleSeries[]
+
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([createdById, createdAt])
+  @@index([createdById, updatedAt])
 }
 
 model QuizClassAssignment {
@@ -423,6 +438,9 @@ model QuizCandidate {
   updatedAt   DateTime @updatedAt
 
   @@unique([quizId, codeDigest])
+  // Composite unique key cho thí sinh định danh theo lớp.
+  // Trường hợp unassigned (classId IS NULL) được bảo đảm tính duy nhất bằng partial unique index
+  // "QuizCandidate_quizId_studentId_unassigned_key" trong PostgreSQL.
   @@unique([quizId, classId, studentId])
   @@index([quizId, classId])
   @@index([quizId, isRevoked])
@@ -462,6 +480,8 @@ model QuizSubmission {
 
   attemptId String?  @unique
   attempt   QuizAttempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+
+  grade     Grade?
 
   @@index([candidateId])
 }

@@ -14,16 +14,17 @@
     "test:types": "tsc --noEmit",
     "test:build": "next build",
     "test:sitemap": "node scripts/validate-sitemap.js",
-    "test:unit": "vitest run",
-    "test:unit:watch": "vitest",
-    "test:unit:coverage": "vitest run --coverage",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:unit:watch": "vitest --config vitest.config.ts",
+    "test:unit:coverage": "vitest run --config vitest.config.ts --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:smoke": "playwright test smoke.spec.ts --project=chromium",
     "test:security": "node scripts/security-check.js",
     "test:lighthouse": "echo 'Lighthouse CI check'",
-    "test:all": "npm run test:unit && npm run test:e2e"
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1092.0",

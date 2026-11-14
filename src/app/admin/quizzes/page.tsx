@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
+import { getQuizFileManagerList } from "@/actions/quizzes";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -7,19 +8,30 @@ import TeacherQuizManager from "@/components/TeacherQuizManager";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminQuizzesPage() {
+export default async function AdminQuizzesPage({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
+  const { edit } = await searchParams;
   const session = await getSession();
   if (!session || session.role !== "ADMIN") {
     redirect("/login");
   }
 
+  const result = await getQuizFileManagerList();
+  let loadError = !result.success;
+  let candidateQuizIds: string[] = [];
   let formattedQuizzes: any[] = [];
   let subjects: any[] = [];
   let classes: any[] = [];
 
   try {
+    const candidateQuizzes = await db.quiz.findMany({
+      where: { id: { in: (result.data ?? []).map(q => q.id) }, candidateAccessRequired: true },
+      select: { id: true },
+    });
+    candidateQuizIds = candidateQuizzes.map(q => q.id);
+
     // Fetch all quizzes created by any teacher/admin
-    const quizzes = await db.quiz.findMany({
+    const quizzes = edit ? await db.quiz.findMany({
+      where: { id: edit },
       include: {
         subject: true,
         class: true,
@@ -38,7 +50,7 @@ export default async function AdminQuizzesPage() {
         },
       },
       orderBy: { id: "desc" },
-    });
+    }) : [];
 
     subjects = await db.subject.findMany({
       orderBy: { name: "asc" },
@@ -50,9 +62,11 @@ export default async function AdminQuizzesPage() {
 
     formattedQuizzes = quizzes.map((q) => ({
       ...q,
-      creatorName: q.teacher?.user?.name || "Quản trị viên"
+      creatorName: null
     }));
+    if (edit && formattedQuizzes.length === 0) loadError = true;
   } catch (error) {
+    loadError = true;
     console.error("Prisma error in AdminQuizzesPage:", error);
   }
 
@@ -65,7 +79,7 @@ export default async function AdminQuizzesPage() {
         </p>
       </div>
 
-      <TeacherQuizManager quizzes={formattedQuizzes as any} subjects={subjects} classes={classes} isAdmin={true} />
+      <TeacherQuizManager candidateQuizIds={candidateQuizIds} key={edit ?? "list"} editQuiz={formattedQuizzes[0] ? JSON.parse(JSON.stringify(formattedQuizzes[0])) : undefined} listLoadError={loadError} subjectsLoadError={loadError} quizzes={(result.data ?? []) as any} subjects={subjects} classes={classes} isAdmin={true} />
     </div>
   );
 }

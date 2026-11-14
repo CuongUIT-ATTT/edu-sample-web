@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useTransition } from "react";
 import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus, Image as ImageIcon, Scissors, Sparkles, Search, Download } from "lucide-react";
-import { createQuiz, deleteQuiz, updateQuiz, getQuizCandidates, getQuizSubmissions, resetQuizCandidateBinding, resetQuizCandidateSubmissions, setQuizCandidateMaxSubmissions, setQuizCandidateRevocation } from "@/actions/quizzes";
+import { getQuizFileManagerList, type QuizFileManagerFilters, createQuiz, deleteQuiz, updateQuiz, getQuizCandidates, getQuizSubmissions, resetQuizCandidateBinding, resetQuizCandidateSubmissions, setQuizCandidateMaxSubmissions, setQuizCandidateRevocation } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
 import { showToast } from "@/components/Toast";
 import PDFRegionSelector from "@/components/PDFRegionSelector";
@@ -34,7 +34,10 @@ interface QuizItem {
   candidateBindingHours?: number | null;
   submissions?: { score: number }[];
   answerVisibility?: string;
-  creatorName?: string;
+  creatorName?: string | null;
+  createdById?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   subject: {
     id: string;
     name: string;
@@ -46,6 +49,7 @@ interface QuizItem {
   assignments?: QuizAssignmentItem[];
   _count: {
     questions: number;
+    submissions?: number;
   };
   questions?: {
     id: string;
@@ -65,6 +69,9 @@ interface TeacherQuizManagerProps {
   classes: { id: string; name: string }[];
   isAdmin?: boolean;
   subjectsLoadError?: boolean;
+  listLoadError?: boolean;
+  candidateQuizIds?: string[];
+  editQuiz?: QuizItem;
 }
 
 interface ClassTabItem {
@@ -75,7 +82,7 @@ interface ClassTabItem {
   startsAtOverride?: string | null;
 }
 
-export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin = false, subjectsLoadError = false }: TeacherQuizManagerProps) {
+export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin = false, subjectsLoadError = false, listLoadError = false, candidateQuizIds = [], editQuiz }: TeacherQuizManagerProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
@@ -83,6 +90,29 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const [list, setList] = useState(quizzes);
+  const [listError, setListError] = useState(listLoadError ? "Không thể tải danh sách. Hãy thử lại." : "");
+  const [pending, startTransition] = useTransition();
+  const [creator, setCreator] = useState("");
+  const [dateField, setDateField] = useState<"createdAt" | "updatedAt">("createdAt");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [sort, setSort] = useState<"title" | "createdAt" | "updatedAt">("createdAt");
+  const [direction, setDirection] = useState<"asc" | "desc">("desc");
+  const creators = Array.from(new Map(quizzes.filter(q => q.createdById).map(q => [q.createdById!, q.creatorName ?? "Không xác định"])));
+  const applyFilters = (reset = false) => startTransition(async () => {
+    setListError("");
+    try {
+      const filters: QuizFileManagerFilters = { dateField, sortBy: sort, sortDirection: direction };
+      if (!reset && creator) filters.createdById = creator === "unknown" ? null : creator;
+      if (!reset && from) filters.dateFrom = new Date(from).toISOString();
+      if (!reset && to) filters.dateTo = new Date(to).toISOString();
+      const result = await getQuizFileManagerList(reset ? {} : filters);
+      if (result.success && result.data) setList(result.data);
+      else setListError(result.error ?? "Không thể tải danh sách.");
+    } catch { setListError("Không thể tải danh sách. Hãy thử lại."); }
+  });
+  const formatDate = (value?: string | null) => value ? new Date(value).toLocaleString("vi-VN", { timeZoneName: "short" }) : "Không xác định";
   // Search & filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("");
@@ -90,7 +120,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
 
   const filteredQuizzes = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return quizzes.filter((quiz) => {
+    return list.filter((quiz) => {
       const matchesQuery =
         !q ||
         quiz.title.toLowerCase().includes(q) ||
@@ -104,7 +134,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         (visibilityFilter === "INTERNAL" && !quiz.isPublic);
       return matchesQuery && matchesSubject && matchesVisibility;
     });
-  }, [quizzes, searchQuery, subjectFilter, visibilityFilter]);
+  }, [list, searchQuery, subjectFilter, visibilityFilter]);
 
   // Submissions modal state
   const [isSubmissionsOpen, setIsSubmissionsOpen] = useState(false);
@@ -283,7 +313,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [deadline, setDeadline] = useState(""); // string cho <input type="datetime-local">
   const [modalMode, setModalMode] = useState<"CREATE" | "EDIT">("CREATE");
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
-  
+
   // Custom type toggle inside form
   const [importMethod, setImportMethod] = useState<"JSON" | "PDF">("JSON");
   const [jsonText, setJsonText] = useState("");
@@ -960,6 +990,12 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
     setIsCreateOpen(true);
   };
 
+  const [initialized, setInitialized] = useState(false);
+  if (editQuiz && !initialized) {
+    setInitialized(true);
+    handleEditClick(editQuiz);
+  }
+
   const handleShareClick = (quiz: QuizItem) => {
     setManualShareClassId("");
     setShareModalQuiz(quiz);
@@ -1047,7 +1083,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   >
                     <option value="T">Đúng</option>
                     <option value="F">Sai</option>
-                  </select>
+                </select>
                 </div>
               );
             })}
@@ -1068,7 +1104,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 <option value="1">Phương án B</option>
                 <option value="2">Phương án C</option>
                 <option value="3">Phương án D</option>
-              </select>
+            </select>
             </div>
           )}
 
@@ -1222,18 +1258,20 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
       </div>
 
       {/* Search & filter toolbar */}
-      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-canvas border border-hairline rounded-lg p-3 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 items-stretch sm:items-center bg-canvas border border-hairline rounded-lg p-3 shadow-sm">
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted-48 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Tìm đề thi"
             placeholder="Tìm kiếm theo tên đề, môn học, người tạo..."
             className="bg-canvas border border-hairline rounded-pill pl-9 pr-3 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full"
           />
         </div>
         <select
+          aria-label="Môn học"
           value={subjectFilter}
           onChange={(e) => setSubjectFilter(e.target.value)}
           className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full sm:w-44"
@@ -1244,6 +1282,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
           ))}
         </select>
         <select
+          aria-label="Phạm vi đề thi"
           value={visibilityFilter}
           onChange={(e) => setVisibilityFilter(e.target.value)}
           className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-xs text-ink outline-none focus:border-primary-focus w-full sm:w-40"
@@ -1266,21 +1305,64 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
         )}
       </div>
 
+      <form onSubmit={e => { e.preventDefault(); applyFilters(); }} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 p-4 rounded-lg border border-hairline bg-canvas">
+        <label className="text-xs text-ink">Người tạo
+          <select value={creator} onChange={e => setCreator(e.target.value as typeof creator)} className="mt-1 block w-full min-w-0 min-h-11 rounded border border-hairline bg-canvas px-3 text-sm">
+            <option value="">Tất cả người tạo</option>
+            <option value="unknown">Không xác định</option>{creators.map(([id, name]) =>
+            <option key={id} value={id}>{name}</option>)}</select>
+        </label>
+
+        <label className="text-xs text-ink">Lọc theo ngày
+          <select value={dateField} onChange={e => setDateField(e.target.value as typeof dateField)} className="mt-1 block w-full min-w-0 min-h-11 rounded border border-hairline bg-canvas px-3 text-sm">
+            <option value="createdAt">Ngày tạo</option>
+            <option value="updatedAt">Ngày cập nhật</option>
+          </select>
+        </label>
+
+        <label className="text-xs text-ink">Sắp xếp
+          <select value={sort} onChange={e => setSort(e.target.value as typeof sort)} className="mt-1 block w-full min-w-0 min-h-11 rounded border border-hairline bg-canvas px-3 text-sm">
+            <option value="title">Tên đề thi</option>
+            <option value="createdAt">Ngày tạo</option>
+            <option value="updatedAt">Ngày cập nhật</option>
+          </select>
+        </label>
+
+        <label className="text-xs text-ink">Thứ tự
+          <select value={direction} onChange={e => setDirection(e.target.value as typeof direction)} className="mt-1 block w-full min-w-0 min-h-11 rounded border border-hairline bg-canvas px-3 text-sm">
+            <option value="asc">Tăng dần</option>
+            <option value="desc">Giảm dần</option>
+          </select>
+        </label>
+
+        <label className="text-xs text-ink">Từ thời điểm (giờ thiết bị)
+          <input type="datetime-local" value={from} onChange={e => setFrom(e.target.value)} className="mt-1 block w-full min-w-0 min-h-11 rounded border border-hairline bg-canvas px-3 text-sm" /></label>
+
+        <label className="text-xs text-ink">Đến thời điểm, bao gồm (giờ thiết bị)
+          <input type="datetime-local" value={to} onChange={e => setTo(e.target.value)} className="mt-1 block w-full min-w-0 min-h-11 rounded border border-hairline bg-canvas px-3 text-sm" /></label>
+
+        <p className="text-xs text-ink-muted-80 sm:col-span-2">Dùng múi giờ thiết bị. Ngày chưa xác định xếp cuối và không nằm trong khoảng lọc.</p>
+        <button disabled={pending} className="min-h-11 rounded-pill bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50">{pending ? "Đang tải…" : "Áp dụng bộ lọc"}</button>
+        <button type="button" disabled={pending} onClick={() => {
+          setCreator(""); setFrom(""); setTo(""); setDateField("createdAt");
+          setSort("createdAt"); setDirection("desc"); applyFilters(true);
+        }} className="min-h-11 rounded-pill border border-hairline px-4 text-sm text-ink disabled:opacity-50">Đặt lại bộ lọc ngày và người tạo</button>
+      </form>
       {/* Quizzes List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {quizzes.length === 0 ? (
-          <div className="col-span-2 bg-canvas border border-hairline p-16 text-center rounded-lg">
+        {pending ? (<p role="status" className="col-span-full p-6">Đang tải danh sách…</p>) : listError ? (<p role="alert" className="col-span-full p-6 text-red-700">{listError}</p>) : quizzes.length === 0 ? (
+          <div className="col-span-full bg-canvas border border-hairline p-16 text-center rounded-lg">
             <Award className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
             <p className="font-body text-ink-muted-80">Bạn chưa tạo bài test/đề thi nào.</p>
           </div>
         ) : filteredQuizzes.length === 0 ? (
-          <div className="col-span-2 bg-canvas border border-hairline p-16 text-center rounded-lg">
+          <div className="col-span-full bg-canvas border border-hairline p-16 text-center rounded-lg">
             <Search className="h-12 w-12 text-ink-muted-48 mx-auto mb-4" />
             <p className="font-body text-ink-muted-80">Không tìm thấy đề thi nào khớp với bộ lọc.</p>
           </div>
         ) : (
           filteredQuizzes.map((q) => (
-            <div key={q.id} className="bg-canvas border border-hairline rounded-lg p-5 shadow-sm flex flex-col justify-between gap-3">
+            <div key={q.id} className="min-w-0 break-words bg-canvas border border-hairline rounded-lg p-5 shadow-sm flex flex-col justify-between gap-3">
               <div className="flex flex-col gap-2.5">
                 <div className="flex flex-col gap-1.5">
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -1311,11 +1393,15 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     )}
                     <span className="text-xs text-ink-muted-48 font-semibold ml-auto">{q._count.questions} câu hỏi</span>
                   </div>
-                  {isAdmin && q.creatorName && (
+                  {(
                     <span className="text-[10px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 self-start">
-                      Người tạo: {q.creatorName}
+                      Người tạo: {q.creatorName ?? "Không xác định"}
                     </span>
                   )}
+                </div>
+                <div className="text-xs text-ink-muted-80 space-y-1">
+                  <p>Ngày tạo: {formatDate(q.createdAt)}</p>
+                  <p>Cập nhật: {formatDate(q.updatedAt)}</p>
                 </div>
                 <h3 className="font-body-strong text-base font-bold text-ink leading-snug">
                   {q.title}
@@ -1323,10 +1409,10 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 {q.description && (
                   <p className="text-xs text-ink-muted-80 font-body line-clamp-2">{q.description}</p>
                 )}
-                
+
                 {(() => {
-                  const subCount = q.submissions?.length ?? 0;
-                  const avgScore = subCount > 0
+                  const subCount = q._count.submissions ?? q.submissions?.length ?? 0;
+                  const avgScore = (q.submissions?.length ?? 0) > 0
                     ? (q.submissions!.reduce((acc, s) => acc + s.score, 0) / subCount).toFixed(1)
                     : "N/A";
                   return (
@@ -1365,7 +1451,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                 >
                   <Share2 className="h-3.5 w-3.5" /> Chia sẻ
                 </button>
-                {q.candidateAccessRequired && (
+                {candidateQuizIds.includes(q.id) && (
                   <button
                     onClick={() => handleViewCandidates(q)}
                     className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
@@ -1374,7 +1460,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   </button>
                 )}
                 <button
-                  onClick={() => handleEditClick(q)}
+                  onClick={() => { window.location.href = "?edit=" + encodeURIComponent(q.id); }}
                   className="bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
                 >
                   <Edit3 className="h-3.5 w-3.5" /> Sửa
@@ -1444,7 +1530,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     {subjects.map((s) => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
-                  </select>
+                </select>
                   {subjects.length === 0 && (
                     <p className="text-[11px] text-amber-700 dark:text-amber-300">
                       {subjectsLoadError ? "Không thể tải danh sách môn học. Vui lòng tải lại trang." : "Chưa có môn học để tạo đề. Hãy thêm môn học trước."}
@@ -1641,7 +1727,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                     <option value="AFTER_ALL_SUBMITTED" disabled={!canUseAfterAllSubmitted}>
                       Hiển thị đáp án sau khi tất cả thành viên trong lớp nộp bài
                     </option>
-                  </select>
+                </select>
                   {isPublic && (
                     <span className="text-[10px] text-ink-muted-48">Đề công khai không có tùy chọn "sau khi cả lớp nộp bài" (không có khái niệm lớp).</span>
                   )}
@@ -1733,7 +1819,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                             <select value={candidateBindingExpiryMode} onChange={(event) => setCandidateBindingExpiryMode(event.target.value as "HOURS" | "DEADLINE")} className="bg-canvas border border-hairline rounded-pill px-3 py-2 text-sm text-ink outline-none">
                               <option value="HOURS">Sau số giờ cấu hình</option>
                               <option value="DEADLINE" disabled={!deadline}>Đến deadline của đề</option>
-                            </select>
+                          </select>
                           </label>
                         </div>
                         {candidateBindingExpiryMode === "HOURS" && (
@@ -1942,7 +2028,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
               {/* Questions List & Fields Editor */}
               <div className="border-t border-divider-soft pt-4 flex flex-col gap-6">
                 <h4 className="text-xs font-caption-strong text-ink uppercase tracking-wider">Danh sách câu hỏi trắc nghiệm ({questions.length} câu)</h4>
-                
+
                 {/* PHẦN I */}
                 {(() => {
                   const part1Questions = questions.map((q, idx) => ({ q, idx })).filter(item => item.q.type === "MULTIPLE_CHOICE");
@@ -1961,7 +2047,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                           <PlusCircle className="h-3.5 w-3.5" /> Thêm câu hỏi Phần I
                         </button>
                       </div>
-                      
+
                       {part1Questions.length === 0 ? (
                         <div className="text-center py-4 text-xs text-ink-muted-48 italic">Chưa có câu hỏi Phần I</div>
                       ) : (
@@ -1991,7 +2077,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                           <PlusCircle className="h-3.5 w-3.5" /> Thêm câu hỏi Phần II
                         </button>
                       </div>
-                      
+
                       {part2Questions.length === 0 ? (
                         <div className="text-center py-4 text-xs text-ink-muted-48 italic">Chưa có câu hỏi Phần II</div>
                       ) : (
@@ -2021,7 +2107,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                           <PlusCircle className="h-3.5 w-3.5" /> Thêm câu hỏi Phần III
                         </button>
                       </div>
-                      
+
                       {part3Questions.length === 0 ? (
                         <div className="text-center py-4 text-xs text-ink-muted-48 italic">Chưa có câu hỏi Phần III</div>
                       ) : (

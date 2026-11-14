@@ -1,3 +1,4 @@
+import { authorizeUpload, readUploadImage } from "@/lib/upload-validation";
 import { NextRequest, NextResponse } from "next/server";
 
 interface UploadResult {
@@ -13,6 +14,8 @@ const MAX_IMAGES = 30;
  * POST { images: string[] } → { success, results: UploadResult[] }
  */
 export async function POST(req: NextRequest) {
+  const denied = await authorizeUpload();
+  if (denied) return denied;
   try {
     const imgbbKey = process.env.IMGBB_API_KEY;
 
@@ -40,26 +43,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const buffers = await Promise.all(images.map((image) => readUploadImage(image)));
+    if (buffers.some((buffer) => !buffer)) {
+      return NextResponse.json({ error: "Invalid image or unsupported remote image host" }, { status: 400 });
+    }
     const results: UploadResult[] = await Promise.all(
-      images.map(async (src, index) => {
+      buffers.map(async (buffer, index) => {
         try {
-          let base64Data = "";
-
-          if (src.startsWith("data:image/")) {
-            base64Data = src.split(",")[1];
-          } else if (src.startsWith("http://") || src.startsWith("https://")) {
-            const imgRes = await fetch(src, {
-              signal: AbortSignal.timeout(15000),
-            });
-            if (!imgRes.ok) {
-              return { index, url: null, error: `Không tải được ảnh: ${imgRes.status}` };
-            }
-            const blob = await imgRes.blob();
-            const arrayBuffer = await blob.arrayBuffer();
-            base64Data = Buffer.from(arrayBuffer).toString("base64");
-          } else {
-            return { index, url: null, error: "Không nhận diện được định dạng ảnh" };
-          }
+          if (!buffer) return { index, url: null, error: "Invalid image" };
+          const base64Data = buffer.toString("base64");
 
           // Upload to ImgBB
           const formData = new FormData();
@@ -73,8 +65,7 @@ export async function POST(req: NextRequest) {
           });
 
           if (!imgbbRes.ok) {
-            const errText = await imgbbRes.text();
-            console.error(`ImgBB upload failed [${index}]:`, errText);
+
             return { index, url: null, error: "Upload ImgBB thất bại" };
           }
 
@@ -96,7 +87,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, results });
   } catch (err) {
-    console.error("Batch upload images error:", err);
+    console.error("Image upload failed");
     return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
   }
 }

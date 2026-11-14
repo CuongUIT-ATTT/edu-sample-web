@@ -1,5 +1,7 @@
 "use server";
 
+import { getSession } from "@/lib/auth";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { expandRecurrence, generateRecurrenceId } from "@/lib/recurrence";
 import type { RecurrenceException } from "@/lib/recurrence";
@@ -11,9 +13,35 @@ import {
   combineDateAndTimeHcm,
 } from "@/lib/schedule-expand";
 
+async function calendarSession() {
+  const session = await getSession();
+  if (!session || !["ADMIN", "TEACHER", "STUDENT", "PARENT"].includes(session.role)) {
+    throw new Error("Unauthorized");
+  }
+  return session;
+}
+
+async function ownedCalendar(id: string) {
+  const session = await calendarSession();
+  const calendar = await db.calendar.findFirst({ where: { id, ownerId: session.userId } });
+  if (!calendar) throw new Error("Calendar not found");
+  return session;
+}
+
+async function ownedEvent(id: string) {
+  const session = await calendarSession();
+  const event = await db.event.findFirst({
+    where: { id, ownerId: session.userId, calendar: { ownerId: session.userId } },
+  });
+  if (!event) throw new Error("Event not found");
+  return event;
+}
+
 // ─── Calendar CRUD ─────────────────────────────────────────────────
 
 export async function getCalendars(userId: string) {
+  const session = await calendarSession();
+  if (userId !== session.userId) throw new Error("Forbidden");
   return db.calendar.findMany({
     where: { ownerId: userId },
     include: { _count: { select: { events: true } } },
@@ -25,6 +53,8 @@ export async function createCalendar(
   data: { name: string; color?: string; timezoneDefault?: string },
   userId: string
 ) {
+  const session = await calendarSession();
+  if (userId !== session.userId) throw new Error("Forbidden");
   return db.calendar.create({
     data: {
       name: data.name,
@@ -39,10 +69,12 @@ export async function updateCalendar(
   id: string,
   data: { name?: string; color?: string; isVisible?: boolean }
 ) {
-  return db.calendar.update({ where: { id }, data });
+  await ownedCalendar(id);
+  return db.calendar.update({ where: { id }, data: { name: data.name, color: data.color, isVisible: data.isVisible } });
 }
 
 export async function deleteCalendar(id: string) {
+  await ownedCalendar(id);
   return db.calendar.delete({ where: { id } });
 }
 
@@ -55,16 +87,18 @@ export interface GetEventsParams {
 }
 
 export async function getEvents(params: GetEventsParams) {
+  const session = await calendarSession();
   const { calendarIds, from, to } = params;
 
   const events = await db.event.findMany({
     where: {
       calendarId: { in: calendarIds },
+      calendar: { ownerId: session.userId },
       status: { not: "CANCELLED" },
     },
     include: {
       reminders: true,
-      participants: { include: { user: true } },
+      participants: { include: { user: { select: { id: true, name: true, email: true } } } },
       exceptions: true,
     },
     orderBy: { startTime: "asc" },
@@ -177,11 +211,19 @@ export async function createEvent(data: {
   reminders?: Array<{ method: string; minutesBefore: number }>;
   participants?: Array<{ userId: string; role?: string }>;
 }) {
-  const { reminders, participants, ...eventData } = data;
+  const session = await ownedCalendar(data.calendarId);
+  const { reminders, participants } = data;
+  const eventData = {
+    title: data.title, description: data.description, location: data.location,
+    startTime: data.startTime, endTime: data.endTime, isAllDay: data.isAllDay,
+    timezone: data.timezone, color: data.color, recurrenceRule: data.recurrenceRule,
+    calendarId: data.calendarId,
+  };
 
   return db.event.create({
     data: {
       ...eventData,
+      ownerId: session.userId,
       isAllDay: eventData.isAllDay ?? false,
       timezone: eventData.timezone ?? "Asia/Ho_Chi_Minh",
       color: eventData.color ?? "#4285F4",
@@ -224,8 +266,13 @@ export async function updateEvent(
   },
   scope: "this" | "this_and_following" | "all" = "all"
 ) {
-  const event = await db.event.findUnique({ where: { id } });
-  if (!event) throw new Error("Event not found");
+  const event = await ownedEvent(id);
+  data = {
+    title: data.title, description: data.description, location: data.location,
+    startTime: data.startTime, endTime: data.endTime, isAllDay: data.isAllDay,
+    timezone: data.timezone, color: data.color, status: data.status,
+    recurrenceRule: data.recurrenceRule,
+  };
 
   if (!event.recurrenceRule || scope === "all") {
     return db.event.update({ where: { id }, data: { ...data, status: data.status as EventStatus | undefined } });
@@ -293,8 +340,7 @@ export async function deleteEvent(
   id: string,
   scope: "this" | "this_and_following" | "all" = "all"
 ) {
-  const event = await db.event.findUnique({ where: { id } });
-  if (!event) throw new Error("Event not found");
+  const event = await ownedEvent(id);
 
   if (!event.recurrenceRule || scope === "all") {
     return db.event.delete({ where: { id } });
@@ -377,9 +423,14 @@ export async function getSchedulesForCalendar(
   from: Date,
   to: Date
 ): Promise<ScheduleEventDisplay[]> {
-  const where: { classId?: { in: string[] } } = {};
-  if (role === "STUDENT" && studentClassIds.length > 0) {
-    where.classId = { in: studentClassIds };
+  const session = await calendarSession();
+  // Compatibility arguments never determine authorization.
+  void userId; void role; void teacherProfileId; void studentClassIds;
+  const where: Prisma.ScheduleSeriesWhereInput = {};
+  if (session.role === "STUDENT") {
+    where.class = { students: { some: { userId: session.userId } } };
+  } else if (session.role === "PARENT") {
+    where.class = { students: { some: { parent: { userId: session.userId } } } };
   }
 
   const series = await db.scheduleSeries.findMany({

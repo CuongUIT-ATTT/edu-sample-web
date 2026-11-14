@@ -743,6 +743,9 @@ export async function activateQuizCandidateCode(quizId: string, code: string, cl
 
 export async function submitQuiz(input: SubmitQuizInput) {
   try {
+    // Current clients create attempts before displaying the paper. Without one,
+    // elapsed time and retry identity cannot be authenticated server-side.
+    if (!input.attemptId) return { success: false, error: "Vui lòng bắt đầu lại bài thi để lấy mã đề hợp lệ." };
     const session = await getSession();
 
     const quiz = await db.quiz.findUnique({
@@ -787,7 +790,6 @@ export async function submitQuiz(input: SubmitQuizInput) {
     // ── Chấm điểm ──────────────────────────────────────────────────────────
     let totalScore = 0;
     let maxScore = 0;
-    let correctAnswersData: { id: string; correctAnswer: string; explanation: string | null }[] | null = null;
     let isTimedOut = false;
     let attempt = null;
     let attemptStatus: "SUBMITTED" | "TIMED_OUT" | null = null;
@@ -825,39 +827,9 @@ export async function submitQuiz(input: SubmitQuizInput) {
       );
       totalScore = graded.totalScore;
       maxScore = graded.maxScore;
-      correctAnswersData = graded.correctAnswers;
 
       isTimedOut = isOverdue(attempt.endsAt);
       attemptStatus = isTimedOut ? "TIMED_OUT" : "SUBMITTED";
-    } else {
-      // Legacy path (test / không mã đề): chấm trực tiếp như trước
-      for (const question of quiz.questions) {
-        maxScore += question.score;
-        const studentAnswer = (input.answers[question.id] || "").trim().toUpperCase();
-        const correctAnswer = (question.correctAnswer || "").trim().toUpperCase();
-
-        if (question.type === "TRUE_FALSE") {
-          const studentParts = studentAnswer.split(",");
-          const correctParts = correctAnswer.split(",");
-          let subCorrect = 0;
-          for (let i = 0; i < Math.min(studentParts.length, correctParts.length); i++) {
-            if (studentParts[i] && correctParts[i] && studentParts[i].trim() === correctParts[i].trim()) {
-              subCorrect++;
-            }
-          }
-          let scoreRatio = 0;
-          if (subCorrect === 1) scoreRatio = 0.1;
-          else if (subCorrect === 2) scoreRatio = 0.25;
-          else if (subCorrect === 3) scoreRatio = 0.5;
-          else if (subCorrect === 4) scoreRatio = 1.0;
-
-          totalScore += scoreRatio * question.score;
-        } else {
-          if (studentAnswer === correctAnswer) {
-            totalScore += question.score;
-          }
-        }
-      }
     }
 
     // Check if submitted after effective deadline — flag as late, still accept (không chặn)
@@ -888,6 +860,10 @@ export async function submitQuiz(input: SubmitQuizInput) {
       ? quiz.assignments.find((a) => a.classId === targetClassId) ?? access.assignment
       : access.assignment;
     const effectiveDeadline = getEffectiveDeadline(quiz, targetAssignment);
+    const effectiveStartsAt = getEffectiveStartsAt(targetAssignment);
+    if (effectiveStartsAt && effectiveStartsAt > new Date()) {
+      return { success: false, error: "Đề thi chưa mở cho lớp của bạn." };
+    }
     const isLate = (effectiveDeadline ? new Date() > effectiveDeadline : false) || isTimedOut;
 
     if (attempt) {
@@ -927,6 +903,11 @@ export async function submitQuiz(input: SubmitQuizInput) {
     let submission;
     try {
       submission = await db.$transaction(async (tx) => {
+        // Serialize retries on the attempt; the unique attemptId constraint is
+        // still the final database guard. All effects commit or roll back together.
+        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "QuizAttempt" WHERE "id" = ${input.attemptId} FOR UPDATE`);
+        const existing = await tx.quizSubmission.findUnique({ where: { attemptId: input.attemptId } });
+        if (existing) return existing;
         if (candidate) {
           const incremented = await tx.$executeRaw(
             Prisma.sql`
@@ -949,7 +930,7 @@ export async function submitQuiz(input: SubmitQuizInput) {
             data: { status: attemptStatus, submittedAt: new Date() },
           });
         }
-        return tx.quizSubmission.create({
+        const createdSubmission = await tx.quizSubmission.create({
           data: {
             studentId: candidate ? candidate.studentId : (studentProfile ? studentProfile.id : null),
             quizId: quiz.id,
@@ -962,6 +943,33 @@ export async function submitQuiz(input: SubmitQuizInput) {
             candidateId: candidate?.id ?? null,
           },
         });
+        // An internal candidate code is bound to a rostered StudentProfile, so it
+        // has the same academic identity as an authenticated student submission.
+        const gradeStudentId = candidate?.studentId ?? studentProfile?.id ?? null;
+        if (gradeStudentId) {
+          // Find fallback teacher if quiz has no teacherId (created by Admin)
+          let finalTeacherId = quiz.teacherId;
+          if (!finalTeacherId) {
+            const fallbackTeacher = await tx.teacherProfile.findFirst();
+            finalTeacherId = fallbackTeacher ? fallbackTeacher.id : null;
+          }
+
+          if (!finalTeacherId) throw new Error("QUIZ_GRADING_TEACHER_REQUIRED");
+          await tx.grade.create({
+            data: {
+              quizSubmissionId: createdSubmission.id,
+              studentId: gradeStudentId,
+              subjectId: quiz.subjectId,
+              teacherId: finalTeacherId,
+              type: "QUIZ",
+              score: totalScore,
+              weight: 0.1,
+              remarks: `Điểm thi trắc nghiệm trực tuyến: ${quiz.title}`,
+            },
+          });
+        }
+
+        return createdSubmission;
       });
     } catch (error) {
       if (error instanceof Error && error.message === "CANDIDATE_SUBMISSION_LIMIT") {
@@ -970,35 +978,11 @@ export async function submitQuiz(input: SubmitQuizInput) {
       throw error;
     }
 
-    // An internal candidate code is bound to a rostered StudentProfile, so it
-    // has the same academic identity as an authenticated student submission.
-    const gradeStudentId = candidate?.studentId ?? studentProfile?.id ?? null;
-    if (gradeStudentId) {
-      // Find fallback teacher if quiz has no teacherId (created by Admin)
-      let finalTeacherId = quiz.teacherId;
-      if (!finalTeacherId) {
-        const fallbackTeacher = await db.teacherProfile.findFirst();
-        finalTeacherId = fallbackTeacher ? fallbackTeacher.id : null;
-      }
-
-      await db.grade.create({
-        data: {
-          studentId: gradeStudentId,
-          subjectId: quiz.subjectId,
-          teacherId: finalTeacherId || "",
-          type: "QUIZ",
-          score: totalScore,
-          weight: 0.1,
-          remarks: `Điểm thi trắc nghiệm trực tuyến: ${quiz.title}`,
-        },
-      });
-    }
-
     revalidatePath("/student/grades");
     revalidatePath("/student");
     revalidatePath("/parent");
 
-    const passed = totalScore >= quiz.passingScore;
+    const passed = submission.score >= quiz.passingScore;
 
     const answerReview = await resolveAnswerReviewState(quiz, {
       classId: targetClassId,
@@ -1006,17 +990,21 @@ export async function submitQuiz(input: SubmitQuizInput) {
     });
 
     const finalCorrectAnswers = answerReview.available
-      ? (correctAnswersData ?? buildLegacyCorrectAnswers(quiz.questions))
+      ? buildLayoutCorrectAnswers(
+          quiz.questions,
+          attempt!.layout as { questionOrder: Record<string, string[]>; optionOrder: Record<string, number[]> },
+          submission.answers as Record<string, string>,
+        )
       : null;
 
     return {
       success: true,
       data: {
-        score: totalScore,
+        score: submission.score,
         maxScore,
         passed,
         submissionId: submission.id,
-        isLate,
+        isLate: submission.isLate,
         correctAnswers: finalCorrectAnswers,
         answerReview,
       }
@@ -1305,6 +1293,7 @@ export async function createQuiz(input: CreateQuizInput) {
           candidateBindingExpiryMode: candidateSettings.expiryMode,
           candidateBindingHours: candidateSettings.bindingHours,
           teacherId,
+          createdById: session.userId,
         },
       });
 
@@ -1877,5 +1866,88 @@ export async function getSystemStats() {
   } catch (error) {
     console.error("Error getting system stats:", error);
     return { success: false, error: "Không thể lấy thông số hệ thống." };
+  }
+}
+
+
+export interface QuizFileManagerFilters {
+  createdById?: string | null; // null explicitly selects unknown historical creators
+  dateField?: "createdAt" | "updatedAt";
+  dateFrom?: string;
+  dateTo?: string; // inclusive instant; callers supply an explicit timezone
+  sortBy?: "title" | "createdAt" | "updatedAt";
+  sortDirection?: "asc" | "desc";
+}
+
+// Metadata only: never load question answers or candidate credentials for a list.
+export async function getQuizFileManagerList(filters: QuizFileManagerFilters = {}) {
+  try {
+    const session = await getSession();
+    if (!session || (session.role !== "ADMIN" && session.role !== "TEACHER")) {
+      return { success: false, error: "Bạn không có quyền xem danh sách đề thi." };
+    }
+
+    const dateField = filters.dateField ?? "createdAt";
+    const sortBy = filters.sortBy ?? "createdAt";
+    const direction = filters.sortDirection ?? "desc";
+    if (!["createdAt", "updatedAt"].includes(dateField)
+      || !["title", "createdAt", "updatedAt"].includes(sortBy)
+      || !["asc", "desc"].includes(direction)
+      || (filters.createdById !== undefined && filters.createdById !== null
+        && (typeof filters.createdById !== "string" || !filters.createdById.trim()))) {
+      return { success: false, error: "Bộ lọc đề thi không hợp lệ." };
+    }
+    const from = parseOptionalDate(filters.dateFrom, "Ngày bắt đầu");
+    const to = parseOptionalDate(filters.dateTo, "Ngày kết thúc");
+    if (from.error || to.error) return { success: false, error: from.error ?? to.error };
+    if (from.value && to.value && from.value > to.value) {
+      return { success: false, error: "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc." };
+    }
+
+    const where: Prisma.QuizWhereInput = {};
+    if (session.role === "TEACHER") {
+      const teacher = await db.teacherProfile.findUnique({
+        where: { userId: session.userId }, select: { id: true },
+      });
+      if (!teacher) return { success: false, error: "Hồ sơ giảng viên của bạn không tồn tại." };
+      where.teacherId = teacher.id;
+    }
+    if (filters.createdById !== undefined) where.createdById = filters.createdById;
+    if (from.value || to.value) {
+      where[dateField] = {
+        ...(from.value ? { gte: from.value } : {}),
+        ...(to.value ? { lte: to.value } : {}),
+      };
+    }
+    const orderBy: Prisma.QuizOrderByWithRelationInput = sortBy === "title"
+        ? { title: direction }
+        : { [sortBy]: { sort: direction, nulls: "last" } };
+    const quizzes = await db.quiz.findMany({
+      where,
+      orderBy: [orderBy, { id: "asc" }],
+      select: {
+        id: true, title: true, description: true, duration: true, passingScore: true,
+        deadline: true, subjectId: true, classId: true, teacherId: true,
+        isPublic: true, createdAt: true, updatedAt: true, createdById: true,
+        createdBy: { select: { id: true, name: true } },
+        subject: { select: { id: true, name: true } },
+        class: { select: { id: true, name: true } },
+        assignments: { select: { classId: true, class: { select: { id: true, name: true } } } },
+        _count: { select: { questions: true, submissions: true } },
+      },
+    });
+    return {
+      success: true,
+      data: quizzes.map((quiz) => ({
+        ...quiz,
+        createdAt: quiz.createdAt?.toISOString() ?? null,
+        updatedAt: quiz.updatedAt?.toISOString() ?? null,
+        deadline: quiz.deadline?.toISOString() ?? null,
+        creatorName: quiz.createdBy?.name ?? null,
+      })),
+    };
+  } catch (error) {
+    console.error("Error loading quiz file manager:", error);
+    return { success: false, error: "Lỗi tải danh sách đề thi." };
   }
 }

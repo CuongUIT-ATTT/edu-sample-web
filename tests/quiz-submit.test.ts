@@ -78,6 +78,27 @@ beforeEach(() => {
     Promise.resolve({ id: "attempt-1", examCode: data.examCode, endsAt: data.endsAt }),
   );
   mockDb.quizAttempt.findFirst.mockResolvedValue(null);
+  mockDb.quizAttempt.findUnique.mockImplementation(async (args) => {
+    if (args?.where?.id === "attempt-1") {
+      return {
+        id: "attempt-1",
+        quizId: "quiz-1",
+        studentId: "sp-1",
+        guestName: null,
+        examCode: "ab12",
+        layout: {
+          questionOrder: { MULTIPLE_CHOICE: ["q1"] },
+          optionOrder: { q1: [0, 1] },
+        },
+        startsAt: new Date(),
+        endsAt: new Date(Date.now() + 3600000),
+        submittedAt: null,
+        status: "ACTIVE",
+        quiz: makeQuiz(),
+      };
+    }
+    return null;
+  });
 });
 
 function makeQuiz(overrides: Partial<MockQuiz> = {}): MockQuiz {
@@ -123,7 +144,7 @@ function makeAssignment(overrides: Partial<MockAssignment> = {}): MockAssignment
 describe("submitQuiz - deadline / isLate", () => {
   it("deadline quá khứ → isLate=true, vẫn success (không chặn)", async () => {
     mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ deadline: new Date(Date.now() - 86400000) }));
-    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
     expect(res.success).toBe(true);
     expect(res.data?.isLate).toBe(true);
     expect(res.data?.score).toBe(1);
@@ -131,7 +152,7 @@ describe("submitQuiz - deadline / isLate", () => {
 
   it("deadline null → isLate=false", async () => {
     mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ deadline: null }));
-    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
     expect(res.success).toBe(true);
     expect(res.data?.isLate).toBe(false);
   });
@@ -142,7 +163,7 @@ describe("submitQuiz - deadline / isLate", () => {
       assignments: [makeAssignment({ deadlineOverride: new Date(Date.now() - 3600000) })],
     }));
 
-    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
 
     expect(res.success).toBe(true);
     expect(res.data?.isLate).toBe(true);
@@ -152,28 +173,29 @@ describe("submitQuiz - deadline / isLate", () => {
 describe("submitQuiz - answerVisibility", () => {
   it("IMMEDIATELY → correctAnswers không null", async () => {
     mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ answerVisibility: "IMMEDIATELY" }));
-    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
     expect(res.data?.correctAnswers).not.toBeNull();
   });
 
   it("NEVER → correctAnswers null kể cả timeExpired=true", async () => {
     mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ answerVisibility: "NEVER" }));
-    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, timeExpired: true });
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1", timeExpired: true });
     expect(res.data?.correctAnswers).toBeNull();
   });
 
-  it("WHEN_ENDED + timeExpired=true → show; timeExpired=false → không show", async () => {
-    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ answerVisibility: "WHEN_ENDED" }));
-    const expired = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, timeExpired: true });
+  it("WHEN_ENDED + qua hạn deadline → show; chưa qua hạn → không show", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ answerVisibility: "WHEN_ENDED", deadline: new Date(Date.now() - 3600000) }));
+    const expired = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
     expect(expired.data?.correctAnswers).not.toBeNull();
 
-    const notExpired = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, timeExpired: false });
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ answerVisibility: "WHEN_ENDED", deadline: new Date(Date.now() + 3600000) }));
+    const notExpired = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
     expect(notExpired.data?.correctAnswers).toBeNull();
   });
 
   it("AFTER_ALL_SUBMITTED + classId null → show như IMMEDIATELY", async () => {
     mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ answerVisibility: "AFTER_ALL_SUBMITTED", classId: null }));
-    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
     expect(res.data?.correctAnswers).not.toBeNull();
   });
 
@@ -181,7 +203,7 @@ describe("submitQuiz - answerVisibility", () => {
     mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ answerVisibility: "AFTER_ALL_SUBMITTED", classId: "c1", deadline: null }));
     mockDb.class.findUnique.mockResolvedValue({ _count: { students: 3 } });
     mockDb.quizSubmission.findMany.mockResolvedValue([{ studentId: "s1" }, { studentId: "s2" }]);
-    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
     expect(res.data?.correctAnswers).toBeNull();
   });
 
@@ -189,7 +211,7 @@ describe("submitQuiz - answerVisibility", () => {
     mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ answerVisibility: "AFTER_ALL_SUBMITTED", classId: "c1", deadline: null }));
     mockDb.class.findUnique.mockResolvedValue({ _count: { students: 3 } });
     mockDb.quizSubmission.findMany.mockResolvedValue([{ studentId: "s1" }, { studentId: "s2" }, { studentId: "sp-1" }]);
-    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
     expect(res.data?.correctAnswers).not.toBeNull();
   });
 
@@ -201,7 +223,7 @@ describe("submitQuiz - answerVisibility", () => {
     mockDb.class.findUnique.mockResolvedValue({ _count: { students: 2 } });
     mockDb.quizSubmission.findMany.mockResolvedValue([{ studentId: "s1" }]);
 
-    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
 
     expect(mockDb.class.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "c1" } }));
     expect(res.data?.correctAnswers).toBeNull();
@@ -214,7 +236,7 @@ describe("submitQuiz - answerVisibility", () => {
       assignments: [makeAssignment({ deadlineOverride: new Date(Date.now() - 3600000) })],
     }));
     mockDb.quizSubmission.findMany.mockResolvedValue([{ studentId: "s1" }]);
-    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
     expect(res.data?.correctAnswers).not.toBeNull();
   });
 
@@ -225,14 +247,14 @@ describe("submitQuiz - answerVisibility", () => {
       deadline: new Date(Date.now() - 3600000),
     }));
     mockDb.quizSubmission.findMany.mockResolvedValue([{ studentId: "s1" }]);
-    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
     expect(res.data?.correctAnswers).not.toBeNull();
   });
 
   it("AFTER_ALL_SUBMITTED + class không tìm thấy → không show", async () => {
     mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ answerVisibility: "AFTER_ALL_SUBMITTED", classId: "c1", deadline: null }));
     mockDb.class.findUnique.mockResolvedValue(null);
-    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
     expect(res.data?.correctAnswers).toBeNull();
   });
 });
@@ -302,7 +324,7 @@ describe("startQuizAttempt - class assignments", () => {
   it("truyền classId khi submitQuiz lưu classId vào QuizSubmission", async () => {
     mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ isPublic: true, assignments: [makeAssignment({ classId: "c1" })] }));
 
-    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, guestName: "Khách test", classId: "c1" });
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, guestName: "Khách test", classId: "c1", attemptId: "attempt-1" });
 
     expect(res.success).toBe(true);
     expect(mockDb.quizSubmission.create).toHaveBeenCalledWith(
@@ -393,5 +415,67 @@ describe("submitQuiz - attemptId (mã đề xáo trộn)", () => {
     mockDb.quizAttempt.findUnique.mockResolvedValue(makeAttempt({ studentId: "other-student" }));
     const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
     expect(res.success).toBe(false);
+  });
+});
+
+describe("submitQuiz - Security & Idempotency", () => {
+  it("submitQuiz không có attemptId → từ chối ngay lập tức (fail closed)", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz());
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" } });
+    expect(res.success).toBe(false);
+    expect(res.error).toContain("mã đề hợp lệ");
+  });
+
+  it("submitQuiz retry idempotent: nếu attempt đã có submission thì trả về kết quả cũ", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz());
+    mockDb.quizAttempt.findUnique.mockResolvedValue({
+      id: "attempt-1",
+      quizId: "quiz-1",
+      studentId: "sp-1",
+      guestName: null,
+      examCode: "ab12",
+      quiz: makeQuiz(),
+      layout: { questionOrder: { MULTIPLE_CHOICE: ["q1"] }, optionOrder: { q1: [0, 1] } },
+      startsAt: new Date(),
+      endsAt: new Date(Date.now() + 3600000),
+      submittedAt: new Date(),
+      status: "SUBMITTED",
+    });
+    mockDb.quizSubmission.findUnique.mockResolvedValue({
+      id: "sub-existing",
+      score: 1,
+      maxScore: 1,
+      passed: true,
+      isLate: false,
+      answers: { q1: "0" },
+    });
+
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
+    expect(res.success).toBe(true);
+    expect(res.data?.submissionId).toBe("sub-existing");
+    expect(mockDb.grade.create).not.toHaveBeenCalled();
+  });
+
+  it("submitQuiz rollback: khi tạo Grade thất bại trong transaction, toàn bộ hành động bị rollback", async () => {
+    mockDb.quiz.findUnique.mockResolvedValue(makeQuiz({ teacherId: null }));
+    mockDb.quizAttempt.findUnique.mockResolvedValue({
+      id: "attempt-1",
+      quizId: "quiz-1",
+      studentId: "sp-1",
+      guestName: null,
+      examCode: "ab12",
+      quiz: makeQuiz({ teacherId: null }),
+      layout: { questionOrder: { MULTIPLE_CHOICE: ["q1"] }, optionOrder: { q1: [0, 1] } },
+      startsAt: new Date(),
+      endsAt: new Date(Date.now() + 3600000),
+      submittedAt: null,
+      status: "ACTIVE",
+    });
+    mockDb.quizSubmission.findUnique.mockResolvedValue(null);
+    mockDb.teacherProfile.findFirst.mockResolvedValue(null); // No teacher -> causes QUIZ_GRADING_TEACHER_REQUIRED in transaction
+
+    const res = await submitQuiz({ quizId: "quiz-1", answers: { q1: "0" }, attemptId: "attempt-1" });
+    expect(res.success).toBe(false);
+    expect(res.error).toBe("Đã xảy ra lỗi hệ thống khi chấm bài thi trắc nghiệm.");
   });
 });

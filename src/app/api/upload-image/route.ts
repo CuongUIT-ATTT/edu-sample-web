@@ -1,6 +1,9 @@
+import { authorizeUpload, validImage } from "@/lib/upload-validation";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
+  const denied = await authorizeUpload();
+  if (denied) return denied;
   try {
     const apiKey = process.env.IMGBB_API_KEY;
     if (!apiKey) {
@@ -13,7 +16,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get("image") as File | null;
 
-    if (!file) {
+    if (!(file instanceof File)) {
       return NextResponse.json({ error: "Không có file ảnh" }, { status: 400 });
     }
 
@@ -36,7 +39,9 @@ export async function POST(req: NextRequest) {
 
     // Convert to base64 for ImgBB
     const arrayBuffer = await file.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    const buffer = Buffer.from(arrayBuffer);
+    if (!validImage(buffer, file.type)) return NextResponse.json({ error: "Invalid image" }, { status: 400 });
+    const base64 = buffer.toString("base64");
 
     // Upload to ImgBB
     const imgbbForm = new URLSearchParams();
@@ -50,8 +55,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!imgbbRes.ok) {
-      const errText = await imgbbRes.text();
-      console.error("ImgBB error:", errText);
+
       return NextResponse.json(
         { error: "ImgBB từ chối upload. Kiểm tra API key." },
         { status: 502 }
@@ -62,17 +66,17 @@ export async function POST(req: NextRequest) {
 
     if (!imgbbData.success) {
       return NextResponse.json(
-        { error: imgbbData.error?.message ?? "Upload thất bại" },
+        { error: "Upload thất bại" },
         { status: 502 }
       );
     }
 
     return NextResponse.json({
       url: imgbbData.data.display_url as string,
-      deleteUrl: imgbbData.data.delete_url as string,
+
     });
   } catch (err) {
-    console.error("Upload image error:", err);
+    console.error("Image upload failed");
     return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
   }
 }
