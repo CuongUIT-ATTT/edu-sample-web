@@ -1,13 +1,48 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useRef, useMemo, useTransition } from "react";
+import React, { useState, useRef, useMemo, useTransition, useEffect } from "react";
 import { BookOpen, Clock, Award, Plus, Trash2, X, PlusCircle, CheckCircle, AlertCircle, HelpCircle, FileText, Upload, Share2, Edit3, Loader2, UserCheck, BarChart2, ImagePlus, Image as ImageIcon, Scissors, Sparkles, Search, Download } from "lucide-react";
 import { getQuizFileManagerList, type QuizFileManagerFilters, createQuiz, deleteQuiz, updateQuiz, getQuizCandidates, getQuizSubmissions, resetQuizCandidateBinding, resetQuizCandidateSubmissions, setQuizCandidateMaxSubmissions, setQuizCandidateRevocation } from "@/actions/quizzes";
 import MathRenderer from "@/components/MathRenderer";
 import { showToast } from "@/components/Toast";
 import PDFRegionSelector from "@/components/PDFRegionSelector";
 import { normalizeQuestions } from "@/lib/quiz-import";
+
+// Start with no client clock so server rendering and hydration agree.
+export function useCandidateBindingClock(enabled: boolean, expirations: (string | null)[]) {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = () => {
+      const current = Date.now();
+      setNow(current);
+      const nextExpiry = expirations.reduce((next, value) => {
+        const timestamp = value ? Date.parse(value) : NaN;
+        return timestamp > current ? Math.min(next, timestamp) : next;
+      }, current + 60_000);
+      clearTimeout(timer);
+      timer = setTimeout(refresh, nextExpiry - current);
+    };
+    timer = setTimeout(refresh, 0);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [enabled, expirations]);
+  return now;
+}
+
+export function getCandidateBindingState(expiresAt: string | null, now: number | null) {
+  if (!expiresAt) return { label: "Chưa liên kết", canUnlock: false };
+  if (now === null) return { label: "Đang kiểm tra liên kết…", canUnlock: false };
+  const active = Date.parse(expiresAt) > now;
+  return { label: active ? "Đang liên kết" : "Đã hết hạn", canUnlock: active };
+}
 
 interface QuizAssignmentItem {
   classId: string;
@@ -150,6 +185,8 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
   const [manualShareClassId, setManualShareClassId] = useState<string>("");
   const [candidateModalQuiz, setCandidateModalQuiz] = useState<QuizItem | null>(null);
   const [candidateRoster, setCandidateRoster] = useState<any[]>([]);
+  const bindingExpirations = useMemo(() => candidateRoster.map((candidate) => candidate.bindingExpiresAt ?? null), [candidateRoster]);
+  const bindingNow = useCandidateBindingClock(Boolean(candidateModalQuiz), bindingExpirations);
   const [candidateRosterInfo, setCandidateRosterInfo] = useState<{ title: string; maxSubmissions: number; classes: { classId: string; className: string }[] } | null>(null);
   const [selectedCandidateClassId, setSelectedCandidateClassId] = useState<string>("ALL");
   const [loadingCandidateRoster, setLoadingCandidateRoster] = useState(false);
@@ -2495,6 +2532,7 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                   <thead className="sticky top-0 bg-surface-pearl text-[10px] uppercase tracking-wider text-ink-muted-80"><tr><th className="p-3">Họ tên</th><th className="p-3">Nguồn</th><th className="p-3">Mã dự thi</th><th className="p-3">Lượt nộp</th><th className="p-3">Giới hạn lượt</th><th className="p-3">Liên kết máy</th><th className="p-3 text-right">Thao tác</th></tr></thead>
                   <tbody className="divide-y divide-divider-soft">
                     {candidateRoster.filter((candidate) => selectedCandidateClassId === "ALL" || candidate.classId === selectedCandidateClassId).map((candidate) => {
+                      const binding = getCandidateBindingState(candidate.bindingExpiresAt, bindingNow);
                       const isMutating = candidateMutationKey?.endsWith(`:${candidate.id}`) ?? false;
                       const inputValue = candidateLimitInputs[candidate.id] ?? String(candidate.effectiveMaxSubmissions);
                       const parsedLimit = Number(inputValue);
@@ -2506,8 +2544,12 @@ export default function TeacherQuizManager({ quizzes, subjects, classes, isAdmin
                         <td className="p-3 font-mono font-bold tracking-wider text-primary">{candidate.code}</td>
                         <td className="p-3">{candidate.submittedCount}/{candidate.effectiveMaxSubmissions}</td>
                         <td className="p-3"><div className="flex min-w-[190px] flex-wrap items-center gap-1.5"><input aria-label={`Giới hạn lượt của ${candidate.name}`} type="number" min="0" max="100" value={inputValue} disabled={isMutating} onChange={(event) => setCandidateLimitInputs((current) => ({ ...current, [candidate.id]: event.target.value }))} className="w-14 rounded border border-hairline bg-canvas px-2 py-1 text-xs disabled:opacity-50" /><button type="button" disabled={isMutating || !canSaveLimit} onClick={() => handleSetCandidateMaxSubmissions(candidate.id, parsedLimit)} className="rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold text-primary disabled:opacity-50">Lưu</button>{candidate.maxSubmissionsOverride == null ? <span className="text-[10px] text-ink-muted-80">Mặc định đề</span> : <button type="button" disabled={isMutating} onClick={() => handleSetCandidateMaxSubmissions(candidate.id, null)} className="text-[10px] font-semibold text-ink-muted-80 underline disabled:opacity-50">Dùng mặc định</button>}</div></td>
-                        <td className="p-3 text-ink-muted-80">{candidate.bindingExpiresAt ? `Đến ${new Date(candidate.bindingExpiresAt).toLocaleString("vi-VN")}` : "Chưa liên kết"}</td>
-                        <td className="p-3 text-right"><div className="flex justify-end gap-2"><button type="button" disabled={isMutating || candidate.submittedCount === 0} onClick={() => handleResetCandidateSubmissions(candidate.id)} className="rounded-full border border-sky-300 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-800 disabled:opacity-50">Đặt lại lượt</button><button type="button" disabled={isMutating || !candidate.bindingExpiresAt} onClick={() => handleResetCandidateBinding(candidate.id)} className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800 disabled:opacity-50">Gỡ khóa</button><button type="button" disabled={isMutating} onClick={() => handleSetCandidateRevocation(candidate.id, !candidate.isRevoked)} className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold disabled:opacity-50 ${candidate.isRevoked ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-red-300 bg-red-50 text-red-800"}`}>{candidate.isRevoked ? "Khôi phục" : "Thu hồi"}</button></div></td>
+                        <td className="p-3 text-ink-muted-80"><span role="status" className="block font-semibold">{binding.label}</span>{candidate.bindingExpiresAt && bindingNow !== null && <time dateTime={candidate.bindingExpiresAt} className="mt-1 block text-xs">{binding.canUnlock ? "Đến " : "Hết hạn lúc "}{new Date(candidate.bindingExpiresAt).toLocaleString("vi-VN")}</time>}</td>
+                        <td className="p-3 text-right"><div className="flex justify-end gap-2"><button type="button" disabled={isMutating || candidate.submittedCount === 0} onClick={() => handleResetCandidateSubmissions(candidate.id)} className="rounded-full border border-sky-300 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-800 disabled:opacity-50">Đặt lại lượt</button><button type="button" disabled={isMutating || !binding.canUnlock} aria-label={`Gỡ khóa trình duyệt của ${candidate.name}`} onClick={() => {
+                          if (getCandidateBindingState(candidate.bindingExpiresAt, Date.now()).canUnlock) {
+                            void handleResetCandidateBinding(candidate.id);
+                          }
+                        }} className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800 disabled:opacity-50">Gỡ khóa</button><button type="button" disabled={isMutating} onClick={() => handleSetCandidateRevocation(candidate.id, !candidate.isRevoked)} className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold disabled:opacity-50 ${candidate.isRevoked ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-red-300 bg-red-50 text-red-800"}`}>{candidate.isRevoked ? "Khôi phục" : "Thu hồi"}</button></div></td>
                       </tr>;
                     })}
                   </tbody>
