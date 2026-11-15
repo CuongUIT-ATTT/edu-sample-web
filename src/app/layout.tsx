@@ -1,13 +1,6 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["300", "400", "600", "700"],
-});
 
 export const metadata: Metadata = {
   title: "EduWeb - Hệ thống Quản lý & Luyện thi chất lượng cao",
@@ -34,7 +27,7 @@ export default function RootLayout({
   return (
     <html
       lang="vi"
-      className={`${inter.variable} h-full antialiased`}
+      className="h-full antialiased"
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-canvas text-ink font-sans">
